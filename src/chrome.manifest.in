@@ -1,0 +1,42 @@
+#this files specifies the structure of the directory
+#see also https://developer.mozilla.org/en-US/docs/Chrome_Registration
+content		tryango					chrome/content/
+
+#overlays (for all windows)
+#main window
+overlay	 chrome://messenger/content/messenger.xul		chrome://tryango/content/tryango.xul
+#"create-new-email" window
+overlay	 chrome://messenger/content/messengercompose/messengercompose.xul	chrome://tryango/content/mailwindow.xul
+
+#resources
+resource	tryango					chrome/content/
+resource	license						.
+resource	tryango_modules				chrome/content/modules/
+
+resource  	libclient 					components/@TRYANGO_FILE@ abi=@ABI@
+@PROTOBUF_LINE@
+#resource  	libclient 					components/libtryango-client.dylib abi=Darwin_x86_64-gcc3
+
+#skins
+skin		tryango	tryangoskin			chrome/skin/
+
+#languages
+locale		tryango	en-US				chrome/locale/en-US/
+#locale		tryango	en-GB				chrome/locale/en-GB/
+#locale		tryango	de				chrome/locale/de/
+#locale		tryango	fr				chrome/locale/fr/
+
+
+#The following are P1 (priority 1) locales in order of priority:
+#All other supported locales are in the tier 2 category.
+# de             -  German
+# fr             -  French
+# ja, ja-JP-mac  -  Japanese
+# en-GB          -  British English
+# es-ES          -  Spanish (European continent)
+# it             -  Italian
+# pl             -  Polish
+# ru             -  Russian
+# nl             -  Dutch
+# pt-BR          -  Brazilian Portuguese
+

@@ -1,0 +1,168 @@
+#hdr
+#include <openssl/ssl.h>
+#include <openssl/bio.h>
+#include <openssl/err.h>
+#include <openssl/x509.h>
+//#include <openssl/x509v3.h>
+#include <stdio.h>
+
+#include <string>
+// NSPR include files
+/* #include <prerror.h> */
+/* #include <prinit.h> */
+/* #include <prnetdb.h> */
+// NSS include files
+/* #include <nss.h> */
+/* #include <ssl.h> */
+// include logger
+#include "logger.h"
+#include "angCommon.h"
+#end
+
+//code from temp/nss-3.17/nss/cmd/tstclnt
+class ConfiSsl{
+ private:
+  BIO * bio;
+  SSL * ssl;
+  SSL_CTX * ctx;
+  std::string certFile;
+
+ public:
+
+  ConfiSsl(){
+    ctx = NULL;
+    bio = NULL;
+    ssl = NULL;
+    certFile.clear();
+    ERR_load_BIO_strings();
+    SSL_load_error_strings();
+    OpenSSL_add_all_algorithms();
+    SSL_library_init();
+  }
+
+
+  virtual ~ConfiSsl(){
+    if (ctx != NULL){
+      SSL_CTX_free(ctx);
+    }
+/*       BIO_flush(bio); */
+    this->testAndShutdownConnection(); //frees bio
+    //TODO: ssl is not freed! (?)
+  }
+
+
+  RSA* getRsa(){
+    if(certFile.empty()){
+      return NULL;
+    }
+    FILE *fp = fopen(certFile.c_str(), "r");
+    if (!fp) {
+      return NULL;
+    }
+    X509 *cert = PEM_read_X509(fp, NULL, NULL, NULL);
+    if (!cert) {
+      fclose(fp);
+      return NULL;
+    }
+    EVP_PKEY * pkey;
+    pkey = X509_get_pubkey(cert);
+    RSA * rsa;
+    rsa = EVP_PKEY_get1_RSA(pkey);
+    X509_free(cert);
+    fclose(fp);
+    return rsa;
+  }
+
+  inline int receive(char* buffer,const uint32_t& size){
+    return BIO_read(bio, buffer, size);
+  }
+
+
+  long send(const std::string& buffer){
+    if(bio != NULL){
+      return BIO_write(bio, buffer.c_str(), buffer.length());
+    }
+    return -1;
+  }
+
+
+  bool initCertificate(const char* certificateFile){
+    certFile = std::string(certificateFile);
+    return reinitCertificate();
+  }
+
+  inline void testAndShutdownConnection(){
+    if(this->bio != NULL){
+      //shutdown and free context
+      //(BIO_ssl_shutdown is apparently not needed and even blocks if called here)
+      BIO_free_all(this->bio);
+      this->bio = NULL;
+    }
+  }
+
+  Confi_Status connect(const char* host, const uint32_t port){
+    if (ctx==NULL){
+      if(certFile.empty()){
+        return ANG_NO_CERTIFICATE;
+      }
+      else{
+        if(!reinitCertificate()) return ANG_NO_CERTIFICATE;
+      }
+    }
+    Confi_Status result = ANG_OK;
+    if (bio!=NULL){
+      /* Disconnect */
+      if(BIO_flush(bio)==1) BIO_free_all(bio);
+    }
+    /* Setup the connection */
+    bio = BIO_new_ssl_connect(ctx);
+
+    /* Set the SSL_MODE_AUTO_RETRY flag */
+    BIO_get_ssl(bio, & ssl);
+    SSL_set_mode(ssl, SSL_MODE_AUTO_RETRY);
+
+    /* Create and setup the connection */
+    std::string sPort = patch::to_string(port);
+    BIO_set_conn_hostname(bio, host);
+    BIO_set_conn_port(bio, sPort.c_str());
+    BIO_set_nbio(bio, 0);//set to blocking
+    if(BIO_do_connect(bio) !=1 ){
+      result = ANG_FAIL_CONNECT;
+/*         fprintf(stderr, "Error attempting to connect\n"); */
+/*         ERR_print_errors_fp(stderr); */
+    }
+
+    /* Check the certificate */
+
+    if(SSL_get_verify_result(ssl) != X509_V_OK){
+      result = ANG_WRONG_CERTIFICATE;
+/*         fprintf(stderr, "Certificate verification error: %i\n", SSL_get_verify_result(ssl)); */
+    }
+    if(result!=ANG_OK){
+      BIO_free_all(bio);
+      bio=NULL;
+      SSL_CTX_free(ctx);
+      ctx=NULL;
+    }
+    return result;
+  }
+
+ private:
+  bool reinitCertificate(){
+    if (ctx != NULL){
+      SSL_CTX_free(ctx);
+    }
+    /* Set up the SSL context */
+    ctx = SSL_CTX_new(SSLv23_client_method());
+    /* Load the trust store */
+    if(! SSL_CTX_load_verify_locations(ctx, certFile.c_str(), NULL))
+    {
+      ERR_print_errors_fp(stderr);
+      SSL_CTX_free(ctx);
+      ctx = NULL;
+      return false;
+    }
+    return true;
+  }
+
+}

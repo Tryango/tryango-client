@@ -1,0 +1,911 @@
+#hdr
+#include <stdint.h>
+#include <string>
+#include <vector>
+#include <iostream> //for std::cout
+#include <map> //O(log(n)) access
+#include <openssl/md5.h>
+#include <openssl/ripemd.h>
+#include <openssl/evp.h>
+#include <openssl/rsa.h>
+#include <openssl/evp.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <openssl/bio.h>
+#include <openssl/sha.h>
+#include "angCommon.h"
+
+class SecretKeyPair;
+typedef std::vector<SecretKeyPair*> KeyList;
+typedef std::map <std::string, KeyList> DbType;
+
+
+
+typedef enum {
+  PKT_NONE          = 0,  /* Reserved. */
+  PKT_PUBKEY_ENC    = 1,  /* Public key encrypted packet. */
+  PKT_SIGNATURE     = 2,  /* Secret key encrypted packet. */
+  PKT_SYMKEY_ENC    = 3,  /* Session key packet. */
+  PKT_ONEPASS_SIG   = 4,  /* One pass sig packet. */
+  PKT_SECRET_KEY    = 5,  /* Secret key. */
+  PKT_PUBLIC_KEY    = 6,  /* Public key. */
+  PKT_SECRET_SUBKEY = 7,  /* Secret subkey. */
+  PKT_COMPRESSED    = 8,  /* Compressed data packet. */
+  PKT_ENCRYPTED     = 9,  /* Conventional encrypted data. */
+  PKT_MARKER        = 10, /* Marker packet. */
+  PKT_PLAINTEXT     = 11, /* Literal data packet. */
+  PKT_RING_TRUST    = 12, /* Keyring trust packet. */
+  PKT_USER_ID       = 13, /* User id packet. */
+  PKT_PUBLIC_SUBKEY = 14, /* Public subkey. */
+  PKT_OLD_COMMENT   = 16, /* Comment packet from an OpenPGP draft. */
+  PKT_ATTRIBUTE     = 17, /* PGP's attribute packet. */
+  PKT_ENCRYPTED_MDC = 18, /* Integrity protected encrypted data. */
+  PKT_MDC           = 19 /* Manipulation detection code packet. */
+/*   PKT_COMMENT       = 61, /\* new comment packet (GnuPG specific). *\/ */
+/*   PKT_GPG_CONTROL   = 63  /\* internal control packet (GnuPG specific). *\/ */
+} PKT_Type;
+
+typedef enum {
+  SGN_BINARY    = 0x00, // Signature of a binary document. */
+  SGN_TEXT      = 0x01, // Signature of a canonical text document. */
+  SGN_STANDALONE = 0x02,// Standalone signature.
+  SGN_CERT_GEN  = 0x10, // Generic certification of a User ID and Public-Key packet.
+  SGN_CERT_PERS = 0x11, // Persona certification of a User ID and Public-Key packet.
+  SGN_CERT_CAS  = 0x12, // Casual certification of a User ID and Public-Key packet.
+  SGN_CERT_POS  = 0x13, // Positive certification of a User ID and Public-Key packet.
+  SGN_SUBKEY    = 0x18, // Subkey Binding Signature
+  SGN_PRIMARY   = 0x19, // Primary Key Binding Signature
+  SGN_DIRECT    = 0x1F, // Signature directly on a key
+  SGN_REV       = 0x20, // Key revocation signature
+  SGN_SUB_REV   = 0x28, // Subkey revocation signature
+  SGN_CERT_REV  = 0x30, // Certification revocation signature
+  SGN_TIMESTMP  = 0x40, // Timestamp signature.
+  SGN_3RD_PARTY = 0x50  //Third-Party Confirmation signature.
+} SGN_Type;
+
+typedef enum {
+/*   SIGSUBPKT_TEST_CRITICAL = -3, */
+/*   SIGSUBPKT_LIST_UNHASHED = -2, */
+/*   SIGSUBPKT_LIST_HASHED   = -1, */
+  SIGSUBPKT_NONE          =  0,
+  SIGSUBPKT_SIG_CREATED   =  2, /* Signature creation time. */
+  SIGSUBPKT_SIG_EXPIRE    =  3, /* Signature expiration time. */
+  SIGSUBPKT_EXPORTABLE    =  4, /* Exportable. */
+  SIGSUBPKT_TRUST         =  5, /* Trust signature. */
+  SIGSUBPKT_REGEXP        =  6, /* Regular expression. */
+  SIGSUBPKT_REVOCABLE     =  7, /* Revocable. */
+  SIGSUBPKT_KEY_EXPIRE    =  9, /* Key expiration time. */
+  SIGSUBPKT_ARR           = 10, /* Additional recipient request. */
+  SIGSUBPKT_PREF_SYM      = 11, /* Preferred symmetric algorithms. */
+  SIGSUBPKT_REV_KEY       = 12, /* Revocation key. */
+  SIGSUBPKT_ISSUER        = 16, /* Issuer key ID. */
+  SIGSUBPKT_NOTATION      = 20, /* Notation data. */
+  SIGSUBPKT_PREF_HASH     = 21, /* Preferred hash algorithms. */
+  SIGSUBPKT_PREF_COMPR    = 22, /* Preferred compression algorithms. */
+  SIGSUBPKT_KS_FLAGS      = 23, /* Key server preferences. */
+  SIGSUBPKT_PREF_KS       = 24, /* Preferred key server. */
+  SIGSUBPKT_PRIMARY_UID   = 25, /* Primary user id. */
+  SIGSUBPKT_POLICY        = 26, /* Policy URL. */
+  SIGSUBPKT_KEY_FLAGS     = 27, /* Key flags. */
+  SIGSUBPKT_SIGNERS_UID   = 28, /* Signer's user id. */
+  SIGSUBPKT_REVOC_REASON  = 29, /* Reason for revocation. */
+  SIGSUBPKT_FEATURES      = 30, /* Feature flags. */
+  SIGSUBPKT_SIG_TARGET    = 31, /* Signature Target */
+  SIGSUBPKT_SIGNATURE     = 32, /* Embedded signature. */
+  SIGSUBPKT_FLAG_CRITICAL = 128
+} PKT_SigSubpktType;
+
+typedef enum {
+  CIPHER_ALGO_NONE        =  0,   // - Plaintext or unencrypted data
+  CIPHER_ALGO_IDEA        =  1,   // - IDEA [IDEA]
+  CIPHER_ALGO_3DES        =  2,   // - TripleDES (DES-EDE, [SCHNEIER] [HAC] -  168 bit key derived from 192)
+  CIPHER_ALGO_CAST5       =  3,   // - CAST5 (128 bit key, as per [RFC2144])
+  CIPHER_ALGO_BLOWFISH    =  4,   // - Blowfish (128 bit key, 16 rounds) [BLOWFISH]
+  /* 5 & 6 are reserved */
+  CIPHER_ALGO_AES         =  7,   // - AES with 128-bit key [AES]
+  CIPHER_ALGO_AES192      =  8,   // - AES with 192-bit key
+  CIPHER_ALGO_AES256      =  9,   // - AES with 256-bit key
+  CIPHER_ALGO_TWOFISH     = 10,   // - Twofish with 256-bit key [TWOFISH]
+  CIPHER_ALGO_CAMELLIA128 = 11,
+  CIPHER_ALGO_CAMELLIA192 = 12,
+  CIPHER_ALGO_CAMELLIA256 = 13
+} PKT_CipherAlgo;
+
+typedef enum
+{
+  PUBKEY_ALGO_RSA         =  1,
+  PUBKEY_ALGO_RSA_E       =  2, /* RSA encrypt only (legacy). */
+  PUBKEY_ALGO_RSA_S       =  3, /* RSA sign only (legacy).    */
+  PUBKEY_ALGO_ELGAMAL_E   = 16, /* Elgamal encrypt only.      */
+  PUBKEY_ALGO_DSA         = 17,
+  PUBKEY_ALGO_ECDH        = 18, /* RFC-6637  */
+  PUBKEY_ALGO_ECDSA       = 19, /* RFC-6637  */
+  PUBKEY_ALGO_ELGAMAL     = 20, /* Elgamal encrypt+sign (legacy).  */
+  /*                        21     reserved by OpenPGP.            */
+  PUBKEY_ALGO_EDDSA       = 22  /* EdDSA (not yet assigned).       */
+} PKT_PubkeyAlgo;
+
+typedef enum {
+  DIGEST_ALGO_NONE        =  0,
+  DIGEST_ALGO_MD5         =  1,
+  DIGEST_ALGO_SHA1        =  2,
+  DIGEST_ALGO_RMD160      =  3,
+  /* 4, 5, 6, and 7 are reserved. */
+  DIGEST_ALGO_SHA256      =  8,
+  DIGEST_ALGO_SHA384      =  9,
+  DIGEST_ALGO_SHA512      = 10,
+  DIGEST_ALGO_SHA224      = 11
+} PKT_DigestAlgo;
+
+
+typedef enum {
+  COMPRESS_ALGO_NONE      =  0,//  - Uncompressed
+  COMPRESS_ALGO_ZIP       =  1,//  - ZIP [RFC1951]
+  COMPRESS_ALGO_ZLIB      =  2, // - ZLIB [RFC1950]
+  COMPRESS_ALGO_BZIP2     =  3  // - BZip2 [BZ2]
+} PKT_CompressAlg;
+
+typedef struct
+{
+  int  mode;      /* Must be an integer due to the GNU modes 1001 et al.  */
+  PKT_DigestAlgo hash_algo;
+  uint8_t salt[8];
+  uint32_t  count;
+} STRING2KEY;
+
+typedef struct {
+    uint8_t version;
+    PKT_CipherAlgo cipher_algo; /* cipher algorithm used */
+    STRING2KEY s2k;
+    uint8_t seskeylen;   /* keylength in uint8_t or 0 for no seskey */
+    uint8_t seskey[1];
+} PKT_symkey_enc;
+
+typedef struct {
+  uint8_t  version;
+  std::string keyid;	    /* 64 bit keyid */
+  PKT_PubkeyAlgo pubkey_algo;/* algorithm used for public key scheme */
+  std::string data;
+} PKT_pubkey_enc;
+
+typedef struct {
+  std::string  keyid;         /* 64 bit keyid */
+  SGN_Type   sig_class;       /* Sig classification */
+  PKT_DigestAlgo digest_algo; /* algorithm used for digest */
+  PKT_PubkeyAlgo pubkey_algo; /* algorithm used for public key scheme */
+  uint8_t     last;           /* a stupid flag */
+} PKT_onepass_sig;
+
+struct revocation_key {
+  uint8_t classid;
+  uint8_t algid;
+  std::string fpr;
+};
+
+struct revoke_info
+{
+  /* revoked at this date */
+  time_t date;
+  /* the keyid of the revoking key (selfsig or designated revoker) */
+  std::string  keyid;
+  /* the algo of the revoking key */
+  PKT_PubkeyAlgo algo;
+};
+
+typedef enum {
+  PREFTYPE_NONE = 0,
+  PREFTYPE_SYM = 1,
+  PREFTYPE_HASH = 2,
+  PREFTYPE_ZIP = 3
+} preftype_t;
+
+typedef struct {
+  preftype_t type;
+  uint8_t value;
+} prefitem_t;
+
+/* Object to keep information about a PKA DNS record. */
+/* typedef struct */
+/* { */
+/*   int valid;    /\* An actual PKA record exists for EMAIL. *\/ */
+/*   int checked;  /\* Set to true if the FPR has been checked against the */
+/*                    actual key. *\/ */
+/*   char *uri;    /\* Malloced string with the URI. NULL if the URI is */
+/*                    not available.*\/ */
+/*   unsigned char fpr[MAX_FINGERPRINT_LEN]; /\* The fingerprint as stored in the PKA RR. *\/ */
+/*   std::string email;/\* The email address from the notation data. *\/ */
+/* } pka_info_t; */
+
+/* Object to keep information pertaining to a signature. */
+
+struct PKT_signature
+{
+  struct
+  {
+    unsigned exportable:1;
+    unsigned revocable:1;
+    unsigned primaryId:1;
+    unsigned checked:1;         /* Signature has been checked. */
+    unsigned valid:1;           /* Signature is good (if checked is set). */
+/*     unsigned chosen_selfsig:1;  /\* A selfsig that is the chosen one. *\/ */
+/*     unsigned unknown_critical:1; */
+/*     unsigned policy_url:1;  /\* At least one policy URL is present *\/ */
+/*     unsigned notation:1;    /\* At least one notation is present *\/ */
+/*     unsigned pref_ks:1;     /\* At least one preferred keyserver is present *\/ */
+/*     unsigned expired:1; */
+/*     unsigned pka_tried:1;   /\* Set if we tried to retrieve the PKA record. *\/ */
+  } flags;
+  std::string  keyid;       /* 64 bit keyid */
+  time_t     timestamp;     /* Signature made (seconds since Epoch). */
+  time_t key_expirePeriod; /* The validity period of the key. This is the number
+                            of seconds after the key creation time that the key expires. */
+  time_t sig_expirePeriod; /* The validity period of the signature.  This is the number of seconds
+                            after the signature creation time that the signature expires. */
+  uint8_t    version;
+  SGN_Type   sig_class;    /* Sig classification, append for MD calculation. */
+  PKT_PubkeyAlgo pubkey_algo;    /* Algorithm used for public key scheme */
+  PKT_DigestAlgo digest_algo;    /* Algorithm used for digest (DIGEST_ALGO_xxxx). */
+  std::vector<PKT_CipherAlgo> best_cipher_algo;
+  std::vector<PKT_DigestAlgo> best_hash_algo;
+  std::vector<PKT_CompressAlg> best_pack_algo;
+  uint8_t    trust_depth;   /*trust level*/
+  uint8_t    trust_value;
+  std::string trust_regexp;
+  std::vector<revocation_key> revkey;       //we allow multiple packets
+  std::vector<std::string> notation_data;   //we allow multiple packets
+  std::string ks_flags;
+  std::string pref_ks;                       /*preferred key server*/
+  std::vector<std::string> policy_uri;      //we allow multiple packets
+  std::string key_flags;
+  std::string signer_id;
+  std::string revocation_reason;
+  std::string features;
+  std::string arr;                         /* Additional recipient request. */
+  std::string signature_target;
+  std::vector<PKT_signature> embeded_signature; //we allow multiple packets
+  std::vector<PKT_SigSubpktType> hashed;       //just to mantain original order
+  std::vector<PKT_SigSubpktType> unhashed;     //just to mantain original order
+/*   int numrevkeys; */
+/*   pka_info_t *pka_info;      /\* Malloced PKA data or NULL if not */
+/*                                 available.  See also flags.pka_tried. *\/ */
+/*   std::string hashed;      /\* All subpackets with hashed data (v4 only). *\/ */
+/*   std::string unhashed;    /\* Ditto for unhashed data. *\/ */
+  std::string digest_start;      /* First 2 uint8_ts of the digest. */
+  std::string data;        /* signature itself - two first bytes is the size in bits */
+};
+
+
+struct PKT_user_id
+{
+  std::string id;
+  PKT_signature* signature;
+};
+
+typedef struct {
+  time_t  timestamp;    /* key made */
+  time_t  expirePeriod;   /* expires at this date or 0 if not at all */
+  uint8_t version;
+  PKT_PubkeyAlgo pubkey_algo;    /* algorithm used for public key scheme */
+  int     is_valid;       /* key (especially subkey) is valid */
+  std::string  fingerprint;
+/*   std::string  keyid;       /\* calculated by keyid_from_pk() *\/ */
+  uint8_t is_primary;
+  std::vector<PKT_user_id*> user_ids; //user ids only present in the primary key
+  BIGNUM* n;
+  BIGNUM* e;
+
+} PKT_public_key;
+
+typedef struct {
+  PKT_public_key pkey;
+  uint8_t is_protected;	/* If the secret info is protected */
+  struct {
+    PKT_CipherAlgo algo;  /* cipher used to protect the secret information*/
+    bool sha1chk;      /* SHA1 is used instead of a 16 bit checksum */
+    STRING2KEY s2k;
+    uint8_t iv[16]; /* initialization vector for CFB mode  - use blockSize() to get size*/
+  } protect;
+  BIGNUM* dBN;
+  BIGNUM* pBN;
+  BIGNUM* qBN;
+  BIGNUM* uBN;
+  uint16_t csum;
+  std::string encryptedData;
+} PKT_secret_key;
+
+
+typedef struct {
+  uint32_t  len;       /* reserved */
+  uint8_t  new_ctb;
+  PKT_CompressAlg algorithm;
+/*     iobuf_t buf;    /\* IOBUF reference *\/ */
+} PKT_compressed;
+
+typedef struct {
+  uint8_t version;
+  std::string  data;
+/*   uint32_t  len;       /\* Remaining length of encrypted data. *\/ */
+/*   int  extralen;       /\* This is (blocksize+2).  Used by build_packet. *\/ */
+/*   uint8_t new_ctb;       /\* uses a new CTB *\/ */
+/*   uint8_t is_partial;    /\* partial length encoded *\/ */
+/*   uint8_t mdc_method;    /\* > 0: integrity protected encrypted data packet *\/ */
+/*     iobuf_t buf;    /\* IOBUF reference *\/ */
+} PKT_encrypted;
+
+typedef struct {
+  uint8_t hash[20];
+} PKT_mdc;
+
+typedef struct {
+  unsigned int trustval;
+  unsigned int sigcache;
+} PKT_ring_trust;
+
+typedef struct {
+  uint8_t mode; // can be 'b' 't' 'u' 'l'
+  time_t timestamp;
+  std::string name;
+  std::string data;
+} PKT_plaintext;
+
+/* combine all packets into a union */
+struct PACKET{
+  PKT_Type pkttype;
+  union {
+    void            *generic;
+    PKT_symkey_enc  *symkey_enc;  /* PKT_SYMKEY_ENC */
+    PKT_pubkey_enc  *pubkey_enc;  /* PKT_PUBKEY_ENC */
+    PKT_onepass_sig *onepass_sig;   /* PKT_ONEPASS_SIG */
+    PKT_signature   *signature;   /* PKT_SIGNATURE */
+    PKT_public_key  *public_key;  /* PKT_PUBLIC_[SUB)KEY tag 6 and 14*/
+    PKT_secret_key  *secret_key;  /* PKT_SECRET_[SUB]KEY */
+/*     PKT_comment     *comment;   /\* PKT_COMMENT *\/ */
+    PKT_user_id     *user_id;   /* PKT_USER_ID */
+    PKT_compressed  *compressed;  /* PKT_COMPRESSED */
+    PKT_encrypted   *encrypted;   /* PKT_ENCRYPTED[_MDC] */
+    PKT_mdc         *mdc;     /* PKT_MDC */
+    PKT_ring_trust  *ring_trust;  /* PKT_RING_TRUST */
+    PKT_plaintext   *plaintext;   /* PKT_PLAINTEXT */
+  } pkt;
+};
+#end
+
+//TODO rename to Packet
+class PktDo{
+ public:
+
+  static unsigned int keySize(PKT_CipherAlgo alg){
+      switch(alg){
+      case CIPHER_ALGO_AES256:
+        return 32;
+      case CIPHER_ALGO_AES192:     // - AES with 192-bit key
+        return 24;
+      case CIPHER_ALGO_CAST5:      // - CAST5 (128 bit key, as per [RFC2144])
+      case CIPHER_ALGO_BLOWFISH:   // - Blowfish (128 bit key, 16 rounds) [BLOWFISH]
+      case CIPHER_ALGO_AES:        // - AES with 128-bit key [AES]
+        return 16;
+      default:
+        return 0; //unsupported algorithms
+      }
+  }
+
+
+  static unsigned int blockSize(PKT_CipherAlgo alg){
+      switch(alg){
+      case CIPHER_ALGO_AES256:
+      case CIPHER_ALGO_AES192:     // - AES with 192-bit key
+      case CIPHER_ALGO_AES:        // - AES with 128-bit key [AES]
+        return 16;
+      case CIPHER_ALGO_CAST5:      // - CAST5 (128 bit key, as per [RFC2144])
+      case CIPHER_ALGO_BLOWFISH:   // - Blowfish (128 bit key, 16 rounds) [BLOWFISH]
+        return 8;
+      default:
+        return 0; //unsupported algorithms
+      }
+  }
+
+
+  static uint16_t checksum(std::string s)
+  {
+    uint16_t a = 0;
+    for(unsigned int i = 0; i < s.size(); i++ )
+      a += (uint8_t)s.at(i);
+    return a;
+  }
+
+
+  static std::string bn2mpi(const BIGNUM* num){
+    if(num == NULL) {
+      std::cout<<"Error - trying to export NULL BIGNUM"<<std::endl;
+      return "";
+    }
+    std::string result;
+    const int sizeBits = BN_num_bits(num);
+    const int size = ((sizeBits + 7) / 8);
+#if defined(_MSC_VER)
+    unsigned char  *buffer = new unsigned char [size];
+#else
+    unsigned char buffer[size];
+#endif
+    BN_bn2bin(num, buffer);
+    result.push_back((sizeBits >> 8) & 0xff);
+    result.push_back(sizeBits & 0xff);
+    result.append((char*)buffer, size);
+#if defined(_MSC_VER)
+    delete [] buffer;
+#endif
+    return result;
+  }
+
+
+  static std::string str2mpi(const std::string& str){
+    std::string result;
+    int sizeBits = str.size()*8;
+    int bytePos=0;
+    int bitPos=0;
+    while( ( ( str.at(bytePos) & (0x80 >> bitPos) ) == 0) && (sizeBits > 0 ) ){
+      sizeBits--;
+      bitPos++;
+      if(bitPos==8){
+        bitPos = 0;
+        bytePos++;
+      }
+    }
+    result.push_back((sizeBits >> 8) & 0xff);
+    result.push_back(sizeBits & 0xff);
+    result.append(str);
+    return result;
+  }
+
+
+  static std::string encodeSize(const unsigned size){
+    std::string result;
+
+    if(size < 192u){
+      result.push_back(size & 0xFF);
+    }
+    else{
+      if(size < 8384u){
+/*       if(size < ((254 - 192) << 8) + 255 + 192 + 1){ */
+        result.push_back((((size-192) >> 8) + 192) & 0xFF);
+        result.push_back((size-192) & 0xFF);
+      }
+      else{
+#if defined(_MSC_VER)
+        result.push_back(-1);
+#else
+        result.push_back(0xFF);
+#endif
+        result.push_back((size>>24) & 0xFF);
+        result.push_back((size>>16) & 0xFF);
+        result.push_back((size>>8) & 0xFF);
+        result.push_back(size & 0xFF);
+      }
+    }
+    return result;
+  }
+
+
+  static inline unsigned int getPacketSizeTag(const unsigned long& size)
+  {
+    int packetSizeTag = 0;
+    if(size > 256UL){
+      packetSizeTag++;
+    }
+    if(size > 65536UL){
+      packetSizeTag++;
+    }
+    if(size > 4294967296UL){
+      packetSizeTag++;
+    }
+    return packetSizeTag;
+  }
+
+
+  static bool createHeader(std::string& result,
+                           const PKT_Type packetId,
+                           const unsigned int size,
+                           const bool newFormat = false)
+  {
+    if (packetId <= PKT_NONE){
+      return false;
+    }
+    unsigned char packetTag=0x80;
+    if(newFormat){
+      packetTag += 0x40;//TODO finish imlpement
+      packetTag += packetId;
+      result.push_back(packetTag);
+      result.append(encodeSize(size));
+    }
+    else{
+      if (packetId>15){//0b1111
+        return false; //id cannot be encoded using old format
+      }
+      packetTag += (packetId<<2);
+      unsigned int packetSizeTag = getPacketSizeTag(size);
+      if(packetSizeTag>2){//use new format if size is bigger than 32 bit
+        return false;
+      }
+      packetTag += packetSizeTag;
+      result.push_back(packetTag);
+      for(int i = ((1<<packetSizeTag)-1); i >= 0; i--){
+        result.push_back((size >> (8*i)) & 0xff);
+      }
+    }
+    return true;
+  }
+
+
+  static inline std::string packTimestamp(time_t timestamp)
+  {
+    std::string result;
+    result.push_back((uint8_t)(timestamp >> 24));
+    result.push_back((uint8_t)(timestamp >> 16));
+    result.push_back((uint8_t)(timestamp >>  8));
+    result.push_back((uint8_t)(timestamp));
+    return result;
+  }
+
+
+  static std::string pubKey2Str(const PKT_public_key *key)
+  {
+    std::string body = pubKey2StrNoHeader(key);
+    std::string result;
+    if (!createHeader(result,
+                      (key->is_primary==1) ? PKT_PUBLIC_KEY : PKT_PUBLIC_SUBKEY,
+                      body.size())){
+      return std::string("");
+    }
+    result.append(body);
+    return result;
+  }
+
+
+  static std::string pubKey2StrNoHeader(const PKT_public_key *key){
+    std::string result;
+    result.push_back(key->version);
+    result.append(packTimestamp(key->timestamp));
+    if(key->version == 3){
+      int days = 0;
+      if(key->expirePeriod != 0){
+        days = (key->expirePeriod - key->timestamp)/86400;
+      }
+      result.push_back((days>>8)& 0xFF);
+      result.push_back(days & 0xFF);
+    }
+    result.push_back(key->pubkey_algo);
+    result.append(bn2mpi(key->n));
+    result.append(bn2mpi(key->e));
+    return result;
+  }
+
+
+  static std::string secKey2Str(const PKT_secret_key *key)
+  {
+    std::string body = pubKey2StrNoHeader(&(key->pkey));
+    if(key->is_protected){
+      if(key->protect.sha1chk){
+        body.push_back('\xFE');
+      }
+      else{
+        body.push_back('\xFF');
+      }
+      body.push_back(key->protect.algo);
+      body.push_back(key->protect.s2k.mode);
+      body.push_back(key->protect.s2k.hash_algo);
+      if(key->protect.s2k.mode == 1 || key->protect.s2k.mode == 3){
+        for (unsigned int i = 0; i < 8; i++){
+          body.push_back(key->protect.s2k.salt[i]);
+        }
+        if(key->protect.s2k.mode == 3){
+          body.push_back(key->protect.s2k.count);
+        }
+        for (unsigned int i = 0; i < blockSize(key->protect.algo); i++){
+          body.push_back(key->protect.iv[i]);
+        }
+        body.append(key->encryptedData);
+      }
+    }
+    else{
+      body.push_back('\x00');
+      body.append(bn2mpi(key->dBN));
+      body.append(bn2mpi(key->pBN));
+      body.append(bn2mpi(key->qBN));
+      if(key->uBN !=NULL){
+        body.append(bn2mpi(key->uBN));
+      }
+      body.push_back((key->csum>>8)&0xFF);
+      body.push_back((key->csum)&0xFF);
+    }
+    std::string result;
+    if (!createHeader(result,
+                      (key->pkey.is_primary==1) ? PKT_SECRET_KEY : PKT_SECRET_SUBKEY,
+                      body.size())){
+      return std::string("");
+    }
+    result.append(body);
+    return result;
+  }
+
+
+  static std::string getSubpackets(const PKT_signature* sig, const std::vector<PKT_SigSubpktType> &v)
+  {
+    std::string result;
+    result.clear();
+    int revIndex = 0, policyIndex = 0, sigIndex = 0, notationIndex = 0;
+    for(unsigned int i = 0; i < v.size(); i++ ){
+      PKT_SigSubpktType type = (PKT_SigSubpktType)(v.at(i) & 0x7f); // to remove e.g. critical flag
+      switch(type){
+      case SIGSUBPKT_REV_KEY:
+        result.append(sigSubPkt2Str(sig, v.at(i), revIndex));
+        revIndex++;
+        break;
+      case SIGSUBPKT_POLICY:
+        result.append(sigSubPkt2Str(sig, v.at(i), policyIndex));
+        policyIndex++;
+        break;
+      case SIGSUBPKT_SIGNATURE:
+        result.append(sigSubPkt2Str(sig, v.at(i), sigIndex));
+        sigIndex++;
+        break;
+      case SIGSUBPKT_NOTATION:
+          result.append(sigSubPkt2Str(sig, v.at(i), notationIndex));
+        notationIndex++;
+        break;
+      default:
+          result.append(sigSubPkt2Str(sig, v.at(i)));
+      }
+    }
+    return result;
+  }
+
+
+  static std::string signature2Str(const PKT_signature* sig)
+  {
+    std::string result;
+    std::string ending;
+    if( !sig->version )
+      ending.push_back(3);
+    else
+      ending.push_back(sig->version);
+    if( sig->version < 4 )
+      ending.push_back(5); /* constant */
+    ending.push_back(sig->sig_class);
+    if( sig->version < 4 ) {
+      ending.append(packTimestamp(sig->timestamp));
+      ending.append(sig->keyid);
+    }
+    ending.push_back(sig->pubkey_algo);
+    ending.push_back(sig->digest_algo);
+    if( sig->version >= 4 ) {
+      std::string subPkts = getSubpackets(sig, sig->hashed);
+      ending.push_back(subPkts.size() >> 8);
+      ending.push_back(subPkts.size()     );
+      if( subPkts.size() > 0 ){
+        ending.append(subPkts);
+      }
+      subPkts = getSubpackets(sig, sig->unhashed);
+      ending.push_back(subPkts.size() >> 8);
+      ending.push_back(subPkts.size()     );
+      if( subPkts.size() > 0 ){
+        ending.append(subPkts);
+      }
+    }
+    ending.append(sig->digest_start);
+    ending.append(str2mpi(sig->data));
+    if (!createHeader(result,
+                      PKT_SIGNATURE,
+                      ending.size())){
+      return "";
+    }
+    return result+ending;
+}
+
+
+  static std::string userId2Str(PKT_user_id* id){
+    std::string result;
+    if (!createHeader(result, PKT_USER_ID, id->id.size())){
+      return "";
+    }
+      //TODO: make sure identity is correct UTF-8
+    result.append(id->id);
+    return result;
+  }
+
+
+  static std::string getFingerprint(PKT_public_key* key){
+    char obuf[SHA_DIGEST_LENGTH];
+    char* res;
+    std::string keyPacket = pubKey2Str(key).replace(0,1,"\x99");
+    res = (char*)SHA1((unsigned char*)keyPacket.c_str(),
+                      keyPacket.size(),(unsigned char*) obuf);
+    return std::string(res, 20);
+  }
+
+
+  static std::string getKeyId(PKT_public_key* key){
+    return getFingerprint(key).substr(12,8);
+  }
+
+
+  static std::string sigSubPkt2Str(const PKT_signature *sig
+                            , const PKT_SigSubpktType t
+                            ,unsigned int mpIndex = 0
+                            ){
+    if (sig == NULL){
+      printf("Null signature");
+      return "";
+    }
+    PKT_SigSubpktType type = (PKT_SigSubpktType)(t & (~SIGSUBPKT_FLAG_CRITICAL));
+    std::string data;
+    data.clear();
+    /* Sanity check buffer sizes */
+    /*   if(PacketParser::parseOneSigSubpkt(data, type)<0){ */
+    /*     return false; */
+    /*   } */
+    switch(type)
+    {
+    case SIGSUBPKT_SIG_CREATED:
+      data.append(PktDo::packTimestamp(sig->timestamp));
+      break;
+    case SIGSUBPKT_SIG_EXPIRE:
+      data.append(PktDo::packTimestamp(sig->sig_expirePeriod));
+      break;
+    case SIGSUBPKT_EXPORTABLE:
+      data.push_back(sig->flags.exportable);
+      break;
+    case SIGSUBPKT_TRUST:
+      data.push_back(sig->trust_depth);
+      data.push_back(sig->trust_value);
+      break;
+    case SIGSUBPKT_REGEXP:
+      data.append(sig->trust_regexp);
+      break;
+    case SIGSUBPKT_REVOCABLE:
+      data.push_back(sig->flags.revocable);
+      break;
+    case SIGSUBPKT_KEY_EXPIRE:
+      data.append(PktDo::packTimestamp(sig->key_expirePeriod));
+      break;
+    case SIGSUBPKT_ARR:
+      data.append(sig->arr);
+      break;
+    case SIGSUBPKT_PREF_SYM:
+      for(unsigned int i = 0; i < sig->best_cipher_algo.size(); i++ ){
+        data.push_back(sig->best_cipher_algo.at(i));
+      }
+      break;
+    case SIGSUBPKT_REV_KEY:
+      if(sig->revkey.size()>=mpIndex || mpIndex < 0){
+        return "";
+      }
+      else{
+        data.push_back(sig->revkey.at(mpIndex).classid);
+        data.push_back(sig->revkey.at(mpIndex).algid);
+        data.append(sig->revkey.at(mpIndex).fpr);
+      }
+      break;
+    case SIGSUBPKT_ISSUER:
+      data.append(sig->keyid);
+      break;
+    case SIGSUBPKT_NOTATION:
+      if(sig->notation_data.size()>=mpIndex || mpIndex < 0){
+        return "";
+      }
+      else{
+        data.append(sig->notation_data.at(mpIndex));
+      }
+      break;
+    case SIGSUBPKT_PREF_HASH:
+      for(unsigned int i = 0; i < sig->best_hash_algo.size(); i++ ){
+        data.push_back(sig->best_hash_algo.at(i));
+      }
+      break;
+    case SIGSUBPKT_PREF_COMPR:
+      for(unsigned int i = 0; i < sig->best_pack_algo.size(); i++ ){
+        data.push_back(sig->best_pack_algo.at(i));
+      }
+      break;
+    case SIGSUBPKT_KS_FLAGS:
+      data.append(sig->ks_flags);
+      break;
+    case SIGSUBPKT_PREF_KS:
+      data.append(sig->pref_ks);
+      break;
+    case SIGSUBPKT_PRIMARY_UID:
+      data.push_back(sig->flags.primaryId);
+      break;
+    case SIGSUBPKT_POLICY:
+      if(sig->policy_uri.size()>=mpIndex || mpIndex < 0){
+        return "";
+      }
+      else{
+        data.append(sig->policy_uri.at(mpIndex));
+      }
+      break;
+    case SIGSUBPKT_KEY_FLAGS:
+      data.append(sig->key_flags);
+      break;
+    case SIGSUBPKT_SIGNERS_UID:
+      data.append(sig->signer_id);
+      break;
+    case SIGSUBPKT_REVOC_REASON:
+      data.append(sig->revocation_reason);
+      break;
+    case SIGSUBPKT_FEATURES:
+      data.append(sig->features);
+      break;
+    case SIGSUBPKT_SIG_TARGET:
+      data.append(sig->signature_target);
+      break;
+    case SIGSUBPKT_SIGNATURE:
+      if(sig->embeded_signature.size()>=mpIndex || mpIndex < 0){
+        return "";
+      }
+      else{
+        data.append(signature2Str(&(sig->embeded_signature.at(mpIndex))));
+      }
+      break;
+    case SIGSUBPKT_FLAG_CRITICAL:  //128
+    case SIGSUBPKT_NONE: // 0
+    default:
+      printf("Unknown subpacket type %d", t);
+    return "";
+    }
+
+    std::string result;
+    result.clear();
+    result.append(PktDo::encodeSize(data.size()+1));
+    result.push_back(t);
+    result.append(data);
+
+    return result;
+  }
+
+/*   static unsigned int hashLen(const PKT_DigestAlgo&  algo){ */
+/*     switch(algo){ */
+/*       case DIGEST_ALGO_SHA256: */
+/*         return SHA256_DIGEST_LENGTH; */
+
+/*       case DIGEST_ALGO_SHA512: */
+/*         return SHA512_DIGEST_LENGTH; */
+
+/*       case DIGEST_ALGO_SHA224: */
+/*         return SHA224_DIGEST_LENGTH; */
+
+/*       case DIGEST_ALGO_SHA384: */
+/*         return SHA384_DIGEST_LENGTH; */
+
+/*       case DIGEST_ALGO_MD5: */
+/*         return MD5_DIGEST_LENGTH; */
+
+/*       case DIGEST_ALGO_RMD160: */
+/*         return RIPEMD160_DIGEST_LENGTH; */
+
+/*       case DIGEST_ALGO_SHA1: */
+/*         return SHA_DIGEST_LENGTH; */
+/*     } */
+/*   } */
+  static std::string stripId(const std::string& userId){
+    size_t p1, p2;
+    p1 = userId.find('<');
+    if(p1!=std::string::npos){
+      p2 = userId.find('>', p1);
+      if(p2!=std::string::npos){
+        return userId.substr(p1 + 1, (p2 - p1) - 1);
+      }
+    }
+    return userId;
+  }
+
+  static std::string armId(const std::string& userId){
+    size_t p1;
+    p1 = userId.find('<');
+    if(p1==std::string::npos){
+      return "Tryango <"+userId+">";
+    }
+    return userId;
+  }
+
+}
+

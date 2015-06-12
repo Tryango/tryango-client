@@ -1,0 +1,473 @@
+#hdr
+#include "secretKeyPair.h"
+#include <string>
+#include <sys/stat.h> //for open
+#include <fcntl.h>    // for O_WRITE
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
+#else
+#include <unistd.h> //for close
+#endif
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <sstream>
+
+class SecretKeyPair;
+
+#end
+
+class KeyDb{
+ private:
+/*   const static uint32_t magicNumber = 39486; */
+  DbType userIdDb;  //contain secret keys of the users - lookup by user id - list of keys for each id sorted by timestamp
+  DbType sIdDb;  //contain secret keys of the users - lookup by siginng key  id
+  DbType eIdDb;  //contain secret keys of the users - lookup by encryption key id
+
+  bool addKey(SecretKeyPair* key)
+  {
+    if(key == NULL) return false;
+    for (auto& userId:key->getUserIds()){
+      if(!addId(key, PktDo::stripId(userId->id))){
+        return false;
+      }
+    }
+    sIdDb[key->getKeyId()].push_back(key);
+/*     printf(("added key with ids:"+string_to_hex(key->getKeyId()) + " "+string_to_hex(key->getKeyId())).c_str()); */
+    eIdDb[key->getSubKeyId()].push_back(key);
+    return true;
+  }
+
+  Confi_Status checkAndAdd(SecretKeyPair* key, const std::string& filterId){
+    bool import = false;
+    if(filterId != ""){
+      for (auto& userId:key->getUserIds()){
+        if(PktDo::stripId(userId->id) == PktDo::stripId(filterId)){
+          import = true;
+          break;
+        }
+      }
+    }
+    else{
+      import = true;
+    }
+    //TODO checking integrity of the key
+    if(import){
+      PKT_public_key* sKey = &(key->getSSKey()->pkey);
+      PKT_public_key* eKey = &(key->getSEKey()->pkey);
+      sKey->fingerprint = PktDo::getFingerprint(sKey);
+      eKey->fingerprint = PktDo::getFingerprint(eKey);
+      addKey(key);
+    }
+    return ANG_OK;
+  }
+
+
+//helper function
+  void removeId(SecretKeyPair* pPair, std::string id)
+  {
+    DbType::iterator it;
+    it = userIdDb.find(PktDo::stripId(id));
+    if(it != userIdDb.end()){
+      KeyList list = it->second;
+      KeyList::iterator entry = std::find(list.begin(), list.end(), pPair);
+      if((*entry) != NULL){
+        list.erase(entry);
+        userIdDb[PktDo::stripId(id)] = list;
+      }
+      if(list.size()<1){
+        userIdDb.erase(PktDo::stripId(id));
+      }
+    }
+  }
+
+  std::string getKeyInfo(SecretKeyPair* key)
+  {
+    PKT_public_key* pkey = &(key->getSSKey()->pkey);
+    std::ostringstream result;
+    result<<string_to_hex(pkey->fingerprint);
+    result<<"\x1F"<<(int)pkey->timestamp;
+    if(pkey->expirePeriod!=0){
+      result<<"\x1F"<<(int)(pkey->expirePeriod + pkey->timestamp);
+    }
+    else{
+      result<<"\x1F"<<pkey->expirePeriod;
+    }
+    result<<"\x1F"<<(key->getSSKey()->is_protected?"yes":"no");
+    pkey = &(key->getSEKey()->pkey);
+    result<<"\x1F"<<string_to_hex(pkey->fingerprint);
+    result<<"\x1F"<<(int)pkey->timestamp;
+    if(pkey->expirePeriod!=0){
+      result<<"\x1F"<<(int)(pkey->expirePeriod + pkey->timestamp);
+    }
+    else{
+      result<<"\x1F"<<pkey->expirePeriod;
+    }
+    result<<"\x1F"<<(key->getSEKey()->is_protected?"yes":"no");
+    pkey = &(key->getSSKey()->pkey);
+    for(auto& uid:pkey->user_ids){
+      result<<"\x1F"<<uid->id;
+    }
+    return result.str();
+  }
+
+
+  bool addId(SecretKeyPair* key, std::string id){
+    KeyList list = (userIdDb[id]);
+    //List is sorted by date
+    if(list.size() < 1){//no need to sort
+      list.push_back(key);
+    }
+    else{
+      bool inserted = false;
+      for (auto it = list.begin(); it < list.end(); it++){
+/*       for (auto it:list){ */
+        if((*it)->getTimestamp() <= key->getTimestamp()){
+          if(((*it)->getKeyId() != key->getKeyId()) &&
+             (key->getTimestamp() != (*it)->getTimestamp())){
+            list.insert(it, key);
+            inserted = true;
+            break;
+          }
+          else{
+            return false;
+          }
+        }
+      }
+      if(inserted == false){
+        list.insert(list.end(), key);
+      }
+    }
+    userIdDb[id] = list;
+    return true;
+  }
+
+
+  Confi_Status addPackets(std::vector<PACKET>& packets, const std::string& filterId){
+    SecretKeyPair* lastPair = NULL;
+    for (auto& pkt:packets){
+      PKT_public_key* pkey;
+      switch(pkt.pkttype){
+
+      case PKT_SECRET_SUBKEY:// = 7,  /* Secret subkey */
+      case PKT_SECRET_KEY:   // = 5,  /* Secret key. */
+        if(pkt.pkt.secret_key->pkey.is_primary){
+          if (lastPair != NULL){
+            checkAndAdd(lastPair, filterId);
+          }
+          lastPair = new SecretKeyPair;
+          lastPair->setSSKey(pkt.pkt.secret_key);
+        }
+        else{
+          if(lastPair == NULL){
+            return ANG_PARSE_ERROR;
+          }
+          lastPair->setSEKey(pkt.pkt.secret_key);
+        }
+        break;
+
+      case PKT_USER_ID:      // = 13, /* User id packet. */
+        if(lastPair == NULL){
+          return ANG_PARSE_ERROR;
+        }
+        pkey = &(lastPair->getSSKey()->pkey);
+        pkey->user_ids.push_back(pkt.pkt.user_id);
+        break;
+
+      case PKT_SIGNATURE:    // = 2,  /* Secret key encrypted packet. */
+        if(lastPair == NULL){
+          return ANG_PARSE_ERROR;
+        }
+
+        switch(pkt.pkt.signature->sig_class){
+
+        case SGN_SUBKEY: //0x18
+          if(lastPair->getBindSig() != NULL){
+            return ANG_PARSE_ERROR;
+          }
+          lastPair->setBindSig(pkt.pkt.signature);
+          break;
+
+        case SGN_CERT_POS: // 0x13
+          pkey = &(lastPair->getSSKey()->pkey);
+          if(pkey->user_ids.size() < 0){
+            return ANG_PARSE_ERROR;
+          }
+          if(pkey->user_ids.back() == NULL){
+            return ANG_PARSE_ERROR;
+          }
+          if(pkey->user_ids.back()->signature != NULL){
+            return ANG_PARSE_ERROR;
+/*             free(pkey->user_ids.back()->signature); */
+          }
+          pkey->user_ids.back()->signature = pkt.pkt.signature;
+          if(pkt.pkt.signature->key_expirePeriod != 0){
+            pkey->expirePeriod = pkt.pkt.signature->key_expirePeriod;
+          }
+          break;
+
+        default:
+          return ANG_PARSE_ERROR;
+        }
+        break;
+
+      case PKT_PUBLIC_SUBKEY: //  = 14, /* Public subkey. */
+      case PKT_PUBKEY_ENC:   // = 1,  /* Public key encrypted packet. */
+      case PKT_SYMKEY_ENC:   // = 3,  /* Session key packet. */
+      case PKT_ONEPASS_SIG:  // = 4,  /* One pass sig packet. */
+      case PKT_COMPRESSED:   // = 8,  /* Compressed data packet. */
+      case PKT_PUBLIC_KEY:   // = 6,  /* Public key. */
+      case PKT_ENCRYPTED:    // = 9,  /* Conventional encrypted data. */
+      case PKT_MARKER :      // = 10, /* Marker packet. */
+      case PKT_PLAINTEXT:    // = 11, /* Literal data packet. */
+      case PKT_RING_TRUST:   // = 12, /* Keyring trust packet. */
+      case PKT_OLD_COMMENT:  // = 16, /* Comment packet from an OpenPGP draft. */
+      case PKT_ATTRIBUTE:    // = 17, /* PGP's attribute packet. */
+      case PKT_ENCRYPTED_MDC:  //  = 18, /* Integrity protected encrypted data. */
+      case PKT_MDC:          // = 19 /* Manipulation detection code packet. */
+      case PKT_NONE:         // = 0,  /* Reserved. */
+      default:
+        return ANG_PARSE_ERROR;
+      }
+    }
+    if (lastPair != NULL){
+      checkAndAdd(lastPair, filterId);
+    }
+    return ANG_OK;
+  }
+
+
+/********************************************** PUBLIC ******************************/
+ public:
+
+
+  KeyDb(){
+  }
+
+  virtual ~KeyDb(){
+    clearDb();
+  }
+
+
+  void clearDb(){
+    for(auto& list:sIdDb){
+      for(auto& it:list.second){
+        delete it;
+      }
+    }
+    sIdDb.clear();
+    eIdDb.clear();
+    userIdDb.clear();
+  }
+
+  Confi_Status getKeysInfo(char*** keysInfo
+                           , uint32_t* noKeys
+                           , const std::string id
+                           ){
+    *noKeys=0;
+    if(!hasSecretKey(id)){
+      return ANG_NO_ENTRIES;
+    }
+    KeyList kl = userIdDb[id];
+    if(kl.size()<1){
+      return ANG_NO_ENTRIES;
+    }
+    *noKeys = kl.size();
+    *keysInfo = (char**) malloc((*noKeys)*sizeof(char*));
+    for (uint32_t i=0;i<(*noKeys); i++){
+      std::string info = getKeyInfo(kl.at(i));
+      (*keysInfo)[i] = (char*) malloc((info.size()+1)*sizeof(char));
+      memcpy((*keysInfo)[i], info.c_str(), info.size()*sizeof(char));
+      //watch out! info.size()+1 is one character after the last character!
+      (*keysInfo)[i][info.size()]='\0';
+    }
+    return ANG_OK;
+  }
+
+  void removeKey(const std::string& fingerprint)
+  {
+    if(fingerprint.length() != 20) return;
+    KeyList kl = getKeysById(fingerprint.substr(12, 8));
+    Confi_Status status = ANG_OK;
+    for(unsigned int i = 0; i < kl.size() && status == ANG_OK; i++){
+      SecretKeyPair* pPair = kl.at(i);
+      if(pPair->getFingerprint() == fingerprint
+         || pPair->getSubFingerprint() == fingerprint){
+        for (auto& userId:pPair->getUserIds()){
+          removeId(pPair, userId->id);
+        }
+        sIdDb.erase(pPair->getKeyId());
+        eIdDb.erase(pPair->getSubKeyId());
+        delete pPair;
+      }
+    }
+  }
+
+  inline bool hasSecretKey(const std::string& userId){
+    return userIdDb.count(PktDo::stripId(userId)) == 1;
+  }
+
+
+  inline Confi_Status checkPassword(std::string& fingerprint
+                                    , const std::string& userId
+                                    , const std::string& password)
+  {
+    std::string uId = PktDo::stripId(userId);
+    if(hasSecretKey(uId)){
+      if(userIdDb[uId].size() > 0){
+        SecretKeyPair* skp = userIdDb[uId].at(0);
+        if (skp == NULL){
+          return ANG_NO_KEY_PRESENT;
+        }
+        fingerprint = skp->getSSKey()->pkey.fingerprint;
+        Confi_Status status = skp->checkPassword(password);
+        if(status == ANG_OK){
+          return status;
+        }
+      }
+    }
+    return ANG_NO_KEY_PRESENT;
+  }
+
+  inline SecretKeyPair* getCurrentKey(const std::string& userId)
+  {
+    std::string uId = PktDo::stripId(userId);
+    if(hasSecretKey(uId)){
+      if(userIdDb[uId].size()>0){
+        return userIdDb[uId].at(0);
+      }
+    }
+    return NULL;
+  }
+
+  KeyList getKeysById(const std::string& keyId)
+  {
+/*     std::cout<<"Looking for private key with id:"<<string_to_hex(keyId)<<std::endl; */
+    if(eIdDb.count(keyId) == 1){
+      return eIdDb[keyId];
+    }
+    if(sIdDb.count(keyId) == 1){
+      return sIdDb[keyId];
+    }
+    return KeyList();
+  }
+
+  bool writeToStr(std::string& keyString)
+  {
+    bool result = true;
+    if(userIdDb.size() <= 0 ) return false; // empty database
+
+    std::map <SecretKeyPair*, bool> processed;
+    for(auto& list:userIdDb){
+      for(auto& it:list.second){
+        processed[it] = false;
+      }
+    }
+
+    for(auto& list:userIdDb){
+      for(auto& it:list.second){
+        if(!processed[it]){
+          if(it->exportPair(keyString, true)){
+            processed[it] = true;
+          }
+          else{
+            return false;
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+
+  bool writeToFile(const std::string& fileName)
+  {
+    bool result = true;
+    if(userIdDb.size() <= 0 ){
+      std::cout<<"Not exporting - empty database"<<std::endl;
+      return false; // empty database
+    }
+    std::ofstream myfile;
+    myfile.open(fileName);
+    if(!myfile.is_open()){
+      std::cout<<"Not exporting - failed to open file"<<std::endl;
+      return false;
+    }
+
+    std::map <SecretKeyPair*, bool> processed;
+    for(auto& list:userIdDb){
+      for(auto& it:list.second){
+        processed[it] = false;
+      }
+    }
+
+    for(auto& list:userIdDb){
+      for(auto& it:list.second){
+        if(!processed[it]){
+          std::string keyString;
+          keyString.clear();
+          if(it->exportPair(keyString, true)){
+            myfile << keyString;
+            processed[it] = true;
+          }
+          else{
+            myfile.close();
+            std::cout<<"Not exporting - failed to export key"<<std::endl;
+            return false;
+          }
+        }
+      }
+    }
+    myfile.close();
+    return result;
+  }
+
+
+  Confi_Status readFromStr(const std::string& keyData, bool clearOld, const std::string& filterId)
+  {
+    std::vector<PACKET> packets;
+    Confi_Status status;
+    status = PacketParser::parsePackets(packets, keyData);
+    if(status==ANG_OK){
+      if (clearOld){
+        clearDb();
+      }
+      status = addPackets(packets, filterId);
+    }
+    return status;
+  }
+
+
+  Confi_Status readFromFile(const std::string& fileName, bool clearOld, const std::string& filterId)
+  {
+    std::ifstream file (fileName, std::ios::in|std::ios::binary|std::ios::ate);
+    if (file.is_open()){
+      std::streampos size;
+      size = file.tellg();
+      char * memblock = (char*) malloc(sizeof(char)*size+1);
+      file.seekg (0, std::ios::beg);
+      file.read (memblock, size);
+      file.close();
+      Confi_Status status = readFromStr(std::string(memblock, size), clearOld, filterId);
+      free(memblock);
+      return status;
+    }
+    else{
+      return ANG_PARSE_ERROR;
+    }
+    return ANG_OK;
+  }
+
+  bool generateRsaKeys(const std::string& userId, const std::string& password, uint32_t size=4096){
+    SecretKeyPair* key = new SecretKeyPair;
+    if(key->generateRsaKeys(userId, password, size)){
+      bool status = addKey(key);
+      KeyList list = (userIdDb[userId]);
+    //List is sorted by date
+      return status;
+    }
+    else{
+      delete key;
+      return false;
+    }
+  }
+}

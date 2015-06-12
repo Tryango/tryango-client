@@ -1,0 +1,586 @@
+#hdr
+#include <assert.h>
+#include <time.h>
+#include <map>
+#include <openssl/md5.h>
+#include <openssl/ripemd.h>
+#include <openssl/evp.h>
+#include <openssl/rsa.h>
+#include <openssl/evp.h>
+#include <algorithm>
+
+#include "packet.h"
+#include "angCommon.h"
+#include "packetParser.h"
+#include "publicKeyDb.h"
+
+/* #define PUBKEY_USAGE_SIG     1      /\* key is good for signatures *\/ */
+/* #define PUBKEY_USAGE_ENC     2      /\* key is good for encryption *\/ */
+/* #define PUBKEY_USAGE_CERT    4      /\* key is also good to certify other keys*\/ */
+/* #define PUBKEY_USAGE_AUTH    8      /\* key is good for authentication *\/ */
+/* #define PUBKEY_USAGE_UNKNOWN 128    /\* key has an unknown usage bit *\/ */
+/* #define PUBKEY_USAGE_NONE    256    /\* No usage given. *\/ */
+#end
+
+#src
+#include "keyDb.h"
+#end
+/* What qualifies as a certification (rather than a signature?) */
+#define IS_CERT(s)       (IS_KEY_SIG(s) || IS_UID_SIG(s) || IS_SUBKEY_SIG(s) \
+                         || IS_KEY_REV(s) || IS_UID_REV(s) || IS_SUBKEY_REV(s))
+#define IS_SIG(s)        (!IS_CERT(s))
+#define IS_KEY_SIG(s)    ((s)->sig_class == SGN_DIRECT)
+#define IS_UID_SIG(s)    (((s)->sig_class & ~3) == SGN_CERT_GEN)
+#define IS_SUBKEY_SIG(s) ((s)->sig_class == SGN_SUBKEY)
+#define IS_KEY_REV(s)    ((s)->sig_class == SGN_REV)
+#define IS_UID_REV(s)    ((s)->sig_class == SGN_CERT_REV)
+#define IS_SUBKEY_REV(s) ((s)->sig_class == SGN_SUB_REV)
+
+
+class KeyDb;
+class PublicKeyDb;
+class SignKey{
+ private:
+
+
+/*
+ * Helper to hash a user ID packet.
+ */
+  static std::string encodeUid (const PKT_user_id *uid)
+  {
+    std::string result;
+    int size = uid->id.size();
+/*     if (uid->isAttribute){ */
+/*       result.push_back(0xd1);         /\* Indicates an attribute packet.  *\/ */
+/*     } */
+/*     else{ */
+#if defined(_MSC_VER)
+    result.push_back(-76);        /* Indicates a userid packet.  */
+#else
+    result.push_back(0xb4);        /* Indicates a userid packet.  */
+#endif
+/*     } */
+    result.push_back(size>> 24);    /* Always use 4 length bytes.  */
+    result.push_back(size>> 16);
+    result.push_back(size>>  8);
+    result.push_back(size     );
+    result.append(uid->id);
+    return result;
+  }
+
+  static std::string sig2Magic(const PKT_signature *sig)
+  {
+
+    std::string result;
+    if (sig->version >= 4){
+      result.push_back(sig->version);
+    }
+    result.push_back(sig->sig_class);
+    if (sig->version < 4) {
+      result.append(PktDo::packTimestamp(sig->timestamp));
+    }
+    else {
+      result.push_back(sig->pubkey_algo);
+      result.push_back(sig->digest_algo);
+
+      std::string hashed = PktDo::getSubpackets(sig, sig->hashed);
+      size_t n = hashed.size();
+      result.push_back(n >> 8);
+      result.push_back(n );
+      result.append(hashed);
+      n += 6;
+
+      /* add some magic */
+      result.push_back(sig->version);
+#if defined(_MSC_VER)
+      result.push_back(-1);
+#else
+      result.push_back(0xff);
+#endif
+      result.push_back(n >> 24);
+      result.push_back(n >> 16);
+      result.push_back(n >> 8);
+      result.push_back(n     );
+    }
+    return result;
+  }
+  //050254AAB9DD021B02060B090807030206150802090A0B0416020301021E0102178031323
+  static std::string generateKeyFlags(  const SGN_Type& sgnClass
+                                      , const bool isPrimary
+                                      ){
+    uint8_t flags = 0;
+/*     if(isPrimary){ */
+/*       use = PUBKEY_USAGE_SIG | PUBKEY_USAGE_CERT; */
+/*     } */
+/*     else{ */
+/*       use = PUBKEY_USAGE_ENC;// | PUBKEY_USAGE_AUTH; */
+/*     } */
+
+    /* The spec says that all primary keys MUST be able to certify. */
+    if(sgnClass!=SGN_SUBKEY){
+      flags |= 0x01;
+    }
+
+    if (isPrimary){//use & PUBKEY_USAGE_SIG){
+      flags |= 0x02;
+    }
+    else{
+/*     if (use & PUBKEY_USAGE_ENC){ */
+      flags |= 0x04 | 0x08;
+    }
+/*     if (use & PUBKEY_USAGE_AUTH){ */
+/*       flags |= 0x20; */
+/*     } */
+    std::string sFlags;
+    sFlags.push_back(flags);
+    return sFlags;
+/*     buildSigSubpkt (sig, SIGSUBPKT_KEY_FLAGS, sFlags); */
+  }
+
+ public:
+  static std::string hash2Str(const PKT_DigestAlgo& algo)
+  {
+    switch(algo) {
+      case DIGEST_ALGO_MD5:
+        return std::string("MD5");
+      case DIGEST_ALGO_SHA1:
+        return std::string("SHA1");
+      case DIGEST_ALGO_RMD160:
+        return std::string("RMD160");
+      case DIGEST_ALGO_SHA256:
+        return std::string("SHA256");
+      case DIGEST_ALGO_SHA384:
+        return std::string("SHA384");
+      case DIGEST_ALGO_SHA512:
+        return std::string("SHA512");
+      case DIGEST_ALGO_SHA224:
+        return std::string("SHA224");
+      default:
+#if defined(_MSC_VER)
+        return std::string();
+#else
+        return std::string("", 0);
+#endif
+    }
+  }
+
+  static std::string getHashPrefix(const PKT_DigestAlgo& algo)
+  {
+    switch(algo) {
+      case DIGEST_ALGO_MD5:
+        return std::string("\x30\x20\x30\x0C\x06\x08\x2A\x86\x48\x86\xF7\x0D\x02\x05\x05\x00\x04\x10", 18);
+      case DIGEST_ALGO_SHA1:
+        return std::string("\x30\x21\x30\x09\x06\x05\x2b\x0E\x03\x02\x1A\x05\x00\x04\x14", 15);
+      case DIGEST_ALGO_RMD160:
+        return std::string("\x30\x21\x30\x09\x06\x05\x2B\x24\x03\x02\x01\x05\x00\x04\x14", 15);
+      case DIGEST_ALGO_SHA256:
+        return std::string("\x30\x31\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x01\x05\x00\x04\x20", 19);
+      case DIGEST_ALGO_SHA384:
+        return std::string("\x30\x41\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x02\x05\x00\x04\x30", 19);
+      case DIGEST_ALGO_SHA512:
+        return std::string("\x30\x51\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x03\x05\x00\x04\x40", 19);
+      case DIGEST_ALGO_SHA224:
+        return std::string("\x30\x31\x30\x0d\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x04\x05\x00\x04\x1C", 19);
+      default:
+#if defined(_MSC_VER)
+        return std::string();
+#else
+        return std::string("", 0);
+#endif
+    }
+  }
+
+
+  static std::string getSelfSigHash(  const PKT_signature *sig
+                                    , const PKT_user_id *uid
+                                    , const PKT_public_key* pk
+                                    , const PKT_public_key *subpk
+                                    ){
+    std::string toHash;
+    SGN_Type sigClass = sig->sig_class;
+    toHash.clear();
+    toHash.append(PktDo::pubKey2Str(pk));
+    if( subpk != NULL && (sigClass == SGN_SUBKEY || sigClass == SGN_PRIMARY || sigClass == SGN_SUB_REV)){
+      toHash.append(PktDo::pubKey2Str(subpk).replace(0,1,"\x99"));//need to patch - it took some time to catch that one...
+    }
+    else if( sigClass != SGN_DIRECT && sigClass != SGN_REV)
+    {
+      /* hash the user id */
+      toHash.append(encodeUid(uid));
+    }
+    toHash.append(sig2Magic(sig));
+    return hash(toHash, sig->digest_algo);
+  }
+
+/****************
+ * Create a signature packet for the given public key certificate and
+ * the user id and return it in ret_sig. User signature class SIGCLASS
+ * user-id is not used (and may be NULL if sigClass is 0x20) If
+ * SIGVERSION gives the minimal required signature packet version;
+ * this is needed so that special properties like local sign are not
+ * applied (actually: dropped) when a v3 key is used.  TIMESTAMP is
+ * the timestamp to use for the signature. 0 means "now" */
+  static Confi_Status genSelfSignature(  PKT_signature **ret_sig
+                                       , const PKT_user_id *uid
+                                       , const PKT_public_key* pk
+                                       , const PKT_public_key *subpk
+                                       , RSA* skRsa
+                                       , const SGN_Type sigClass
+                                       , const time_t timestamp
+                                       , const time_t duration
+                                       , PKT_DigestAlgo digest_algo = DIGEST_ALGO_SHA1
+                                       ){
+    PKT_signature *sig;
+    assert( (sigClass == SGN_CERT_GEN || sigClass == SGN_CERT_POS)
+      || sigClass == SGN_DIRECT
+      || sigClass == SGN_REV || sigClass == SGN_SUBKEY || sigClass == SGN_PRIMARY
+      || sigClass == SGN_CERT_REV || sigClass == SGN_SUB_REV
+      || sigClass == SGN_CERT_PERS ||sigClass == SGN_CERT_CAS );
+    sig = new PKT_signature;
+    sig->version = 4;
+    sig->flags.exportable=1;
+    sig->flags.revocable=1;
+    sig->keyid = pk->fingerprint.substr(12, 8);
+    sig->pubkey_algo = pk->pubkey_algo;
+    sig->digest_algo = digest_algo;
+    if(timestamp != 0){
+      sig->timestamp = timestamp;
+    }
+    else{
+      sig->timestamp = time(0);
+    }
+    sig->sig_expirePeriod = duration ? duration : 0;
+    sig->sig_class = sigClass;
+    addSubpkt(sig, SIGSUBPKT_ISSUER);
+    addSubpkt(sig, SIGSUBPKT_SIG_CREATED);
+    if(sig->sig_expirePeriod != 0){
+      addSubpkt(sig, (PKT_SigSubpktType)(SIGSUBPKT_SIG_EXPIRE | SIGSUBPKT_FLAG_CRITICAL));
+    }
+
+    std::string pref;
+    if( subpk != NULL && (sigClass == SGN_SUBKEY || sigClass == SGN_PRIMARY || sigClass == SGN_SUB_REV)){
+      sig->key_flags = generateKeyFlags(sig->sig_class, (bool)subpk->is_primary);
+      addSubpkt(sig, SIGSUBPKT_KEY_FLAGS);
+    }
+    else if(subpk == NULL && sigClass != SGN_REV){
+      sig->key_flags = generateKeyFlags(sig->sig_class, (bool)pk->is_primary);
+      addSubpkt(sig, SIGSUBPKT_KEY_FLAGS);
+
+      sig->best_cipher_algo.clear();
+      sig->best_cipher_algo.push_back(CIPHER_ALGO_AES256);
+      sig->best_cipher_algo.push_back(CIPHER_ALGO_AES192);
+      sig->best_cipher_algo.push_back(CIPHER_ALGO_AES);
+      sig->best_cipher_algo.push_back(CIPHER_ALGO_CAST5);
+      sig->best_cipher_algo.push_back(CIPHER_ALGO_3DES);
+      addSubpkt(sig, SIGSUBPKT_PREF_SYM);
+
+      sig->best_hash_algo.clear();
+      sig->best_hash_algo.push_back(DIGEST_ALGO_SHA256);
+      sig->best_hash_algo.push_back(DIGEST_ALGO_SHA1);
+      sig->best_hash_algo.push_back(DIGEST_ALGO_SHA384);
+      sig->best_hash_algo.push_back(DIGEST_ALGO_SHA512);
+      sig->best_hash_algo.push_back(DIGEST_ALGO_SHA224);
+      addSubpkt(sig, SIGSUBPKT_PREF_HASH);
+
+      sig->best_pack_algo.clear();
+      sig->best_pack_algo.push_back(COMPRESS_ALGO_ZLIB);
+      sig->best_pack_algo.push_back(COMPRESS_ALGO_BZIP2);
+      sig->best_pack_algo.push_back(COMPRESS_ALGO_ZIP);
+      addSubpkt(sig, SIGSUBPKT_PREF_COMPR);
+
+      sig->features.clear();
+      sig->features.push_back(0x1);//Modification detection
+      addSubpkt(sig, SIGSUBPKT_FEATURES);
+
+      sig->ks_flags.clear();
+#if defined(_MSC_VER)
+      sig->ks_flags.push_back(-128);//no modify
+#else
+      sig->ks_flags.push_back(0x80);//no modify
+#endif
+      addSubpkt(sig, SIGSUBPKT_KS_FLAGS);
+    }
+    Confi_Status status = updateSignature(sig, uid, pk, subpk, skRsa);
+
+    if(*ret_sig != NULL){
+      delete (*ret_sig);
+    }
+    if(status==ANG_OK){
+      *ret_sig = sig;
+    }
+    else{
+      delete sig;
+    }
+    return status;
+  }
+
+  static Confi_Status updateSignature(PKT_signature *sig
+                                      , const PKT_user_id *uid
+                                      , const PKT_public_key* pk
+                                      , const PKT_public_key *subpk
+                                      , RSA* skRsa
+                                      ){
+    std::string hash = getSelfSigHash(sig, uid, pk, subpk);
+    sig->digest_start = hash.substr(0, 2);
+    /* EMSA-PKCS1-v1_5 as described in Section 9.2 of RFC 3447 */
+    std::string prefix = getHashPrefix(sig->digest_algo);
+    Confi_Status status = ANG_OK;
+    if(RSA_check_key(skRsa)!=1){
+      status = ANG_FAIL_GEN_SELFSIG;
+    };
+    char *sigBuff = new char[RSA_size(skRsa)];
+    if(status == ANG_OK){
+      int sigSize = RSA_private_encrypt(prefix.size()+hash.size(), (unsigned char*)(prefix+hash).c_str(),
+                                        (unsigned char *)sigBuff, skRsa, RSA_PKCS1_PADDING);
+      sig->data = std::string((char*)sigBuff, sigSize);
+    }
+    delete [] sigBuff;
+    return status;
+  }
+
+
+  static bool addSubpkt (  PKT_signature *sig
+                       , const PKT_SigSubpktType t
+                       ){
+    int hashed;
+
+/*   critical = (t & SIGSUBPKT_FLAG_CRITICAL); */
+    PKT_SigSubpktType type = (PKT_SigSubpktType)(t & (~SIGSUBPKT_FLAG_CRITICAL));
+    switch(type) {
+    case SIGSUBPKT_NOTATION:
+    case SIGSUBPKT_POLICY:
+    case SIGSUBPKT_REV_KEY:
+    case SIGSUBPKT_SIGNATURE:
+      /* we do allow multiple subpackets */
+      break;
+    default:
+    /* we do
+          {
+
+          } while (condition);n't allow multiple subpackets */
+      sig->hashed.erase(std::remove(sig->hashed.begin(), sig->hashed.end(), t), sig->hashed.end());
+      sig->unhashed.erase(std::remove(sig->unhashed.begin(), sig->unhashed.end(), t), sig->unhashed.end());
+      break;
+  }
+
+    switch( type ) {
+      /* The issuer being unhashed is a historical oddity.  It
+         should work equally as well hashed.  Of course, if even an
+         unhashed issuer is tampered with, it makes it awfully hard
+         to verify the sig... */
+    case SIGSUBPKT_ISSUER:
+    case SIGSUBPKT_SIGNATURE:
+      hashed = 0;
+      break;
+    default:
+      hashed = 1;
+      break;
+    }
+    /*  if( critical ) */
+    /*    type = (PKT_SigSubpktType)(type | SIGSUBPKT_FLAG_CRITICAL); */
+    if (hashed){
+      sig->hashed.push_back(t);
+    }
+    else{
+      sig->unhashed.push_back(t);
+    }
+    return true;
+  }
+
+
+  static const EVP_MD* getHashType(const PKT_DigestAlgo algo)
+  {
+    switch(algo){
+    case DIGEST_ALGO_SHA256:
+      return EVP_sha256();
+
+    case DIGEST_ALGO_SHA512:
+      return EVP_sha512();
+
+    case DIGEST_ALGO_SHA224:
+      return EVP_sha224();
+
+    case DIGEST_ALGO_SHA384:
+      return EVP_sha384();
+
+    case DIGEST_ALGO_MD5:
+      return EVP_md5();
+
+    case DIGEST_ALGO_RMD160:
+      return EVP_ripemd160();
+
+    case DIGEST_ALGO_SHA1:
+      return EVP_sha1();
+    default:
+      return NULL;
+    }
+  }
+
+  static std::string hash(const std::string data, PKT_DigestAlgo algo = DIGEST_ALGO_SHA256){
+    unsigned char mdValue[EVP_MAX_MD_SIZE];
+    const EVP_MD *md = getHashType(algo);
+    if(md == NULL) return "";
+    EVP_MD_CTX *mdctx;
+    mdctx = EVP_MD_CTX_create();
+    unsigned int mdLen;
+    int status = 1;
+    status = EVP_DigestInit_ex(mdctx, md, NULL);
+    if(!status){
+      goto Error;
+    }
+    status = EVP_DigestUpdate(mdctx, (unsigned char*)data.c_str(),data.size());
+    if(!status){
+      goto Error;
+    }
+    status = EVP_DigestFinal_ex(mdctx, mdValue, &mdLen);
+    if(!status){
+      goto Error;
+    }
+    EVP_MD_CTX_destroy(mdctx);
+    return std::string((char*)mdValue, mdLen);
+  Error:
+    EVP_MD_CTX_destroy(mdctx);
+    return "";
+  }
+
+  static Confi_Status verifySignature(EVP_MD_CTX *mdctx //contains hashed message
+                                      , PKT_signature* sig
+                                      , const std::string& sender
+                                      , PublicKeyDb* pubDb
+                                      ){
+    unsigned char mdValue[EVP_MAX_MD_SIZE];
+    unsigned int mdLen;
+
+    PublicKeyPair* pkey = pubDb->getKey(sender);
+    if(pkey == NULL){
+      std::cout<<"Verify fail no 1"<<std::endl;
+      return ANG_NOPUBKEY_SIG;
+    }
+    PKT_public_key* signPk = pkey->getPSKey();
+    if(signPk == NULL){
+      std::cout<<"Verify fail no 2"<<std::endl;
+      return ANG_NOPUBKEY_SIG;
+    }
+    if(PublicKeyDb::hasExpired(signPk, sig->timestamp)){
+      std::cout<<"Verify fail no 3"<<std::endl;
+      return ANG_SIGKEY_EXPIRED;
+    }
+    if(sig->sig_expirePeriod > 0){
+      time_t now;
+      time(&now);
+      if(now < sig->sig_expirePeriod + sig->timestamp){
+        std::cout<<"Verify fail no 4"<<std::endl;
+        return ANG_SIG_EXPIRED;
+      }
+    }
+    if(signPk->fingerprint.substr(12, 8) != sig->keyid){
+      std::cout<<"Verify fail no 5"<<std::endl;
+      return ANG_NOPUBKEY_SIG;
+    }
+    RSA *rsa = SecretKeyPair::newRSA();
+    PublicKeyPair::getRsaKey(rsa, signPk);
+#if defined(_MSC_VER)
+    char *to = new char[RSA_size(rsa)];
+#else
+    char to[RSA_size(rsa)];
+#endif
+    int ret = RSA_public_decrypt(sig->data.size(), (unsigned char*)(sig->data.data()),
+                                   (unsigned char*)to, rsa, RSA_PKCS1_PADDING);
+    if(ret >0){
+      std::string toHash = sig2Magic(sig);
+      if(!EVP_DigestUpdate(mdctx, (unsigned char*)toHash.c_str(), toHash.size())){
+#if defined(_MSC_VER)
+        delete [] to;
+#endif
+        return ANG_PARSE_ERROR;
+      }
+      if(!EVP_DigestFinal_ex(mdctx, mdValue, &mdLen)){
+#if defined(_MSC_VER)
+        delete [] to;
+#endif
+        return ANG_PARSE_ERROR;
+      }
+      toHash = std::string((char*)to, ret);
+#if defined(_MSC_VER)
+      delete [] to;
+#endif
+      if(toHash == (getHashPrefix(sig->digest_algo) + std::string((char*)mdValue, mdLen))){
+        return ANG_OK;
+      }
+      else{
+        return ANG_WRONG_SIG;
+      }
+    }
+    else{
+      return ANG_PARSE_ERROR;
+    }
+
+  }
+
+
+  static Confi_Status signData(PKT_signature *sig
+                               , const std::string& toSign //assumed to have correct line endings etc
+                               , const std::string& signer
+                               , KeyDb& keyDb
+                               , const std::string& password
+                               , const bool binary = false
+                                  ){
+    sig->version = 4;
+    SecretKeyPair* skPair = keyDb.getCurrentKey(signer);
+    if(skPair == NULL) {
+      return ANG_NO_KEY_PRESENT;
+    }
+    PKT_secret_key* sk = skPair->getSSKey();
+    if(sk == NULL) {
+      return ANG_NO_KEY_PRESENT;
+    }
+    PKT_DigestAlgo digest_algo = DIGEST_ALGO_NONE; //choosing hash algo
+    for(auto& it:sk->pkey.user_ids){
+      if(it->id.find(signer)!= std::string::npos){
+        if(it->signature == NULL || it->signature->best_hash_algo.size() == 0){
+          return ANG_NO_KEY_PRESENT;
+        }
+        digest_algo = it->signature->best_hash_algo.at(0);
+        break;
+      }
+    }
+    if(digest_algo == DIGEST_ALGO_NONE) {
+      return ANG_NO_KEY_PRESENT;
+    }
+    sig->digest_algo = digest_algo;
+    sig->pubkey_algo = sk->pkey.pubkey_algo;
+    if(sig->pubkey_algo > PUBKEY_ALGO_RSA_S) {
+      return ANG_KEY_ALG_NOT_SUPPORTED;
+    }
+    sig->timestamp = time(0);
+    sig->keyid = sk->pkey.fingerprint.substr(12, 8);
+    addSubpkt(sig, SIGSUBPKT_ISSUER);
+    addSubpkt(sig, SIGSUBPKT_SIG_CREATED);
+    if(binary){
+      sig->sig_class = SGN_BINARY;
+    }
+    else{
+      sig->sig_class = SGN_TEXT;
+    }
+/*     std::cout<<"Signing text:"<<string_to_hex(toSign)<<std::endl; */
+    std::string md = hash(toSign + sig2Magic(sig), sig->digest_algo);
+    sig->digest_start = md.substr(0, 2);
+    std::string prefix = getHashPrefix(sig->digest_algo);
+    RSA *skRsa = SecretKeyPair::newRSA();
+    Confi_Status status = SecretKeyPair::getRsaSecretKey(skRsa, sk, password);
+    if(status == ANG_OK){
+#if defined(_MSC_VER)
+      char *sigBuff = new char[RSA_size(skRsa)];
+#else
+      char sigBuff[RSA_size(skRsa)];
+#endif
+      int sigSize = RSA_private_encrypt(prefix.size()+md.size(), (unsigned char*)(prefix+md).c_str(), (unsigned char *)sigBuff, skRsa, RSA_PKCS1_PADDING);
+      sig->data = std::string((char*)sigBuff, sigSize);
+#if defined(_MSC_VER)
+      delete [] sigBuff;
+#endif
+    }
+    SecretKeyPair::freeRSA(skRsa);
+    return status;
+  }
+}

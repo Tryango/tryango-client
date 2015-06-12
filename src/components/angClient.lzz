@@ -1,0 +1,733 @@
+#hdr
+#include <google/protobuf/io/zero_copy_stream_impl_lite.h>
+#include <google/protobuf/io/coded_stream.h>
+#include <google/protobuf/text_format.h>
+
+//for signature verification
+#include <vector>
+#include <fstream>
+//connection using ssl
+#include "messageHandler.h"
+#include "angSsl.h"
+#include "angCommon.h"
+#include "angProofs.h"
+#include "logger.h"
+#include "keyDb.h"
+#include "publicKeyDb.h"
+#end
+
+class SSLInputStream: public google::protobuf::io::ZeroCopyInputStream {
+ private:
+  enum State {
+    INITIAL = 0,    /* initial state */
+    NEXT = 1,       /* next data should be read from stream */
+    BUFFERED = 2,   /* next data should be read from buffer */
+    SSLERROR = 3       /* some sort of error occurred */
+  };
+
+  uint64_t byte_count;
+  State state;
+  ConfiSsl &ssl;
+  std::vector<char> read_buffer;
+
+
+  bool fill_buffer(
+                   ){
+    read_buffer.resize(1024);
+    int n_bytes_read = ssl.receive(&read_buffer[0], 1024);
+    if (n_bytes_read <= 0){
+      state = SSLERROR;
+      return false;
+    }
+    else {
+      read_buffer.resize(n_bytes_read);
+      state = BUFFERED;
+      return true;
+    }
+  }
+
+
+ public:
+
+
+ SSLInputStream(ConfiSsl &ssl_connection
+                ):
+  byte_count(0),
+    state(INITIAL),
+    ssl(ssl_connection)
+    {
+      read_buffer.reserve(1024);
+    }
+
+
+  bool Next(const void **data
+            , int *size
+            ){
+    if (state == SSLERROR) return false;
+    if (state != BUFFERED){
+      if (!fill_buffer()) return false;
+    }
+    *data = &read_buffer[0];
+    *size = read_buffer.size();
+    state = NEXT;
+    byte_count += *size;
+    return true;
+  }
+
+
+  void BackUp(int count
+              ){
+    if (state != NEXT) state = SSLERROR;
+    else if ((unsigned int)count > read_buffer.size()) state = SSLERROR;
+    else {
+      read_buffer.erase(read_buffer.begin(), read_buffer.end() - count);
+      byte_count -= count;
+      state = BUFFERED;
+    }
+  }
+
+
+  bool Skip(int count
+            ){
+    if (state == SSLERROR) return false;
+    if (count == 0) return true;
+    else if (state == BUFFERED){
+      if ((unsigned int)count >= read_buffer.size()){
+        state = NEXT;
+        byte_count += read_buffer.size();
+        return Skip(count - read_buffer.size());
+      }
+      else {
+        byte_count += count;
+        read_buffer.erase(read_buffer.begin(), read_buffer.begin() + count);
+        return true;
+      }
+    }
+    else {
+      if (!fill_buffer()) return false;
+      state = BUFFERED;
+      return Skip(count);
+    }
+  }
+
+
+  int64_t ByteCount(
+                   ) const{
+    return byte_count;
+  }
+}
+
+
+
+class ConfiClient
+{
+
+
+ private:
+
+
+  std::string lHost;
+  std::string lcertificateFile; //to check updates
+  std::string tempKey;
+/*   std::string ap; */
+/*   std::string device; */
+  TreeNode root;
+  uint32_t lPort;
+  ConfiSsl ssl;
+  SSLInputStream ssl_stream;
+  RSA* rsa;
+  Logger* logger;
+  KeyDb keyDb;  //contain secret keys of the user
+  PublicKeyDb publicKeyDb;  //contain secret keys of the user
+
+
+ public:
+
+
+ ConfiClient(): ssl_stream(ssl), publicKeyDb(this)
+  {
+    lPort=0;
+    logger = NULL;
+    rsa = NULL;
+  }
+
+
+  virtual ~ConfiClient(
+                       ){
+    if (logger!=NULL){
+      delete logger;
+    }
+    if(rsa != NULL){
+      SecretKeyPair::freeRSA(rsa);}
+  }
+
+
+  PublicKeyDb& getPubDb(
+                        ){
+    return publicKeyDb;
+  }
+
+
+  KeyDb& getKeyDb(
+                  ){
+    return keyDb;
+  }
+
+  bool checkMailAddr(const std::string& id
+                     ){
+    return publicKeyDb.checkMailAddr(id);
+  }
+
+
+  void setLoggerPath(const std::string& logfilePath
+                     ){
+    if (logger != NULL){
+      delete logger;
+    }
+    logger = new Logger(logfilePath);
+  }
+
+
+  inline bool generateRsaKeys(const std::string& userId
+                              , const std::string& password
+                              , uint32_t size=4096
+                              ){
+    const bool result = keyDb.generateRsaKeys(userId, password,  size);
+    log("Generating keys for identity: " + userId + " was "+(result?"successful":"unsuccessful") + ".");
+    return result;
+  }
+
+
+  bool exportRsaKey(std::string fileName
+                    , std::string passPhrase
+                    ){
+    std::ofstream myfile;
+    myfile.open (fileName);
+    myfile << passPhrase<<"set ";
+    myfile.close();
+    return false;
+  }
+
+
+  bool importRsaKey(std::string fileName
+                    , std::string passPhrase
+                    ){
+    return false;
+  }
+
+
+  bool verifySignature(const tryango::Signed_Response& res
+                       ){
+    if(rsa==NULL) return false;
+    char hashStr[HASH_SIZE];
+    std::string dest;
+    res.response().SerializeToString(&dest);
+    ConfiVerifier::hash(dest, hashStr);
+    std::string sig = res.signature();
+    if(sig.size() != 256) return false;
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
+    unsigned char output[4096];
+#else
+    unsigned char output[RSA_size(rsa)];
+#endif
+    RSA_public_decrypt(sig.size(), (unsigned char*)sig.c_str(),
+                                      output, rsa, RSA_NO_PADDING);
+    bool result = true;
+    result = result && (memcmp(output+(sig.size()-HASH_SIZE),
+                     hashStr, HASH_SIZE)==0);
+    std::string header = SignKey::getHashPrefix(DIGEST_ALGO_SHA256);
+    result = result && (memcmp(output + (sig.size() - HASH_SIZE) - header.size(),
+                               header.c_str(), header.size())==0);
+    return result;
+  }
+
+
+  bool setServer(std::string host
+                 , uint32_t port
+                 , const std::string& certificateFile
+                 ){
+    //if already up to date: do not do anything
+    if(lHost == host && lPort == port && lcertificateFile == certificateFile){
+      return true;
+    }
+    lHost=host;
+    lPort=port;
+    root.hash.clear();
+    lcertificateFile = certificateFile;
+    if(ssl.initCertificate(certificateFile.c_str())){
+      rsa = ssl.getRsa();
+      ssl.testAndShutdownConnection(); //checks if connection exists then shuts down
+      return true;
+    }
+    return false;
+  }
+
+
+  uint32_t getPort(
+                  ){
+    return lPort;
+  }
+
+  std::string getHost(){
+    return lHost;
+  }
+
+
+  TreeNode getRoot(
+                   ){
+    if (root.hash.empty()){
+      selectRoot();
+    }
+    return root;
+  }
+
+
+  Confi_Status selectRoot(
+                         ){
+    tryango::Request req;
+    tryango::Response res;
+    req.mutable_select_root(); //equivalent to SetInParent for python
+    Confi_Status result = sendReceive(res, req);
+    if(result!=ANG_OK) return result;
+    if(!res.has_select_root()) return ANG_WRONG_RESP;
+    root.len = res.select_root().cur_len();
+    root.hash = res.select_root().h_cur();
+    return ANG_OK;
+  }
+
+
+
+  Confi_Status getServerInfo(std::string& dest
+                             ){
+    tryango::Request req;
+    tryango::Response res;
+    req.mutable_server_info(); //equivalent to SetInParent for python
+    Confi_Status result = sendReceive(res, req);
+    if(result!=ANG_OK) return result;
+    if (!res.has_server_info()) return ANG_WRONG_RESP;
+    dest = res.server_info().hash_algorithm();
+    return ANG_OK;
+  }
+
+
+  Confi_Status proveExtend(const TreeNode& oldRoot
+                           ){
+
+    tryango::Request req;
+    tryango::Response res;
+    req.mutable_prove_extend()->set_len(oldRoot.len);
+    Confi_Status result = sendReceive(res, req, true);
+    if(result!=ANG_OK) return result;
+    std::string proof;
+    proof=res.prove_extend().pf_extension();
+    if(ConfiVerifier::vpfcte(proof, oldRoot, root, logger)){
+      return ANG_OK;
+    }
+    else return ANG_WRONG_PROOF;
+  }
+
+
+  Confi_Status getLast(TreeLeaf* resTree
+                       ){
+    tryango::Request req;
+    tryango::Response res;
+    req.mutable_get_last(); //equivalent to SetInParent for python
+    Confi_Status result = sendReceive(res, req, true);
+    if(result!=ANG_OK) return result;
+
+    std::string proof=res.get_last().pf_cur_leaf();
+    TreeNode leaf;
+    res.get_last().cur_leaf().SerializeToString(&leaf.hash);
+    leaf.len  = root.len;
+    if(resTree!=NULL){
+      resTree->hash = leaf.hash;
+      resTree->time = res.get_last().cur_leaf().created_time();
+    }
+    if(ConfiVerifier::vpfctp(proof, leaf, root, logger)){
+      return ANG_OK;
+    }
+    else return ANG_WRONG_PROOF;
+  }
+
+
+  /* ask server to verify an email by sending email with proper ap*/
+  Confi_Status signup(std::string identity, std::string device, std::string reqId
+                      ){
+    tryango::Request req;
+    tryango::Response res;
+    req.mutable_verify()->set_identity(identity); //equivalent to SetInParent for python
+    req.mutable_verify()->set_device(device);
+    req.mutable_verify()->set_reqid(reqId);
+    Confi_Status result = sendReceive(res, req, true);
+    if(result!=ANG_OK) return result;
+     if (res.verify().identity().compare(identity) == 0){
+       return ANG_OK;
+     }
+     else{
+       return ANG_BAD_H_ID;
+     }
+  }
+
+
+  Confi_Status submit(std::string& ap
+                      , const std::string& identity
+                      , const std::string& device
+                      , const std::string& keyStr
+                      ){
+    tryango::Request req;
+    tryango::Response res;
+    req.mutable_submit()->set_identity(identity);
+    req.mutable_submit()->set_device(device);
+    req.mutable_submit()->set_attachment(keyStr);
+    std::string random = MessageHandler::getRandomString(32);
+    req.mutable_submit()->set_random(random);
+    req.mutable_submit()->set_ap(ap);
+    char hashAttachment[HASH_SIZE];
+    ConfiVerifier::hash(keyStr, hashAttachment);
+    req.mutable_submit()->mutable_entry()->set_hattachment(std::string(hashAttachment, HASH_SIZE));
+    req.mutable_submit()->mutable_entry()->set_type(tryango::PUBLISH);
+
+    Confi_Status result = sendReceive(res, req, true);
+    if(result!=ANG_OK) return result;
+    ap = updateAp(ap, random);
+    return ANG_OK;
+  }
+
+
+  Confi_Status revoke(std::string& ap
+                      , const std::string& identity
+                      , const std::string& device
+                      , const std::string& password
+                      ){
+    tryango::Request req;
+    tryango::Response res;
+    PublicKeyPair* pk = publicKeyDb.getKey(identity);
+    SecretKeyPair* sk = keyDb.getCurrentKey(identity);
+    if(pk->getPSKey()->fingerprint != sk->getPSKey()->fingerprint){
+      return ANG_NO_KEY_PRESENT;
+    }
+    //get revocation signature
+    PKT_user_id*  userId = new PKT_user_id;
+    userId->id = std::string(identity);
+    userId->signature = NULL;
+    RSA* signRsa = SecretKeyPair::newRSA();
+    Confi_Status status = SecretKeyPair::getRsaSecretKey(signRsa , sk->getSSKey() , password);
+    if (status != ANG_OK) return status;
+    status = SignKey::genSelfSignature(&(userId->signature), userId, sk->getPSKey(), NULL, signRsa, SGN_REV, time(0), (time_t)0);
+    if (status != ANG_OK) return status;
+
+    std::string revokeSignature = PktDo::signature2Str(userId->signature);
+    delete userId->signature;
+    delete userId;
+    SecretKeyPair::freeRSA(signRsa);
+
+    req.mutable_submit()->set_identity(identity);
+    req.mutable_submit()->set_device(device);
+    req.mutable_submit()->set_attachment(revokeSignature);
+    std::string random = MessageHandler::getRandomString(32);
+    req.mutable_submit()->set_random(random);
+    req.mutable_submit()->set_ap(ap);
+    char hashAttachment[HASH_SIZE];
+    ConfiVerifier::hash(revokeSignature, hashAttachment);
+    req.mutable_submit()->mutable_entry()->set_hattachment(std::string(hashAttachment, HASH_SIZE));
+    req.mutable_submit()->mutable_entry()->set_type(tryango::REVOKE);
+
+    status = sendReceive(res, req, true);
+    if(status != ANG_OK) return status;
+    ap = updateAp(ap, random);
+    return ANG_OK;
+  }
+
+
+  Confi_Status getDevices(char*** resDevices
+                          , uint32_t* resultSize
+                          , std::string& ap
+                          , const std::string& identity
+                          , const std::string device
+                          ){
+    tryango::Request req;
+    tryango::Response res;
+    req.mutable_devices()->set_identity(identity);
+    req.mutable_devices()->set_device(device);
+    std::string random = MessageHandler::getRandomString(32);
+    req.mutable_devices()->set_random(random);
+    req.mutable_devices()->set_ap(ap);
+    Confi_Status result = sendReceive(res, req, false);
+    if(result!=ANG_OK) return result;
+    ap = updateAp(ap, random);
+    *resultSize = res.devices().devices_size();
+    if(res.devices().identity().compare(identity)==0 && *resultSize>0){
+      *resDevices = (char**) malloc((*resultSize)*sizeof(char*));
+      for (uint32_t i=0;i<(*resultSize); i++){
+        uint32_t strLen = res.devices().devices(i).length();
+        (*resDevices)[i] = (char*) malloc((strLen+1)*sizeof(char));
+        memcpy((*resDevices)[i], res.devices().devices(i).c_str(), strLen*sizeof(char));
+        //watch out! strLen+1 is one character after the last character!
+        (*resDevices)[i][strLen]='\0';
+      }
+      return ANG_OK;
+    }
+    else return ANG_NO_ENTRIES;
+  }
+
+
+  Confi_Status removeDevices(std::string& ap
+                          , const std::string& identity
+                          , const std::string device
+                          , const char** devices
+                          , const uint32_t devicesSize
+                          ){
+    tryango::Request req;
+    tryango::Response res;
+    req.mutable_remdevices()->set_identity(identity);
+    req.mutable_remdevices()->set_device(device);
+    std::string random = MessageHandler::getRandomString(32);
+    req.mutable_remdevices()->set_random(random);
+    req.mutable_remdevices()->set_ap(ap);
+    for(unsigned int i = 0; i < devicesSize; i++){
+      req.mutable_remdevices()->add_devices(*(devices+i));
+    }
+    Confi_Status status = sendReceive(res, req, false);
+    if(status == ANG_OK){
+      ap = updateAp(ap, random);
+    }
+    return status;
+  }
+
+
+  bool removeKeyPurse(const char* path
+                      ){
+    keyDb.clearDb();
+    int status = remove(path);
+    return status == 0;
+  }
+
+
+  Confi_Status find(std::string& last, std::string id
+                    , const std::vector<tryango::Entry_Type>* types=NULL
+                    , const std::string* h_later_than=NULL
+                    , const bool origin_wanted=false
+                    ){
+    tryango::Request req;
+    tryango::Response res;
+    char h_id[HASH_SIZE];
+    ConfiVerifier::hash(id, h_id);
+    req.mutable_find()->set_h_identity(std::string(h_id, HASH_SIZE));
+    if(types!=NULL){
+      for(std::vector<int>::size_type i = 0; i != types->size(); i++) {
+          req.mutable_find()->add_types((*types)[i]);
+      }
+    }
+    if(h_later_than!=NULL){
+      req.mutable_find()->set_h_later_than(*h_later_than);
+    }
+    if(origin_wanted){
+      req.mutable_find()->set_origin_wanted(origin_wanted);
+    }
+    selectRoot();
+
+    Confi_Status result = sendReceive(res, req, true);
+
+    if(result!=ANG_OK){
+      return result;
+    }
+    if(res.find().entries_size()>0){
+      log(std::string("found ")+ patch::to_string(res.find().entries_size()) + std::string(" entries for id") + id);
+      std::string encodedReq;
+      if(res.find().entries(0).has_h_prev()){
+        log("ANG_PREV_PRESENT");
+        return ANG_PREV_PRESENT;
+      }
+      int i;
+      for(i=0; i< res.find().entries_size(); i++){
+        log("i="+patch::to_string(i));
+        const tryango::Entry_Set entry = res.find().entries(i);
+        if(i > 0){
+          tryango::Entry_Set prevEntry = res.find().entries(i-1);
+          char hashPrev[HASH_SIZE];
+          std::string sPrevEntry;
+          prevEntry.SerializeToString(&sPrevEntry);
+          ConfiVerifier::hash(sPrevEntry, hashPrev);
+          if(entry.h_prev().compare(std::string(hashPrev, HASH_SIZE)) != 0){
+            return ANG_BAD_MERKLE_CHAIN;
+          }
+          if(entry.ct_index() <= prevEntry.ct_index()){
+            return ANG_NOT_ASC_CT_INDEX;
+          }
+        }
+        if(entry.h_identity().compare(std::string(h_id, HASH_SIZE)) != 0){
+          log("BAD h_id"+ string_to_hex(std::string(h_id)) + " got:"+string_to_hex(entry.h_identity()));
+          return ANG_BAD_H_ID;
+        }
+      }
+
+      /* int lastI = res.find().entries_size()-1;//TODO - improve - no checking for revocation */
+      int attSize=res.find().attachments().size();//TODO - change in the server the order of attachments? Right now the most recent one is first
+      log(std::string("att size=")+patch::to_string(attSize));
+      if(attSize > 0){
+        last=res.find().attachments(res.find().entries(0).entries_size()-1);
+      }
+    }
+    return ANG_OK;
+  }
+
+
+  Confi_Status find_last(std::string& last
+                         , tryango::Entry_Type& type
+                         , const std::string id
+                         , const bool origin_wanted=false
+                    ){
+    tryango::Request req;
+    tryango::Response res;
+    char h_id[HASH_SIZE];
+    ConfiVerifier::hash(id, h_id);
+    req.mutable_find_last()->set_h_identity(std::string(h_id, HASH_SIZE));
+    if(origin_wanted){
+      req.mutable_find_last()->set_origin_wanted(origin_wanted);
+    }
+    selectRoot();
+
+    Confi_Status result = sendReceive(res, req, true);
+
+    if(result!=ANG_OK){
+      return result;
+    }
+    if(res.find_last().has_entries()){
+      const tryango::Entry_Set entry = res.find_last().entries();
+      if(entry.h_identity().compare(std::string(h_id, HASH_SIZE)) != 0){
+        log("BAD h_id"+ string_to_hex(std::string(h_id)) + " got:"+string_to_hex(entry.h_identity()));
+        return ANG_BAD_H_ID;
+      }
+      if(res.find_last().has_attachment()){
+        last = res.find_last().attachment();
+      }
+      else{
+        return ANG_NO_ENTRIES;
+      }
+      type = entry.entries(entry.entries_size()-1).type();
+    }
+    return ANG_OK;
+  }
+
+
+  void log(std::string msg){
+    if(logger!=NULL){
+      (*logger)<<msg<<std::endl;
+      logger->flush();
+    }
+  }
+
+
+  inline bool hasSecretKey(const std::string& userId)
+  {
+    return keyDb.hasSecretKey(userId);
+  }
+
+
+
+  PublicKeyPair* getPublicKey(const std::string& id)
+  {
+    return publicKeyDb.getKey(id);
+  }
+
+
+  void setTempKey(const std::string key){
+    tempKey = key;
+  }
+
+
+  std::string getTempKey(){
+    return tempKey;
+  }
+
+
+ protected:
+
+
+  std::string updateAp(const std::string& oldAp,
+                       std::string random
+                       ){
+    assert(!oldAp.empty());
+    char dest[HASH_SIZE];
+    ConfiVerifier::hash(oldAp+random, dest);
+    return std::string(dest,HASH_SIZE);
+  }
+
+
+  Confi_Status sendToServer(const std::string& toSend){
+    if (lPort==0 || lHost.empty())
+      return ANG_NO_HOST;
+    long sent = ssl.send(toSend);
+    if(sent<=0) {
+      if(ssl.connect(lHost.c_str(),lPort)!=ANG_OK) return ANG_FAIL_CONNECT;
+      sent = ssl.send(toSend);
+      if (sent<=0) return ANG_FAIL_SEND;
+      if (toSend.length()==((unsigned long)sent)) return ANG_OK;
+    }
+    else{
+      if (toSend.length()==((unsigned long)sent)) return ANG_OK;
+    }
+    return ANG_UNKNOWN_ERROR;
+  }
+
+
+  Confi_Status receiveFromServer(tryango::Signed_Response &response_out
+                                 ){
+    uint32_t message_size;
+    google::protobuf::io::CodedInputStream coded_input (&ssl_stream);
+    if (!coded_input.ReadVarint32(&message_size)) return ANG_FAIL_RECEIVE;
+    if (message_size > 4 * 1024 * 1024) return ANG_FAIL_RECEIVE; /* message is too long */
+    coded_input.PushLimit(message_size);
+    if (!response_out.ParseFromCodedStream(&coded_input)) return ANG_FAIL_RECEIVE;
+    return ANG_OK;
+  }
+
+
+  bool encodeRequest(const tryango::Request &req
+                     , std::string &encoded_data_out
+                     ){
+    google::protobuf::io::StringOutputStream raw_output (&encoded_data_out);
+    google::protobuf::io::CodedOutputStream coded_output (&raw_output);
+    coded_output.WriteVarint32(req.ByteSize());
+    return req.SerializeToCodedStream(&coded_output);
+  }
+
+
+  Confi_Status sendReceive(tryango::Response& response
+                           , const tryango::Request req
+                           , const bool doSelectRoot = false
+                           ){
+    if (lPort==0 || lHost.empty()) return ANG_NO_HOST;
+    Confi_Status result = ANG_UNKNOWN_ERROR;
+    std::string encodedReq;
+
+    if (doSelectRoot && root.hash.empty()){
+      result = selectRoot();
+      if (result!=ANG_OK) return result;
+    }
+
+    result = encodeRequest(req, encodedReq)?ANG_OK:ANG_FAIL_ENCODE;
+    if(result!=ANG_OK) return result;
+
+    result = sendToServer(encodedReq);
+    if(result!=ANG_OK) return result;
+
+    tryango::Signed_Response res;
+    result = receiveFromServer(res);
+    if(result!=ANG_OK) return result;
+
+    result = verifySignature(res)?ANG_OK:ANG_WRONG_SIG;
+    if(result!=ANG_OK) return result;
+
+    response=res.response();
+    if (response.has_error()){
+      std::cerr<<response.error()<<std::endl;
+      return ANG_SERVER_ERROR;
+    }
+    return ANG_OK;
+  }
+
+
+
+
+}

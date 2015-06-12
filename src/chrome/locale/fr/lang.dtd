@@ -1,0 +1,7 @@
+<!-- French Tryango Language Pack -->
+
+<!ENTITY  tryango.label	"Tryango">
+<!ENTITY  menu.signup		"Inscrire">
+<!ENTITY  menu.reset		"Réinitialiser">
+<!ENTITY  menu.settings		"Paramètres">
+<!ENTITY  menu.revoke		"PANIQUE! (Retirer clé)">

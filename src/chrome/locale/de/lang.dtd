@@ -1,0 +1,24 @@
+<!-- German Tryango Language Pack -->
+
+<!ENTITY  tryango.label		"Tryango">
+
+<!ENTITY  menu.signup			"Anmelden">
+<!ENTITY  menu.settings			"Einstellungen">
+<!ENTITY  menu.reset			"Reset">
+
+<!ENTITY  menu.backup			"Backup">
+<!ENTITY  menu.showlog			"Zeige Server-Log / Check Status">
+<!ENTITY  menu.help			"Hilfe">
+<!ENTITY  menu.encrypt			"Verschlüsselung">
+<!ENTITY  menu.sign			"Signatur">
+
+<!ENTITY  wizard.title			"Anmeldung">
+<!ENTITY  wizard.page_1			"E-Mail Adresse">
+<!ENTITY  wizard.mail			"Bitte wählen Sie die entsprechende E-mail Adresse für Tryango aus">
+
+<!ENTITY  settings.title		"Einstellungen">
+<!ENTITY  settings.generaltab		"Allgemein">
+<!ENTITY  settings.encryptiontab	"Verschlüsselung">
+
+<!ENTITY  about.title			"Über">
+

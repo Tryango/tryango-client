@@ -1,0 +1,231 @@
+package tryango;
+
+option optimize_for = LITE_RUNTIME;
+
+/* This file describes the protocol message formats (described in protocol.txt). */
+
+enum Entry_Type {
+    PUBLISH    = 1;
+    REVOKE     = 2;
+}
+
+// message Publish {
+//     required bytes hattachment = 3;
+// }
+// 
+// message Revoke {
+//     required bytes hattachment = 7;
+// //  required uint32 entry = 1;
+// }
+
+message Entry {
+    required bytes hattachment = 1;
+    required Entry_Type type   = 2;
+//     optional Publish publish  = 1 /* PUBLISH */;
+//     optional Revoke revoke    = 2 /* REVOKE */;
+}
+
+message Entry_Set {
+    required bytes h_identity   = 5; /*hash of identity*/
+    repeated Entry entries      = 6;
+    optional bytes h_prev       = 7; /*hash of node before adding this entry set*/
+    required uint64 ct_index    = 8;/*unique id used in database*/
+}
+
+message CT_Leaf {
+    required bytes lt_hash       = 1;
+    required string created_time = 2;
+}
+
+message Request {
+    optional Req_Server_Info    server_info  = 11;
+    optional Req_Select_Root    select_root  = 12;
+    optional Req_Prove_Extend   prove_extend = 13;
+    optional Req_Get_Last       get_last     = 14;
+    optional Req_Audit          audit        = 15;
+    optional Req_Find           find         = 16;
+    optional Req_Submit         submit       = 17;
+    optional Req_Verify         verify       = 18;
+    optional Req_ListDevices    devices      = 19;
+    optional Req_RemoveDevices  remdevices   = 20;
+    optional Req_Find_Last      find_last    = 21;
+}
+
+message Response {
+    optional string             error        =  1;
+    optional Rsp_Server_Info    server_info  = 11;
+    optional Rsp_Select_Root    select_root  = 12;
+    optional Rsp_Prove_Extend   prove_extend = 13;
+    optional Rsp_Get_Last       get_last     = 14;
+    optional Rsp_Audit          audit        = 15;
+    optional Rsp_Find           find         = 16;
+    optional Rsp_Submit         submit       = 17;
+    optional Rsp_Verify         verify       = 18;
+    optional Rsp_ListDevices    devices      = 19;
+    optional Rsp_RemoveDevices  remdevices   = 20;
+    optional Rsp_Find_Last      find_last    = 21;
+}
+
+message Request_Response {
+    required string time       = 1;
+    required Request request   = 2;
+    required Response response = 3;
+}
+
+message Signed_Response {
+    required Response response = 1;
+    required string time       = 2;
+    required bytes signature   = 3;
+}
+
+message Req_Server_Info {
+}
+
+message Rsp_Server_Info {
+    required string hash_algorithm = 1;
+    repeated bytes certificates    = 2;
+}
+
+message Req_Select_Root {
+}
+
+message Rsp_Select_Root {
+    required uint64 cur_len = 1;
+    required bytes h_cur = 2;
+}
+
+message Req_Prove_Extend {
+    required uint64 len = 1;
+}
+
+message Rsp_Prove_Extend {
+    required bytes pf_extension = 1;
+}
+
+message Req_Get_Last {
+}
+
+message Rsp_Get_Last {
+    required CT_Leaf cur_leaf  = 1;
+    required bytes pf_cur_leaf = 2;
+}
+
+message Req_Audit {
+    required uint64 first = 1;
+    required uint64 last  = 2;
+}
+
+message Rsp_Audit {
+    message Result {
+        required CT_Leaf leaf       = 1;
+        required bytes pf_leaf      = 2;
+        required PFLTC pf_changes   = 3;
+    }
+    required CT_Leaf prev_leaf  = 1;
+    required bytes pf_prev_leaf = 2;
+    repeated Result results     = 3;
+}
+
+message Req_Find {
+    required bytes h_identity   = 1;
+    repeated Entry_Type types   = 2;
+    optional bytes h_later_than = 3;
+    optional bool origin_wanted = 4 [default = false];
+}
+
+message Rsp_Find {
+    repeated Entry_Set entries  = 1;
+    repeated bytes attachments  = 2;
+    required PFLTP pf_last      = 3;
+    optional Origin origin      = 4;
+}
+
+message Req_Find_Last {
+    required bytes h_identity   = 1;
+    optional bool origin_wanted = 2 [default = false];
+}
+
+message Rsp_Find_Last {
+  optional Entry_Set entries  = 1;
+  optional bytes attachment   = 2;
+  optional PFLTP pf_last      = 3;
+  optional Origin origin      = 4;
+}
+
+message Origin {
+    required CT_Leaf prev       = 1;
+    required CT_Leaf orig       = 2;
+    required bytes pf_prev      = 3;
+    required bytes pf_orig      = 4;
+    required PFLTC pf_changes   = 5;
+}
+
+message Req_Submit {
+    required string identity    = 1;
+    required string device      = 2;
+    required Entry entry        = 3;
+    required bytes attachment   = 4;
+    required bytes ap           = 5;
+    required bytes random       = 6;
+}
+
+    
+message Rsp_Submit {
+}
+
+message Req_Verify {
+    required string identity    = 1;
+    required string device      = 2;
+    required string reqid       = 3;
+}
+
+    
+message Rsp_Verify {
+    optional string identity    = 1;
+    optional string device      = 2;
+}
+
+message Req_ListDevices {
+    required string identity    = 1;
+    required string device      = 2;
+    required bytes ap           = 3;
+    required bytes random       = 4;
+}
+
+message Rsp_ListDevices {
+    required string identity    = 1;
+    repeated string devices     = 2;
+}
+
+message Req_RemoveDevices {
+    required string identity    = 1;
+    required string device      = 2;
+    required bytes ap           = 3;
+    required bytes random       = 4;
+    repeated string devices     = 5;
+}
+
+message Rsp_RemoveDevices {
+}
+
+message LT_Node {
+    optional bytes h_left       = 1;
+    optional bytes h_right      = 2;
+}
+
+message CT_Node {
+    required uint64 n_leaves    = 1;
+    required bytes h_left       = 2;
+    required bytes h_right      = 3;
+}
+
+message PFLTP {
+    repeated bytes hashes = 1;
+    optional Entry_Set wrong_leaf = 2;
+}
+
+message PFLTC {
+    required bytes operations = 1;
+    required bytes hashes = 2;
+    repeated Entry_Set entries = 3;
+}

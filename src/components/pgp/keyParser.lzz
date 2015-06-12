@@ -1,0 +1,628 @@
+#hdr
+#include <openssl/evp.h>
+#include <map>
+#include "angCommon.h"
+#include "packet.h"
+#include "signKey.h"
+#include "pgp/bufferFilter.h"
+
+#end
+class KeyParser{
+ private:
+
+  static BIGNUM* mpi2bn(BufferFilter& bf)
+  {
+    int bytes;
+    int bits = bf.getC() * 256;
+    bits += bf.getC();
+    bytes = (bits + 7) / 8;
+#if defined(_MSC_VER)
+    uint8_t *buff = new uint8_t[bytes];
+#else
+    uint8_t buff[bytes];
+#endif
+    for (int i = 0; i < bytes; i++){
+      buff[i] = bf.getC();
+    }
+    BIGNUM* check;
+    BIGNUM* num = BN_new();
+    check = BN_bin2bn(buff, bytes, num);
+#if defined(_MSC_VER)
+    delete [] buff;
+#endif
+    if(check == NULL){
+      BN_clear_free(num);
+      return NULL;
+    }
+    else {
+      return num;
+    }
+  }
+
+
+  static Confi_Status parseOldPublicKey(PKT_public_key& result
+                                        , BufferFilter& bf
+                                        ){
+    int days;
+    parseTime(result.timestamp, bf);
+    days = bf.getC() * 256;
+    days += bf.getC();//TODO - change days to expire date
+    printf("\tValid days - %d[0 is forever]\n", days);
+    if(days == 0){
+      result.expirePeriod = 0;
+    }
+    else{
+      result.expirePeriod = 86400 * days;
+    }
+    result.pubkey_algo = (PKT_PubkeyAlgo)bf.getC();
+    if(result.pubkey_algo != 1) return ANG_PARSE_ERROR; /* PUBLIC should be 1 */
+
+    BIGNUM* num;
+    num = mpi2bn(bf);
+    if (num == NULL){
+      return ANG_PARSE_ERROR;
+    }
+    result.n = num;
+
+    num = mpi2bn(bf);
+    if (num == NULL){
+      return ANG_PARSE_ERROR;
+    }
+    result.e = num;
+    return ANG_OK;
+  }
+
+  static Confi_Status parseNewPublicKey(PKT_public_key& result
+                                        , BufferFilter& bf
+                                        , int len
+                                        ){
+    parseTime(result.timestamp, bf);
+    result.expirePeriod = 0;
+    result.pubkey_algo = (PKT_PubkeyAlgo)bf.getC();
+    switch (result.pubkey_algo) {
+    case PUBKEY_ALGO_RSA:
+    case PUBKEY_ALGO_RSA_E:
+    case PUBKEY_ALGO_RSA_S:
+      BIGNUM* num;
+      num = mpi2bn(bf);
+      if (num == NULL){
+        return ANG_PARSE_ERROR;
+      }
+      result.n = num;
+      num = mpi2bn(bf);
+      if (num == NULL){
+        return ANG_PARSE_ERROR;
+      }
+      result.e = num;
+      return ANG_OK;
+    case PUBKEY_ALGO_ELGAMAL_E:
+    case PUBKEY_ALGO_ELGAMAL://TODO
+/*       ElGamal p */
+/*       ElGamal g */
+/*       ElGamal y */
+    case PUBKEY_ALGO_DSA:
+/*       DSA p */
+/*       DSA q */
+/*       DSA g */
+/*       DSA y */
+    default:
+/*       printf("\tUnknown public key(pub %d)\n", PUBLIC); */
+      bf.skip(len - 5);
+      return ANG_KEY_ALG_NOT_SUPPORTED;
+    }
+  }
+
+  static Confi_Status parseSigSubPacket(PKT_signature& signature
+                                        , BufferFilter& bf
+                                        , int len
+                                        ){
+    int done = 0, subLen;
+    while (done < len){
+      subLen = bf.getC();
+      if (subLen < 192){
+        done++;
+      }
+      else if (subLen < 255) {
+        subLen = ((subLen - 192) << 8) + bf.getC() + 192;
+        done += 2;
+      }
+      else if (subLen == 255) {
+        subLen = bf.getC() << 24;
+        subLen |= bf.getC() << 16;
+        subLen |= bf.getC() << 8;
+        subLen |= bf.getC();
+        done += 5;
+      }
+      done += subLen;
+      if(subLen>0){
+        PKT_SigSubpktType subtype = (PKT_SigSubpktType)bf.getC(); /* len includes this field byte */
+        std::string subpacket;//retrieving whole subpacket for later parsing
+        if((PKT_SigSubpktType)(subtype & 0x7f) != SIGSUBPKT_SIGNATURE){
+          for (int i = 0; i < (subLen -1); i++){
+            char c = bf.getC();
+            if (!bf.gotError){
+              subpacket.push_back(c);
+            }
+            else{
+              printf("declared len %d is different from %d\n", subLen -1, i);
+              return ANG_PARSE_ERROR;
+            }
+          }
+        }
+        if((int)(subpacket.size()) != (subLen - 1)){
+          return ANG_PARSE_ERROR;
+        }
+
+        PKT_signature ess;
+        Confi_Status status;
+        SignKey::addSubpkt(&signature, (PKT_SigSubpktType)(subtype & 0x7f));
+        switch ((PKT_SigSubpktType) (subtype & 0x7f)) {
+        case SIGSUBPKT_SIG_CREATED:
+          signature.timestamp = 0;
+          if( subpacket.size() == 4){
+            for (int i = 0; i < 4; i++){
+              signature.timestamp = signature.timestamp * 256 + (subpacket.at(i)&0xFF);
+            }
+          }
+          else{
+            return ANG_PARSE_ERROR;
+          }
+          break;
+
+        case SIGSUBPKT_SIG_EXPIRE:
+          signature.sig_expirePeriod = 0;
+          if(subpacket.size() == 4){
+            for (int i = 0; i < 4; i++)
+              signature.sig_expirePeriod = signature.sig_expirePeriod * 256 + (subpacket.at(i)&0xFF);
+          }
+          else{
+            return ANG_PARSE_ERROR;
+          }
+          break;
+
+        case SIGSUBPKT_EXPORTABLE:
+          if( subpacket.size() == 1){
+            signature.flags.exportable = subpacket.at(0);
+          }
+          else{
+            return ANG_PARSE_ERROR;
+          }
+          break;
+
+        case SIGSUBPKT_TRUST:
+          if( subpacket.size() == 2){
+            signature.trust_depth = subpacket.at(0);
+            signature.trust_value = subpacket.at(1);
+          }
+          else{
+            return ANG_PARSE_ERROR;
+          }
+          break;
+
+        case SIGSUBPKT_REGEXP:
+          signature.trust_regexp = subpacket;
+
+        case SIGSUBPKT_REVOCABLE:
+          if( subpacket.size() == 1){
+            signature.flags.revocable = subpacket.at(0);
+          }
+          else{
+            return ANG_PARSE_ERROR;
+          }
+          break;
+
+        case SIGSUBPKT_KEY_EXPIRE:
+          signature.key_expirePeriod = 0;
+          if(subpacket.size() == 4){
+            for (int i = 0; i < 4; i++){
+              signature.key_expirePeriod = signature.key_expirePeriod * 256 + (0xFF&subpacket.at(i));
+            }
+          }
+          else{
+            return ANG_PARSE_ERROR;
+          }
+          break;
+
+        case SIGSUBPKT_ARR:
+          signature.arr = subpacket;
+          break;
+
+        case SIGSUBPKT_PREF_SYM:
+          for(unsigned int i = 0; i < subpacket.size(); i++ ){
+            signature.best_cipher_algo.push_back((PKT_CipherAlgo)subpacket.at(i));
+          }
+          break;
+
+        case SIGSUBPKT_REV_KEY:
+          if(subpacket.size() == 22){
+            revocation_key rkey;
+            rkey.classid = subpacket.at(0);
+            rkey.algid = subpacket.at(1);
+            rkey.fpr.append(subpacket.substr(2));
+            signature.revkey.push_back(rkey);
+          }
+          else{
+            return ANG_PARSE_ERROR;
+          }
+          break;
+
+        case SIGSUBPKT_ISSUER:
+          signature.keyid = subpacket;
+          break;
+
+        case SIGSUBPKT_NOTATION:
+          signature.notation_data.push_back(subpacket);
+          break;
+
+        case SIGSUBPKT_PREF_HASH:
+          for(unsigned int i = 0; i < subpacket.size(); i++ ){
+            signature.best_hash_algo.push_back((PKT_DigestAlgo)subpacket.at(i));
+          }
+          break;
+
+        case SIGSUBPKT_PREF_COMPR:
+          for(unsigned int i = 0; i < subpacket.size(); i++ ){
+            signature.best_pack_algo.push_back((PKT_CompressAlg)subpacket.at(i));
+          }
+          break;
+
+        case SIGSUBPKT_KS_FLAGS:
+          signature.ks_flags = subpacket;
+          break;
+
+        case SIGSUBPKT_PREF_KS:
+          signature.pref_ks = subpacket;
+          break;
+
+        case SIGSUBPKT_PRIMARY_UID:
+          if( subpacket.size() == 1){
+            signature.flags.primaryId = subpacket.at(0);
+          }
+          else{
+            return ANG_PARSE_ERROR;
+          }
+          break;
+
+        case SIGSUBPKT_POLICY:
+          signature.policy_uri.push_back(subpacket);
+          break;
+
+        case SIGSUBPKT_KEY_FLAGS:
+          signature.key_flags = subpacket;
+          break;
+
+        case SIGSUBPKT_SIGNERS_UID:
+          signature.signer_id = subpacket;
+          break;
+
+        case SIGSUBPKT_REVOC_REASON:
+          signature.revocation_reason = subpacket;
+          break;
+
+        case SIGSUBPKT_FEATURES:
+          signature.features = subpacket;
+          break;
+
+        case SIGSUBPKT_SIG_TARGET:
+          signature.signature_target = subpacket;
+          break;
+
+        case SIGSUBPKT_SIGNATURE:
+          status = parseSignature(ess, bf, subLen - 1);
+          if (status == ANG_OK){
+            signature.embeded_signature.push_back(ess);
+          }
+          else{
+            return status;
+          }
+          break;
+
+        default:
+          break;
+        }
+      }
+    }
+    return ANG_OK;
+  }
+
+  static Confi_Status parseNewSig(PKT_signature& signature
+                                  , BufferFilter& bf
+                                  , int len
+                                  ){
+    signature.sig_class = (SGN_Type)bf.getC();
+    signature.pubkey_algo = (PKT_PubkeyAlgo)bf.getC();
+    signature.digest_algo = (PKT_DigestAlgo)bf.getC();
+    int hsplen, usplen;
+    hsplen = bf.getC() * 256;
+    hsplen += bf.getC();
+    Confi_Status status = parseSigSubPacket(signature, bf, hsplen);
+    if (status == ANG_OK){
+      usplen = bf.getC() * 256;
+      usplen += bf.getC();
+      status = parseSigSubPacket(signature, bf, usplen);
+      if (status == ANG_OK){
+        signature.digest_start.clear();
+        signature.digest_start.push_back(bf.getC());
+        signature.digest_start.push_back(bf.getC());
+        signature.data.clear();
+        uint16_t bitSize = 0;
+        bitSize = bf.getC() * 256;
+        bitSize = bitSize + bf.getC();
+        if(((bitSize+8)/8)<(len - 11 - hsplen - usplen)){
+          return ANG_PARSE_ERROR;
+        }
+        for(int i = 0; i < len - 11 - hsplen - usplen; i++ ){
+          signature.data.push_back(bf.getC());
+        }
+      }
+    }
+    if(bf.gotError){
+      status = ANG_PARSE_ERROR;
+    }
+    return status;
+  }
+
+
+  static Confi_Status parseOldSig(PKT_signature& signature
+                                  , BufferFilter& bf
+                                  , int len
+                                  ){
+    bf.skip(len);
+    std::cout<<"Parsing of old version of signature is not implemented"<<std::endl;
+    return ANG_NO_SIG;
+  }
+
+ public:
+
+  static void parseTime(time_t& result, BufferFilter& bf)
+  {
+    result = 0;
+    for (int i = 0; i < 4; i++)
+      result = result * 256 + bf.getC();
+  }
+
+  static Confi_Status parsePublicKey(PKT_public_key& result
+                                     , BufferFilter& bf
+                                     , const int len
+                                     , bool primary
+                                     ){
+    result.expirePeriod = 0;
+    int version = bf.getC();
+    result.version = version;
+    Confi_Status status;
+    switch (version) {
+    case 2:
+    case 3:
+      status = parseOldPublicKey(result, bf);
+      break;
+    case 4:
+      status = parseNewPublicKey(result, bf, len - 1);
+      break;
+    default:
+      printf("unknown version (%d).", version);
+      bf.skip(len - 1);
+      return ANG_PARSE_ERROR;
+      break;
+    }
+    result.is_primary = primary;
+    return status;
+  }
+
+  static Confi_Status plainSecretKey(PKT_secret_key& result
+                        , BufferFilter& bf
+                        , const int len
+                        ){
+    switch (result.pkey.version) {
+    case 2:
+    case 3:
+      /* public algorithm should be RSA. */
+      if(result.pkey.pubkey_algo != PUBKEY_ALGO_RSA){
+        return ANG_PARSE_ERROR;
+      }
+      result.dBN = mpi2bn(bf);
+      result.pBN = mpi2bn(bf);
+      result.qBN = mpi2bn(bf);
+      result.uBN = mpi2bn(bf);
+      result.csum = bf.getC() << 8;
+      result.csum = result.csum + bf.getC();
+      break;
+    case 4:
+      switch (result.pkey.pubkey_algo) {
+      case PUBKEY_ALGO_RSA:
+      case PUBKEY_ALGO_RSA_E:
+      case PUBKEY_ALGO_RSA_S:
+        result.dBN = mpi2bn(bf);
+        result.pBN = mpi2bn(bf);
+        result.qBN = mpi2bn(bf);
+        result.uBN = mpi2bn(bf);
+        break;
+      case 16:
+      case 20:
+/*         multi_precision_integer("ElGamal x"); */
+/*         break; */
+      case 17:
+/*         multi_precision_integer("DSA x"); */
+/*         break; */
+      default:
+        printf("\tUsuported secret key(pub %d)\n", result.pkey.pubkey_algo);
+        bf.skip(len - 2);
+        return ANG_PARSE_ERROR;
+      }
+      result.csum = bf.getC() << 8;
+      result.csum = result.csum + bf.getC();
+      break;
+    default:
+      printf("\tunknown version (%d)\n", result.pkey.version);
+      bf.skip(len);
+      return ANG_PARSE_ERROR;
+    }
+    if(bf.gotError){
+      return ANG_PARSE_ERROR;
+    }
+    return ANG_OK;
+  }
+
+
+  static Confi_Status encrSecretKey(PKT_secret_key& result
+                        , BufferFilter& bf
+                        , const int len
+                        ){
+    result.encryptedData.clear();
+    result.dBN = NULL;
+    result.pBN = NULL;
+    result.qBN = NULL;
+    result.uBN = NULL;
+    result.csum = 0;
+    for (int i = 0; i < len && !bf.gotError; i++){
+      result.encryptedData.push_back(bf.getC());
+    }
+    if(bf.gotError){
+      return ANG_PARSE_ERROR;
+    }
+    else{
+      return ANG_OK;
+    }
+  }
+
+
+  static Confi_Status parseStringToKey(STRING2KEY& result
+                                      , BufferFilter& bf
+                                      ){
+    result.mode  = bf.getC();
+    switch (result.mode){
+    case 0:  //Simple s2k
+      result.hash_algo  = (PKT_DigestAlgo)bf.getC();
+      break;
+    case 1:   //Salted
+      result.hash_algo  = (PKT_DigestAlgo)bf.getC();
+      for (int i = 0; i < 8; i++){
+        result.salt[i] = bf.getC();
+      }
+      break;
+    case 2:  //Reserved
+      return ANG_PARSE_ERROR;
+    case 3:  //Iterated and salted
+      result.hash_algo  = (PKT_DigestAlgo)bf.getC();
+      for (int i = 0; i < 8; i++){
+        result.salt[i] = bf.getC();
+      }
+      result.count  = (PKT_DigestAlgo)bf.getC();
+      break;
+    case 101://GnuPG s2k
+    default:
+      return ANG_PARSE_ERROR;
+    }
+    if(bf.gotError){
+      return ANG_PARSE_ERROR;
+    }
+    else{
+      return ANG_OK;
+    }
+
+  }
+
+  static Confi_Status parseSecretKey(PKT_secret_key& result
+                                     , BufferFilter& bf
+                                     , const int len
+                                     , bool primary
+                                     ){
+    bf.getCResetlen();
+    parsePublicKey(result.pkey, bf, len, primary);
+
+    int encryptionMode = bf.getC();
+    Confi_Status status = ANG_OK;
+    result.protect.sha1chk = true;
+    result.is_protected = true;
+    switch (encryptionMode) {
+    case 0:
+      result.is_protected = false;
+      result.protect.sha1chk = false;
+      plainSecretKey(result, bf, len - bf.getCGetlen());
+      break;
+    case 255:
+      result.protect.sha1chk = false;
+    case 254:
+      if(result.pkey.version < 4){
+        return ANG_KEY_NOT_SUPPORTED;
+      }
+      result.protect.algo = (PKT_CipherAlgo)bf.getC();
+      status = parseStringToKey(result.protect.s2k, bf);
+      if(status == ANG_OK && PktDo::blockSize(result.protect.algo)<1){
+        return ANG_KEY_ALG_NOT_SUPPORTED;
+      }
+      if(status == ANG_OK){
+        for (unsigned int i = 0; i < PktDo::blockSize(result.protect.algo); i++){
+          result.protect.iv[i] = bf.getC();
+        }
+      }
+      else {
+        return status;
+      }
+      encrSecretKey(result, bf, len - bf.getCGetlen());
+/*       encrypted_Secret_Key(len - Getc_getlen(), YES); */
+      break;
+    default:
+       result.protect.algo = (PKT_CipherAlgo)bf.getC();
+/*       printf("\tSimple string-to-key for IDEA\n"); */
+/*       IV(iv_len(sym)); */
+/*       encrypted_Secret_Key(len - Getc_getlen(), NO); */
+/*       break; */
+      return ANG_PARSE_ERROR;
+    }
+    if(bf.gotError){
+      return ANG_PARSE_ERROR;
+    }
+    return ANG_OK;
+  }
+
+  static Confi_Status parseUserId(PKT_user_id& result
+                                  , BufferFilter& bf
+                                  , const int len
+                                  ){
+#if defined(_MSC_VER)
+    uint8_t *buff = new uint8_t[len];
+#else
+    uint8_t buff[len];
+#endif
+    for (int i = 0; i < len; i++){
+      buff[i] = bf.getC();
+    }
+    result.id = std::string((cast_t)buff, len);
+    result.signature = NULL;
+    if(buff[len-1] == EOF){
+#if defined(_MSC_VER)
+      delete [] buff;
+#endif
+      return ANG_PARSE_ERROR;
+    }
+    else{
+#if defined(_MSC_VER)
+      delete [] buff;
+#endif
+      return ANG_OK;
+    }
+  }
+
+  static Confi_Status parseSignature(PKT_signature& result
+                                     , BufferFilter& bf
+                                     , const int len
+                                     ){
+    int version = bf.getC();
+    result.version = version;
+    result.key_expirePeriod = 0;
+    result.sig_expirePeriod = 0;
+    switch (version) {
+    case 2:
+    case 3:
+      return parseOldSig(result, bf, len - 1);
+    case 4:
+      return parseNewSig(result, bf, len - 1);
+    default:
+      printf("unknown version of signature packet (%d) \n", version);
+      bf.skip(len - 1);
+      return ANG_PARSE_ERROR;
+    }
+  }
+
+}
+

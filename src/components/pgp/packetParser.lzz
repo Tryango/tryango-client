@@ -1,0 +1,520 @@
+#hdr
+#include <vector>
+#include "pgp/bufferFilter.h"
+#include "keyParser.h"
+#end
+
+
+class PacketParser{
+
+ public:
+  //TODO - lift assumption that compressed packet is until the end of file
+  static Confi_Status parsePackets(std::vector<PACKET> &packets
+                                   , const std::string& data
+                                   , std::string* msgText = NULL
+                            ){
+    PKT_Type tag;
+    PACKET pkt;
+    int len = 0;
+    bool partial = false;
+    bool havePacket = false;
+    if(data.size() < 1){
+      return ANG_NO_ENTRIES;
+    }
+    int c = data.at(0);
+    BufferFilter bf(data);
+    Confi_Status status;
+    /* If the PGP packet is in the binary raw form, 7th bit of
+     * the first byte is always 1. If it is set, let's assume
+     * it is the binary raw form. Otherwise, let's assume
+     * it is encoded with radix64.
+     */
+    if (c & 0x80) {
+      bf.setBinary();
+    }
+    else{
+      bf.setArmor();
+    }
+
+    while ((c = bf.getC1()) != EOF) {
+/*       printf("main %d\n",c); */
+      havePacket = true;
+      partial = false;
+      tag = (PKT_Type)(c & 0x3f); // TAG_MASK
+      if (c & 0x40){  // NEW_TAG_FLAG
+/*         printf("New: "); */
+        c = bf.getC();
+        len = parseLength(c, bf);
+        partial = isPartial(c);
+      }
+      else {
+        int tlen;
+
+        tlen = c & 0x03; //OLD_LEN_MASK;
+        tag  = (PKT_Type)(tag>> 2);       //OLD_TAG_SHIFT;
+/*         printf("Old len %d tag %d: ", tlen, tag); */
+
+        switch (tlen) {
+        case 0:
+          len = bf.getC();
+          break;
+        case 1:
+          len = (bf.getC() << 8);
+          len += bf.getC();
+          break;
+        case 2:
+          len = bf.getC() << 24;
+          len |= bf.getC() << 16;
+          len |= bf.getC() << 8;
+          len |= bf.getC();
+          break;
+        case 3:
+          if (tag == PKT_COMPRESSED)
+            len = 0;
+          else
+            len = EOF;
+          break;
+        }
+      }
+      pkt.pkttype = tag;
+      switch (tag)
+      {
+
+      case PKT_NONE: //  = 0
+        bf.skip(len);
+        break;
+
+      case PKT_PUBKEY_ENC: // =  1
+        pkt.pkt.pubkey_enc = new PKT_pubkey_enc;
+        status = parsePubkeyEncr(*(pkt.pkt.pubkey_enc), bf, len);
+        if(status == ANG_OK){
+          packets.push_back(pkt);
+        }
+        else{
+          free(pkt.pkt.pubkey_enc);
+          return status;
+        }
+        break;
+
+      case PKT_SIGNATURE: // =  2
+        pkt.pkt.signature = new PKT_signature;
+        status = KeyParser::parseSignature(*(pkt.pkt.signature), bf, len);
+        if(status == ANG_OK){
+          packets.push_back(pkt);
+        }
+        else{
+          free(pkt.pkt.signature);
+          return status;
+        }
+        break;
+
+      case PKT_SYMKEY_ENC: //  = 3
+        bf.skip(len);
+        break;
+
+      case PKT_ONEPASS_SIG: //  = 4
+        pkt.pkt.onepass_sig = new PKT_onepass_sig;
+        status = parseOnePass(*(pkt.pkt.onepass_sig), bf, len);
+        if(status == ANG_OK){
+          packets.push_back(pkt);
+        }
+        else{
+          free(pkt.pkt.onepass_sig);
+          return status;
+        }
+        break;
+
+      case PKT_SECRET_KEY: //  = 5
+        pkt.pkt.secret_key = new PKT_secret_key;
+        status = KeyParser::parseSecretKey(*(pkt.pkt.secret_key), bf, len, true);
+        if(status == ANG_OK){
+          packets.push_back(pkt);
+        }
+        else{
+          free(pkt.pkt.secret_key);
+          return status;
+        }
+        break;
+
+      case PKT_PUBLIC_KEY: // =  6
+        pkt.pkt.public_key = new PKT_public_key;
+        status = KeyParser::parsePublicKey(*(pkt.pkt.public_key), bf, len, true);
+        if(status == ANG_OK){
+          packets.push_back(pkt);
+        }
+        else{
+          free(pkt.pkt.public_key);
+          return status;
+        }
+        break;
+
+      case PKT_SECRET_SUBKEY: // =  7
+        pkt.pkt.secret_key = new PKT_secret_key;
+        status = KeyParser::parseSecretKey(*(pkt.pkt.secret_key), bf, len, false);
+        if(status == ANG_OK){
+          packets.push_back(pkt);
+        }
+        else{
+          free(pkt.pkt.secret_key);
+          return status;
+        }
+        break;
+
+      case PKT_COMPRESSED:    // =  8
+        bf.compressedDataPacket(len);
+        break;
+
+      case PKT_ENCRYPTED:    // =  9
+        bf.skip(len);
+        break;
+
+      case PKT_MARKER:    // =  10
+        bf.skip(len);
+        break;
+
+      case PKT_PLAINTEXT:    // =  11
+        pkt.pkt.plaintext = new PKT_plaintext;
+        status = parsePlaintext(*(pkt.pkt.plaintext), bf, len);
+        if(status == ANG_OK){
+          packets.push_back(pkt);
+        }
+        else{
+          free(pkt.pkt.plaintext);
+          return status;
+        }
+        break;
+
+      case PKT_RING_TRUST:    // =  12
+        bf.skip(len);
+        break;
+
+      case PKT_USER_ID:    // =  13
+        pkt.pkt.user_id = new PKT_user_id;
+        status = KeyParser::parseUserId(*(pkt.pkt.user_id), bf, len);
+        if(status == ANG_OK){
+          packets.push_back(pkt);
+        }
+        else{
+          free(pkt.pkt.user_id);
+          return status;
+        }
+        break;
+
+      case PKT_PUBLIC_SUBKEY:    // =  14
+        pkt.pkt.public_key = new PKT_public_key;
+        status = KeyParser::parsePublicKey(*(pkt.pkt.public_key), bf, len, false);
+        if(status == ANG_OK){
+          packets.push_back(pkt);
+        }
+        else{
+          free(pkt.pkt.public_key);
+          return status;
+        }
+        break;
+
+      case PKT_OLD_COMMENT:    // =  16
+        bf.skip(len);
+        break;
+
+      case PKT_ATTRIBUTE:    // =  17
+        bf.skip(len);
+        break;
+
+      case PKT_ENCRYPTED_MDC:    // =  18
+        pkt.pkt.encrypted = new PKT_encrypted;
+        parseEncryptedMDC(*(pkt.pkt.encrypted), bf, len);
+        if(status == ANG_OK){
+          packets.push_back(pkt);
+        }
+        else{
+          free(pkt.pkt.encrypted);
+          return status;
+        }
+        break;
+
+      case PKT_MDC:    // =  19
+        bf.skip(len);
+        break;
+
+      default:
+        printf("Unknown packet type %d length %d", tag, len);
+        bf.skip(len);
+        break;
+      }
+      if(tag != PKT_COMPRESSED){
+        while (partial) {
+          pkt = packets.back();
+          if(pkt.pkttype != PKT_PLAINTEXT &&
+             pkt.pkttype != PKT_ENCRYPTED_MDC){
+            return ANG_PARSE_ERROR;
+          }
+          c = bf.getC(); //TODO: endless loop when EOF here?
+          len = parseLength(c, bf);
+          partial = isPartial(c);
+          if (tag == PKT_ENCRYPTED_MDC){//encrypted
+            status = parseEncryptedMDC(*(pkt.pkt.encrypted), bf, len, true);
+            if(status != ANG_OK){
+              return status;
+            }
+          }
+          else{//Plaintext
+            status = parsePlaintext(*pkt.pkt.plaintext, bf, len, true);
+            if(status != ANG_OK){
+              return status;
+            }
+          }
+        }
+      }
+      if (len == EOF) return ANG_OK;
+    }
+/*     printf("after main %d\n",c); */
+    if ( havePacket == false ){
+      std::cout << "unexpected END of file." << std::endl;
+      return ANG_PARSE_ERROR;
+    }
+
+    if(msgText != NULL){ //pass message for clearSignVerify
+      (* msgText) = bf.getSkipped();
+    }
+    return ANG_OK;
+  }
+
+
+  static Confi_Status parsePlaintext(PKT_plaintext& result
+                                     , BufferFilter& bf
+                                     , int len
+                                     , bool cont = false
+                                     ){
+    if(!cont){
+      result.mode = bf.getC();
+      int flen = bf.getC();
+      for (int i = 0; i < flen; i++){
+        result.name.push_back(bf.getC());
+      }
+      KeyParser::parseTime(result.timestamp, bf);
+      len = len - 6 - flen;
+    }
+    bool last = false;
+
+    for (int i = 0; i < len; i++){
+      char c = bf.getC();
+      if(c == EOF){
+        //error happens with attachments
+        return ANG_PARSE_ERROR;
+      }
+      else if(result.mode == 'b'){
+        result.data.push_back(c);
+      }
+      else{
+        if(c != 0x0A && c != 0x0D){
+          if (last){
+            result.data.push_back('\x0D');
+            result.data.push_back('\x0A');
+            last = false;
+          }
+          result.data.push_back(c);
+        }
+        else{
+          if(c == 0x0A){
+            result.data.push_back('\x0D');
+            result.data.push_back('\x0A');
+            last = false;
+          }
+          else{//0x0D
+            last = true;
+          }
+        }
+      }
+    }
+    if (last){
+      result.data.push_back('\x0D');
+      result.data.push_back('\x0A');
+    }
+    if(bf.gotError){
+      return ANG_PARSE_ERROR;
+    }
+    else{
+      return ANG_OK;
+    }
+  }
+
+
+/*
+ * Returns: >= 0 use this offset into data
+ *	    -1 explicitly reject returning this type
+ *	    -2 subpacket too short
+ */
+  static int parseOneSigSubpkt (std::string data, PKT_SigSubpktType type)
+  {
+    int n = data.size();
+    switch (type) {
+    case SIGSUBPKT_REV_KEY:
+      if (n < 22)
+        break;
+      return 0;
+    case SIGSUBPKT_SIG_CREATED:
+    case SIGSUBPKT_SIG_EXPIRE:
+    case SIGSUBPKT_KEY_EXPIRE:
+      if (n < 4)
+        break;
+      return 0;
+    case SIGSUBPKT_KEY_FLAGS:
+    case SIGSUBPKT_KS_FLAGS:
+    case SIGSUBPKT_PREF_SYM:
+    case SIGSUBPKT_PREF_HASH:
+    case SIGSUBPKT_PREF_COMPR:
+    case SIGSUBPKT_POLICY:
+    case SIGSUBPKT_PREF_KS:
+    case SIGSUBPKT_FEATURES:
+    case SIGSUBPKT_REGEXP:
+      return 0;
+    case SIGSUBPKT_SIGNATURE:
+    case SIGSUBPKT_EXPORTABLE:
+    case SIGSUBPKT_REVOCABLE:
+    case SIGSUBPKT_REVOC_REASON:
+      if (n != 0)
+        break;
+      return 0;
+    case SIGSUBPKT_ISSUER:  /* issuer key ID */
+      if (n < 8)
+        break;
+      return 0;
+    case SIGSUBPKT_NOTATION:
+      /* minimum length needed, and the subpacket must be well-formed
+         where the name length and value length all fit inside the
+         packet. */
+      if (n < 8 || 8 + ((data.at(4) << 8) | data.at(5)) +
+    ((data.at(6) << 8) | data.at(7)) != n)
+        break;
+      return 0;
+    case SIGSUBPKT_PRIMARY_UID:
+      if (n != 1)
+        break;
+      return 0;
+    case SIGSUBPKT_TRUST:
+      if (n != 2)
+        break;
+      return 0;
+    default:
+      return 0;
+    }
+    return -2;
+  }
+
+
+  static Confi_Status parseOnePass(PKT_onepass_sig& result
+                                , BufferFilter& bf
+                                , int len
+                                ){
+    int version = bf.getC();
+    if (version != 3) return ANG_PARSE_ERROR;
+    result.sig_class = (SGN_Type)bf.getC();
+    result.digest_algo = (PKT_DigestAlgo)bf.getC();
+    result.pubkey_algo = (PKT_PubkeyAlgo)bf.getC();
+    for(int i = 0; i < 8; i++){
+      result.keyid.push_back(bf.getC());
+    }
+    result.last = bf.getC();
+    if(bf.gotError) return ANG_PARSE_ERROR;
+    return ANG_OK;
+  }
+
+  static Confi_Status parsePubkeyEncr(PKT_pubkey_enc& result
+                                , BufferFilter& bf
+                                , int len
+                                ){
+    result.version = bf.getC();
+    if(result.version != 3) return ANG_PARSE_ERROR;
+    result.keyid.clear();
+    for(int i = 0; i < 8; i++){
+      result.keyid.push_back(bf.getC());
+    }
+    result.pubkey_algo = (PKT_PubkeyAlgo) bf.getC();
+    uint8_t c;
+    int bits = bf.getC() * 256;
+    bits += bf.getC();
+    switch (result.pubkey_algo) {
+    case PUBKEY_ALGO_RSA:
+    case PUBKEY_ALGO_RSA_E:
+    case PUBKEY_ALGO_RSA_S:
+      result.data.clear();
+      for(int i = 0; i < len - 12; i++){
+        c = bf.getC();
+        if(c==EOF){
+          return ANG_PARSE_ERROR;
+        }
+        result.data.push_back(c);
+      }
+      return ANG_OK;
+    case PUBKEY_ALGO_ELGAMAL_E:
+    case PUBKEY_ALGO_ELGAMAL://TODO
+      /*       ElGamal p */
+      /*       ElGamal g */
+      /*       ElGamal y */
+    case PUBKEY_ALGO_DSA:
+      /*       DSA p */
+      /*       DSA q */
+      /*       DSA g */
+      /*       DSA y */
+    default:
+      /*       printf("\tUnknown public key(pub %d)\n", PUBLIC); */
+      bf.skip(len - 10);
+      return ANG_KEY_ALG_NOT_SUPPORTED;
+    }
+  }
+
+  static Confi_Status parseEncryptedMDC(PKT_encrypted& result
+                                        , BufferFilter& bf
+                                        , int len
+                                        , bool cont = false
+                                ){
+    if(!cont){
+      result.version = bf.getC();
+      if(result.version != 1) return ANG_PARSE_ERROR;
+      len--;
+    }
+    uint8_t c;
+    for(int i = 0; i < len; i++){
+      c = bf.getC();
+      if(c==EOF){
+        return ANG_PARSE_ERROR;
+      }
+      result.data.push_back(c);
+    }
+    return ANG_OK;
+  }
+
+ private:
+
+  static int parseLength(int c, BufferFilter& bf)
+  {
+    int len;
+
+    if (c < 192){
+      len = c;
+    }
+    else if (c < 224){
+      len = ((c - 192) << 8) + bf.getC() + 192;
+    }
+    else if (c == 255) {
+      len = (bf.getC() << 24);
+      len |= (bf.getC() << 16);
+      len |= (bf.getC() << 8);
+      len |= bf.getC();
+    }
+    else{
+      len = 1 << (c & 0x1f); //PARTIAL_MASK
+    }
+    return len;
+  }
+
+
+  static bool isPartial(int c)
+  {
+    if (c < 224 || c == 255)
+      return false;
+    else
+      return true;
+  }
+
+}

@@ -1,0 +1,1093 @@
+#hdr
+#include <openssl/bio.h>
+#include <openssl/rsa.h>
+#include <openssl/evp.h>
+#include <zlib.h>
+#include <algorithm>
+#include <set>
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
+#define NOMINMAX
+#include <windows.h>
+#include <Wincrypt.h>
+#else
+#include <openssl/rand.h>
+#endif
+
+#include "angCommon.h"
+#include "keyDb.h"
+#include "publicKeyDb.h"
+
+class KeyDb;
+class PublicKeyDb;
+#end
+#src
+#define MAX_RSA_SIZE 4096
+#end
+class MessageHandler{
+
+ private:
+  static const char b64_table[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+
+  static Confi_Status getDecrKey(std::string& result
+                                 , PKT_CipherAlgo& alg
+                                 , PKT_pubkey_enc& pkt
+                                 , KeyDb& keyDb
+                                 , const std::string& password
+                          ){
+    KeyList keys = keyDb.getKeysById(pkt.keyid);
+    uint16_t csum = 0;
+    if(keys.size() < 1){
+      return ANG_NO_KEY_PRESENT;
+    }
+    RSA* skRsa = SecretKeyPair::newRSA();
+    unsigned char output[MAX_RSA_SIZE];
+/*     Confi_Status status = SecretKeyPair::getRsaSecretKey(skRsa, keys.at(0)->getSEKey()); */
+/* #if defined(_MSC_VER) */
+/*     unsigned char *output = new unsigned char[MAX_RSA_SIZE]; */
+/* #else */
+/* #endif */
+    for(auto key:keys){
+      Confi_Status status = SecretKeyPair::getRsaSecretKey(skRsa, key->getSEKey(), password);
+      if(status == ANG_OK){
+        int decr = RSA_private_decrypt((pkt.data.size()), (unsigned char*)(pkt.data.c_str()),
+                                        output, skRsa, RSA_PKCS1_PADDING);
+        if(decr == -1){
+          SecretKeyPair::freeRSA(skRsa);
+          return ANG_PARSE_ERROR;
+        }
+        csum = ((uint8_t)*(output + decr -2))<<8;
+        csum = csum + ((uint8_t)*(output + decr - 1));
+        alg = (PKT_CipherAlgo)(*output);
+        result = std::string((char*)(output + 1), decr - 3);
+        if(csum == PktDo::checksum(result) && (alg <= CIPHER_ALGO_CAMELLIA256 )){
+          SecretKeyPair::freeRSA(skRsa);
+/* #if defined(_MSC_VER) */
+/*           delete [] output; */
+/* #endif */
+          return ANG_OK;
+        }
+      }
+      else{
+        std::cout<<"getDecrKey - wrong pass - status:"<<status<<std::endl;
+      }
+    }
+    SecretKeyPair::freeRSA(skRsa);
+/* #if defined(_MSC_VER) */
+/*     delete [] output; */
+/* #endif */
+    return ANG_NO_KEY_PRESENT;
+  }
+
+ public:
+
+  static std::string getRandomString(const unsigned int size = 1){
+#if defined(_MSC_VER)
+    char *buff = new char[size];
+#else
+    char buff[size];
+#endif
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
+     HCRYPTPROV   hCryptProv;
+     if(CryptAcquireContext(
+          &hCryptProv,
+          NULL,
+          NULL,
+          PROV_RSA_FULL,
+          0
+          )){
+       CryptGenRandom(hCryptProv, size,(PBYTE)buff);
+     }
+     if(hCryptProv){
+       CryptReleaseContext(hCryptProv, 0);
+     }
+#else
+    if(!RAND_bytes((unsigned char*)buff, size)){
+      do{
+        struct timeval tv;
+        gettimeofday(&tv,NULL);
+        char b[1];
+        b[0] = 0xFF&tv.tv_usec;
+        RAND_add(b, 1, 0.2);
+      } while(!RAND_bytes((unsigned char*)buff, size));
+    }
+#endif
+#if defined(_MSC_VER)
+    std::string result = std::string(buff, size);
+    delete [] buff;
+    return result;
+#else
+    return std::string(buff, size);
+#endif
+  }
+
+
+  static Confi_Status handlePlainPkt(std::string& result
+                                     , std::vector<PACKET>& v
+                                     , const std::string& sender
+                                     , PublicKeyDb* pubDb
+                                     ){
+    bool signaturePresent = false;
+    Confi_Status status = ANG_OK;
+    unsigned int size = result.size();
+    if(v.size()<1){
+      return ANG_PARSE_ERROR;
+    }
+    EVP_MD_CTX *mdctx = NULL;
+    //TODO - handle nested signatures
+    PKT_onepass_sig* onePass = NULL;
+    unsigned int i = 0;
+    for(i = 0; i < v.size() && (status == ANG_OK || status == ANG_WRONG_SIG); i++ ){
+      switch(v.at(i).pkttype){
+      case PKT_PLAINTEXT:
+        result.append(v.at(i).pkt.plaintext->data);
+        if(mdctx!=NULL){
+          std::string* pdata = &(v.at(i).pkt.plaintext->data);
+          std::cout<<"Signature checking text:"<<string_to_hex(*pdata)<<std::endl;
+          if(!EVP_DigestUpdate(mdctx, (unsigned char*)pdata->c_str(), pdata->size())){
+            status = ANG_PARSE_ERROR;
+          }
+        }
+        break;
+      case PKT_ONEPASS_SIG:
+        if(mdctx != NULL){
+          status =  ANG_PARSE_ERROR; //TODO no nested signatures at the moment
+        }
+        else{
+          mdctx = EVP_MD_CTX_create();
+          onePass = v.at(i).pkt.onepass_sig;
+          if(!EVP_DigestInit_ex(mdctx, SignKey::getHashType(onePass->digest_algo), NULL)){
+            status = ANG_PARSE_ERROR;
+          }
+        }
+        break;
+      case PKT_SIGNATURE:
+        if(onePass == NULL){
+          status =  ANG_PARSE_ERROR; //TODO no nested signatures at the moment
+        }
+        else{
+          PKT_signature* sig = v.at(i).pkt.signature;
+          signaturePresent = true;
+          if(mdctx != NULL){
+            if(sig == NULL || onePass == NULL ||
+               sig->sig_class != onePass->sig_class ||
+               sig->pubkey_algo != onePass->pubkey_algo||
+               sig->digest_algo != onePass->digest_algo){
+              status = ANG_PARSE_ERROR;
+            }
+            else{
+              status = SignKey::verifySignature(mdctx, sig, sender, pubDb);
+            }
+          }
+          else{
+            status = ANG_PARSE_ERROR;
+          }
+        }
+        break;
+      default:
+        status = ANG_PARSE_ERROR;
+        break;
+      }
+    }
+
+    if(result.size() == size){
+      status = ANG_PARSE_ERROR;
+    }
+    for(i = 0; i < v.size(); i++ ){
+      free(v.at(i).pkt.generic);
+    }
+    v.clear();
+    if(mdctx!= NULL){
+      EVP_MD_CTX_destroy(mdctx);
+    }
+    if(status == ANG_OK && !signaturePresent){
+      status = ANG_NO_SIG;
+    }
+    return status;
+  }
+
+
+  static void replaceAll(std::string& str, const std::string& from, const std::string& to) {
+    size_t start_pos = 0;
+    while((start_pos = str.find(from, start_pos)) != std::string::npos) {
+      str.replace(start_pos, from.length(), to);
+      start_pos += to.length(); // Handles case where 'to' is a substring of 'from'
+    }
+  }
+
+
+  static Confi_Status clearSign(std::string& result
+                                , const std::string& input
+                                , KeyDb& keyDb
+                                , const std::string& sender
+                                , const std::string& password
+                                ){
+    std::stringstream in;
+    in << input;
+    std::string line;
+    std::string body;
+    bool pendingLf = false;
+    while(std::getline(in, line)){
+      if(pendingLf){
+        body.push_back('\x0D');
+        body.push_back('\x0A');
+      }
+      pendingLf = true;
+      // trim trailing spaces
+      size_t endpos = line.find_last_not_of(" \t\r\n");
+      if( std::string::npos != endpos ){
+        line = line.substr(0, endpos + 1);
+      }
+      body.append(line);
+    }
+    PKT_signature* sig = new PKT_signature;
+    Confi_Status status = SignKey::signData(sig, body, sender, keyDb, password, false);
+/*       //dash escaping */
+    replaceAll(body, "\x0D\x0A-", "\x0D\x0A- -");
+    replaceAll(body, "\x0D\x0AFrom", "\x0D\x0A- From");
+    if(("From " == body.substr(0, 5)) || ("-" == body.substr(0, 1))){
+      body = "- " +  body;
+    }
+    if(status == ANG_OK){
+      result.append("-----BEGIN PGP SIGNED MESSAGE-----");
+      result.push_back('\x0D');
+      result.push_back('\x0A');
+      result.append("Hash: ");
+      result.append(SignKey::hash2Str(sig->digest_algo));
+      result.push_back('\x0D');
+      result.push_back('\x0A');
+      result.push_back('\x0D');
+      result.push_back('\x0A');
+      result.append(body);
+      result.push_back('\x0D');
+      result.push_back('\x0A');
+
+      body = PktDo::signature2Str(sig);
+
+      std::string base64;
+      std::string crc = crc24b64(body);
+      status = encBase64(base64, body);
+      body.clear();
+      result.append( "-----BEGIN PGP SIGNATURE-----");
+      result.push_back('\x0D');
+      result.push_back('\x0A');
+      result.append("Version: Tryango 1.0");//TODO add real version number of tryango
+      result.push_back('\x0D');
+      result.push_back('\x0A');
+      result.push_back('\x0D');
+      result.push_back('\x0A');
+      for(unsigned int i=0; i<base64.size(); i+=64){
+        result.append(base64.substr(i, 64));
+        result.push_back('\x0D');
+        result.push_back('\x0A');
+      }
+      result.append(crc);
+      result.push_back('\x0D');
+      result.push_back('\x0A');
+      result.append("-----END PGP SIGNATURE-----");
+      result.push_back('\x0D');
+      result.push_back('\x0A');
+    }
+    free(sig);
+    return status;
+  }
+
+  static Confi_Status clearSignVerify(std::string& msg
+                                  , const std::string& input
+                                  , const std::string& sender
+                                  , PublicKeyDb* pubDb
+                                  ){
+    std::vector<PACKET> packets;
+    EVP_MD_CTX *mdctx = NULL;
+    Confi_Status status = PacketParser::parsePackets(packets, input, &msg);
+    if(status==ANG_OK){
+      if(packets.size() != 1 || (packets.at(0).pkttype != PKT_SIGNATURE)){
+        status =  ANG_PARSE_ERROR;
+      }
+      if(status == ANG_OK){
+        PKT_signature* sig = packets.at(0).pkt.signature;
+        mdctx = EVP_MD_CTX_create();
+        if(!EVP_DigestInit_ex(mdctx, SignKey::getHashType(sig->digest_algo), NULL)){
+          status = ANG_PARSE_ERROR;
+        }
+        else{
+          if(!EVP_DigestUpdate(mdctx, (unsigned char*)msg.c_str(), msg.size())){
+            status = ANG_PARSE_ERROR;
+          }
+          status = SignKey::verifySignature(mdctx, sig, sender, pubDb);
+        }
+      }
+      for(unsigned int i = 0; i < packets.size(); i++ ){
+        free(packets.at(i).pkt.generic);
+      }
+      packets.clear();
+      if(mdctx!= NULL){
+        EVP_MD_CTX_destroy(mdctx);
+      }
+    }
+    return status;
+  }
+
+
+  static Confi_Status decryptFile(const std::string& outputFile
+                                  , const std::string& inputData
+                                  , const std::string& sender
+                                  , PublicKeyDb* pubDb
+                                  , KeyDb& keyDb
+                                  , const std::string& password
+    ){
+    Confi_Status status = ANG_UNKNOWN_ERROR;
+
+    //TODO: check if this code is ok like this (PGP attachment format!?)
+
+    //decrypt
+    std::string decrypted;
+    decrypted.clear();
+    status = decryptText(decrypted, inputData, sender,  pubDb, keyDb, password);
+
+    //write output back to file
+    if(status == ANG_OK || status > ANG_UNKNOWN_ERROR){ //status > ANG_UNKNOWN_ERROR is signature
+      std::ofstream dst(outputFile, std::ofstream::trunc); //truncate file (this is already checked in javascript)
+      dst << decrypted;
+      dst.close();
+    }
+
+    return status;
+  }
+
+  static Confi_Status decryptText(std::string& decrypted
+                                  , const std::string& input
+                                  , const std::string& sender
+                                  , PublicKeyDb* pubDb
+                                  , KeyDb& keyDb
+                                  , const std::string& password
+                                  ){//TODO: binary data is not properly encrypted/decrypted (check e.g. email attached pdf)
+
+    std::vector<PACKET> packets;
+    std::string decr;
+/*     std::cout<<"Decrypt Text parsing:"<<string_to_hex(input)<<std::endl; */
+    Confi_Status status = PacketParser::parsePackets(packets, input);
+    if(status==ANG_OK){
+      std::string sessionKey;
+      PKT_CipherAlgo alg;
+      unsigned int i = 0;
+      bool haveSessionKey = false;
+      while(!haveSessionKey && (i<packets.size()) && packets.at(i).pkttype == PKT_PUBKEY_ENC){
+        if(getDecrKey(sessionKey, alg, *(packets.at(i).pkt.pubkey_enc), keyDb, password) == ANG_OK){
+          haveSessionKey = true;
+        }
+        i++;
+      }
+
+      while((i<packets.size()) && packets.at(i).pkttype != PKT_ENCRYPTED_MDC){  //TODO add PKT_ENCRYPTED
+        i++;
+      }
+
+      for (unsigned int j=0; j<packets.size(); j++){
+        if( j != i){
+          free(packets.at(j).pkt.generic);
+        }
+      }
+      if(!haveSessionKey) {
+        printf("No session Key\n");
+        return ANG_NO_KEY_PRESENT;
+      }
+
+      if (i >= packets.size()){
+        printf("No PKT_ENCRYPTED_MDC \n");
+        return ANG_PARSE_ERROR;
+      }
+
+      PKT_encrypted* pkt = packets.at(i).pkt.encrypted;
+      std::vector<PACKET> subpackets;
+      status = SecretKeyPair::decryptData(decr, pkt->data, sessionKey, NULL, alg);
+      if(status==ANG_OK){
+        unsigned int blSize = PktDo::blockSize(alg);
+        if(decr.at(blSize-1) != decr.at(blSize+1) ||decr.at(blSize-2) != decr.at(blSize)){
+/*           printf("1\n"); */
+          status = ANG_PARSE_ERROR;
+        }
+        //checkting MDC
+        if(status == ANG_OK && ((unsigned char)decr.at(pkt->data.size() - 22) != 0xD3)){
+          std::cout<<string_to_hex(decr)<<std::endl;
+          status = ANG_MESSAGE_MODIFIED;
+        }
+        if(status == ANG_OK && ((unsigned char)decr.at(pkt->data.size() - 21) != 0x14)){
+          status = ANG_MESSAGE_MODIFIED;
+        }
+        if(status == ANG_OK){
+          std::string mdc = SignKey::hash(decr.substr(0, pkt->data.size() - 20), DIGEST_ALGO_SHA1);
+          if(memcmp(mdc.c_str(), decr.c_str() + pkt->data.size() - 20, 20) != 0){
+            status = ANG_MESSAGE_MODIFIED;
+          }
+        }
+        if(status == ANG_OK){
+          status = PacketParser::parsePackets(subpackets,  decr.substr(blSize+2, pkt->data.size() - blSize- 2 - 2));
+        }
+      }
+      free(pkt);
+      if(status == ANG_OK){
+        status = handlePlainPkt(decrypted, subpackets, sender, pubDb);//verifies signature
+      }
+    }
+    return status;
+  }
+
+  static Confi_Status compress(std::string& result
+                               , const std::string& input
+                               , const PKT_CompressAlg alg = COMPRESS_ALGO_ZIP
+                               , int level = Z_DEFAULT_COMPRESSION
+                               ){
+    if((level<1 || level >9)){
+      level = Z_DEFAULT_COMPRESSION;
+    }
+    uInt outsize = std::min((1<<16),((int) (input.size() + 601 + static_cast<int>(input.size()/0.01+ 0.5))));
+#if defined(_MSC_VER)
+    char *buff = new char[outsize + 1];
+#else
+    char buff[outsize + 1];
+#endif
+    int ret;
+    z_stream zs;
+    zs.zalloc = Z_NULL;
+    zs.zfree = Z_NULL;
+    zs.opaque = Z_NULL;
+
+    switch(alg){
+    case COMPRESS_ALGO_NONE:
+      result.append(input);
+#if defined(_MSC_VER)
+      delete [] buff;
+#endif
+      return ANG_OK;
+    case COMPRESS_ALGO_ZIP:
+      if(deflateInit2(&zs, level, Z_DEFLATED, -13, 8, Z_DEFAULT_STRATEGY) != Z_OK){
+#if defined(_MSC_VER)
+        delete [] buff;
+#endif
+        return ANG_COMPRESS_ERROR;
+      }
+      break;
+    case COMPRESS_ALGO_ZLIB:
+      if(deflateInit(&zs, level) != Z_OK){
+#if defined(_MSC_VER)
+        delete [] buff;
+#endif
+        return ANG_COMPRESS_ERROR;
+      }
+      break;
+    case COMPRESS_ALGO_BZIP2:
+      if (level == -1){
+        level = 6;
+      }
+      if(BZ2_bzBuffToBuffCompress(buff, &outsize, (char*)input.data(), input.size(), level, 0, 0) != BZ_OK){
+#if defined(_MSC_VER)
+        delete [] buff;
+#endif
+        return ANG_COMPRESS_ERROR;
+      }
+      else{
+        result.append(buff, outsize);
+#if defined(_MSC_VER)
+        delete [] buff;
+#endif
+        return ANG_OK;
+      }
+      break;
+    default:
+#if defined(_MSC_VER)
+      delete [] buff;
+#endif
+      return ANG_COMPRESS_ERROR;
+    }
+
+      switch(alg){
+      case COMPRESS_ALGO_ZIP:
+      case COMPRESS_ALGO_ZLIB:
+        zs.avail_in = input.size();
+        zs.next_in = (Bytef *) input.data();
+        do{
+          zs.avail_out = outsize;
+          zs.next_out = (Bytef *) buff;
+          ret = deflate(&zs, Z_FINISH);
+          if (ret == Z_STREAM_ERROR){
+            deflateEnd(&zs);
+#if defined(_MSC_VER)
+            delete [] buff;
+#endif
+            return ANG_COMPRESS_ERROR;
+          }
+          result.append(std::string(buff, outsize - zs.avail_out));
+        } while(ret != Z_STREAM_END);
+        deflateEnd(&zs);
+#if defined(_MSC_VER)
+      delete [] buff;
+#endif
+      return ANG_OK;
+
+      default:
+#if defined(_MSC_VER)
+      delete [] buff;
+#endif
+      return ANG_COMPRESS_ERROR;
+      }
+    }
+
+  // \n = '0x0A' LF
+  // \r = '0x0D' CR
+  // linux - \n
+  // dos - network normal - \r\n
+  // mac - \r
+
+  static std::string toDosEol(const std::string& input)
+  {
+    std::string result;
+    bool last = false;
+    for(auto& c:input){
+      if(c != '\x0A' && c != '\x0D'){
+        if (last){
+          result.push_back('\x0D');
+          result.push_back('\x0A');
+          last = false;
+        }
+        result.push_back(c);
+      }
+      else{
+        if(c == '\x0A'){
+          result.push_back('\x0D');
+          result.push_back('\x0A');
+          last = false;
+        }
+        else{//0x0D
+          last = true;
+        }
+      }
+    }
+    if (last){
+      result.push_back('\x0D');
+      result.push_back('\x0A');
+    }
+    return result;
+  }
+
+
+  static Confi_Status data2SignStr(std::string& result
+                                   , KeyDb& keyDb
+                                   , const std::string& sender
+                                   , const std::string& input
+                                   , bool binary
+                                   , const std::string fileName
+                                   , const std::string& password
+                                   , time_t timestamp = 0
+                                   ){
+    std::string ltr;
+    Confi_Status status = data2LitrStr(ltr, input, binary, fileName, timestamp);
+    //TODO "-" escape
+    PKT_signature* sig = new PKT_signature;
+    if(status == ANG_OK){
+      if(binary){
+        status = SignKey::signData(sig, input, sender, keyDb, password, true);
+      }
+      else{
+        status = SignKey::signData(sig, toDosEol(input), sender, keyDb, password, false);
+      }
+      if(status == ANG_OK){
+        std::string body;
+        //one pass sig
+        body.push_back(3); //version
+        body.push_back(sig->sig_class);
+        body.push_back(sig->digest_algo);
+        body.push_back(sig->pubkey_algo);
+        body.append(sig->keyid);//keyid
+        body.push_back(1); //not nested
+        PktDo::createHeader(result, PKT_ONEPASS_SIG, body.size());
+        result.append(body);
+        body.clear();
+        result.append(ltr);
+        result.append(PktDo::signature2Str(sig));
+      }
+    }
+    free(sig);
+    return status;
+  }
+
+
+  static Confi_Status data2LitrStr(std::string& result
+                                   , const std::string& input
+                                   , bool binary
+                                   , const std::string fileName
+                                   , time_t timestamp = 0
+                                    ){
+    if(fileName.size()>255) return ANG_COMPRESS_ERROR;
+    std::string body;
+    if(binary){
+      body.push_back('b');
+    }
+    else{
+      body.push_back('u');
+    }
+    body.push_back(fileName.size());
+    body.append(fileName);
+    if(timestamp == 0){
+      timestamp = time(0);
+    }
+    body.append(PktDo::packTimestamp(timestamp));
+    if(binary){
+      body.append(input);
+    }
+    else{
+      body.append(toDosEol(input));
+    }
+    if(!PktDo::createHeader(result, PKT_PLAINTEXT, body.size())){
+      return ANG_COMPRESS_ERROR;
+    }
+    result.append(body);
+    return ANG_OK;
+  }
+
+  static Confi_Status data2ComprStr(std::string& result
+                                    , const std::string& input
+                                    , const PKT_CompressAlg alg = COMPRESS_ALGO_ZIP
+                                    , int level = Z_DEFAULT_COMPRESSION
+                                    ){
+    std::string body;
+    if(alg<COMPRESS_ALGO_NONE || alg >COMPRESS_ALGO_BZIP2) return ANG_COMPRESS_ERROR;
+    body.push_back(alg);
+    Confi_Status ret = compress(body, input, alg, level);
+    if(ret != ANG_OK) return ret;
+    if(!PktDo::createHeader(result, PKT_COMPRESSED, body.size())){
+      return ANG_COMPRESS_ERROR;
+    }
+    result.append(body);
+    return ANG_OK;
+  }
+
+  static Confi_Status encryptUpdate(std::string& result, const std::string& input, EVP_CIPHER_CTX *de){
+#if defined(_MSC_VER)
+    unsigned char *plaintext = new unsigned char[input.size()+16];
+#else
+    unsigned char plaintext[input.size()+16];
+#endif
+    int tempSize=input.size()+16;
+    if(EVP_EncryptUpdate(de, plaintext, &tempSize, (unsigned char*)input.c_str(), input.size()) != 0){
+      result.append(std::string((char*)plaintext, tempSize));
+#if defined(_MSC_VER)
+      delete [] plaintext;
+#endif
+      return ANG_OK;
+    }
+    else{
+#if defined(_MSC_VER)
+      delete [] plaintext;
+#endif
+      return ANG_FAIL_ENCODE;
+    }
+  }
+
+  static Confi_Status data2EncrStr(std::string& result
+                                   , const std::string& input
+                                   , const std::string& sessionKey
+                                   , const PKT_CipherAlgo alg
+                                   ){
+    Confi_Status status = ANG_OK;
+    EVP_CIPHER_CTX *de = (EVP_CIPHER_CTX *)malloc(sizeof(EVP_CIPHER_CTX));
+    if(de == NULL){
+      return ANG_FAIL_MALLOC;
+    }
+    EVP_CIPHER_CTX_init(de);
+
+    switch(alg){
+    case CIPHER_ALGO_AES256:   // - AES with 256-bit key
+      if(EVP_EncryptInit_ex(de, EVP_aes_256_cfb(), NULL, (unsigned const char*)sessionKey.c_str(), NULL) == 0){
+        status = ANG_FAIL_ENCODE;
+      }
+      break;
+    case CIPHER_ALGO_CAST5:   // - CAST5 (128 bit key, as per [RFC2144])
+      if(EVP_EncryptInit_ex(de, EVP_cast5_cfb(), NULL, (unsigned const char*)sessionKey.c_str(), NULL) == 0){
+        status = ANG_FAIL_ENCODE;
+      }
+      break;
+    case CIPHER_ALGO_BLOWFISH:   // - Blowfish (128 bit key, 16 rounds) [BLOWFISH]
+      if(EVP_EncryptInit_ex(de, EVP_bf_cfb(), NULL, (unsigned const char*)sessionKey.c_str(), NULL) == 0){
+        status = ANG_FAIL_ENCODE;
+      }
+      break;
+    case CIPHER_ALGO_AES:   // - AES with 128-bit key [AES]
+      if(EVP_EncryptInit_ex(de, EVP_aes_128_cfb(), NULL, (unsigned const char*)sessionKey.c_str(), NULL) == 0){
+        status = ANG_FAIL_ENCODE;
+      }
+      break;
+    case CIPHER_ALGO_AES192:   // - AES with 192-bit key
+      if(EVP_EncryptInit_ex(de, EVP_aes_192_cfb(), NULL, (unsigned const char*)sessionKey.c_str(), NULL) == 0){
+        status = ANG_FAIL_ENCODE;
+      }
+      break;
+    default:
+      status = ANG_KEY_ALG_NOT_SUPPORTED;
+    }
+    unsigned int blSize = PktDo::blockSize(alg);
+    if(blSize <1) status = ANG_KEY_ALG_NOT_SUPPORTED;
+    if(status == ANG_OK){
+      std::string initBlock = getRandomString(blSize);
+      initBlock.push_back(initBlock.at(blSize-2));
+      initBlock.push_back(initBlock.at(blSize-1));
+      status = encryptUpdate(result, initBlock, de);
+      if (status != ANG_OK){
+        EVP_CIPHER_CTX_cleanup(de);
+        return status;
+      }
+      status = encryptUpdate(result, input, de);
+      if (status != ANG_OK){
+        EVP_CIPHER_CTX_cleanup(de);
+        return status;
+      }
+      std::string tempStr;
+#if defined(_MSC_VER)
+        tempStr.push_back(-45);
+#else
+        tempStr.push_back(0xD3);
+#endif
+      tempStr.push_back(0x14);
+      std::string mdc = SignKey::hash(initBlock + input + tempStr, DIGEST_ALGO_SHA1);
+      status = encryptUpdate(result, tempStr, de);
+      if (status != ANG_OK){
+        EVP_CIPHER_CTX_cleanup(de);
+        return status;
+      }
+      status = encryptUpdate(result, mdc, de);
+      if(status == ANG_OK){
+#if defined(_MSC_VER)
+        unsigned char *plaintext = new  unsigned char[blSize+1];
+#else
+        unsigned char plaintext[blSize+1];
+#endif
+        int outSize;
+        if(EVP_EncryptFinal_ex(de, plaintext, &outSize) == 0){
+          EVP_CIPHER_CTX_cleanup(de);
+#if defined(_MSC_VER)
+          delete [] plaintext;
+#endif
+          return ANG_FAIL_ENCODE;
+        }
+        if(outSize>0){
+          result.append(std::string((char*)plaintext, outSize));
+        }
+#if defined(_MSC_VER)
+        delete [] plaintext;
+#endif
+      }
+    }
+    EVP_CIPHER_CTX_cleanup(de);
+    return status;
+
+  }
+
+  static PKT_CipherAlgo chooseAlg(const std::set<std::string>& users
+                                  , PublicKeyDb* db
+                                  ){
+    std::map<PKT_CipherAlgo, unsigned int> count;
+    int step = 0;
+    bool isMore = true;
+    while(count.size() == 0 && isMore){
+      isMore = false;
+      for(auto& id:users){
+        std::cout<<"checking key id:"<<id<<std::endl;
+        PublicKeyPair* key = db->getKey(id);
+        if(key == NULL){std::cout<<"1\n"; return CIPHER_ALGO_NONE;}
+        PKT_public_key* pkey = key->getPSKey();
+        if(pkey == NULL){std::cout<<"2\n"; return CIPHER_ALGO_NONE;}
+        PKT_user_id* uId = key->getUserId(id);
+        if(uId == NULL){std::cout<<"3\n"; return CIPHER_ALGO_NONE;}
+        if(uId->signature == NULL){std::cout<<"4\n"; return CIPHER_ALGO_NONE;}
+        int size = uId->signature->best_cipher_algo.size();
+        if(size == 0){std::cout<<"5\n"; return CIPHER_ALGO_NONE;}
+        if(size > step){
+          isMore = true;
+          PKT_CipherAlgo alg = uId->signature->best_cipher_algo.at(step);
+          if(PktDo::keySize(alg)>0){
+            if(count.find(alg) != count.end()){
+              count[alg] = count[alg] + 1;
+            }
+            else{
+              count[alg] = 1;
+            }
+          }
+        }
+      }
+      step++;
+    }
+    if(count.size() == 0){
+      return CIPHER_ALGO_AES256;
+    }
+    unsigned int max = 0;
+    for(auto& it:count){
+      max = (max > it.second) ? max : it.second;
+    }
+    if(count[CIPHER_ALGO_AES256] == max) return CIPHER_ALGO_AES256;
+    if(count[CIPHER_ALGO_AES192] == max) return CIPHER_ALGO_AES192;
+    if(count[CIPHER_ALGO_AES] == max) return CIPHER_ALGO_AES;
+    if(count[CIPHER_ALGO_CAST5]== max) return CIPHER_ALGO_CAST5;
+    if(count[CIPHER_ALGO_BLOWFISH] == max) return CIPHER_ALGO_BLOWFISH;
+    return CIPHER_ALGO_NONE;
+  }
+
+  static Confi_Status encBase64(std::string& output, const std::string& input)
+  {
+    if (input.size() > (std::numeric_limits<std::string::size_type>::max() / 4u) * 3u) {
+      return ANG_INPUT_TOO_LARGE;
+    }
+    output = std::string((((input.size() + 2) / 3) * 4), '=');
+    std::size_t outpos = 0;
+    int bits_collected = 0;
+    unsigned int accumulator = 0;
+
+    for (auto& i:input) {
+      accumulator = (accumulator << 8) | (i & 0xffu);
+      bits_collected += 8;
+      while (bits_collected >= 6) {
+         bits_collected -= 6;
+         output[outpos++] = b64_table[(accumulator >> bits_collected) & 0x3fu];
+      }
+    }
+    if (bits_collected > 0) { // Any trailing bits that are missing.
+      assert(bits_collected < 6);
+      accumulator <<= 6 - bits_collected;
+      output[outpos++] = b64_table[accumulator & 0x3fu];
+    }
+    return ANG_OK;
+  }
+
+  static int32_t crc24(const std::string& input)
+  {
+    long crc = 0xB704CEL;
+    int i;
+    unsigned int len = 0;
+    while (len <input.size()) {
+      crc ^= (input.at(len) & 0xFFu) << 16;
+      for (i = 0; i < 8; i++) {
+        crc <<= 1;
+        if (crc & 0x1000000)
+          crc ^= 0x1864CFBL;
+      }
+      len++;
+    }
+    return crc & 0xFFFFFFL;
+  }
+
+  static std::string crc24b64(const std::string& input)
+  {
+    long crc = crc24(input);
+    std::string result = "=";
+    result.push_back(b64_table[(crc>>18) & 0x3fu]);
+    result.push_back(b64_table[(crc>>12) & 0x3fu]);
+    result.push_back(b64_table[(crc>>6) & 0x3fu]);
+    result.push_back(b64_table[crc & 0x3fu]);
+    return result;
+  }
+
+
+  static Confi_Status encryptSession(std::string& encryptedSession
+                                     , const std::string sessionKey
+                                     , std::vector<PKT_public_key*>& keys
+                                     , PKT_CipherAlgo alg
+                                     ){
+    std::string body;
+    std::string encrypted;
+    if(alg == CIPHER_ALGO_NONE) return ANG_NO_KEY_PRESENT;
+    for(PKT_public_key* pkey:keys){
+      if(pkey == NULL) return ANG_NO_KEY_PRESENT;
+      body.clear();
+      body.push_back(3);
+      if(pkey->fingerprint.size() != 20){
+        printf("Wrong key fingerprint size %ld\n", pkey->fingerprint.size());
+        return ANG_NO_KEY_PRESENT;
+      }
+      body.append(pkey->fingerprint.substr(12, 8));//keyid
+      body.push_back(pkey->pubkey_algo);
+      encrypted.clear();
+      encrypted.push_back(alg);
+      encrypted.append(sessionKey);
+      uint16_t csum = PktDo::checksum(sessionKey);
+      encrypted.push_back((uint8_t)((csum>>8)&0xFF));
+      encrypted.push_back((uint8_t)(csum & 0xFF));
+      RSA *rsa = SecretKeyPair::newRSA();
+      PublicKeyPair::getRsaKey(rsa, pkey);
+#if defined(_MSC_VER)
+      char *to = new char[RSA_size(rsa)];
+#else
+      char to[RSA_size(rsa)];
+#endif
+      int ret = RSA_public_encrypt(encrypted.size(), (unsigned char*)(encrypted.data()),
+                                   (unsigned char*)to, rsa, RSA_PKCS1_PADDING);
+      if (ret == -1){
+        free(rsa);
+        printf("Encrypt fail\n");
+#if defined(_MSC_VER)
+        delete [] to;
+#endif
+        return ANG_NO_KEY_PRESENT;
+      }
+      body.append(PktDo::str2mpi(std::string(to, ret)));
+#if defined(_MSC_VER)
+      delete [] to;
+#endif
+      PktDo::createHeader(encryptedSession, PKT_PUBKEY_ENC, body.size());
+      encryptedSession.append(body);
+    }
+/*     std::cout << " encrypted body:" << string_to_hex(encryptedSession)<<std::endl; */
+    return ANG_OK;
+
+  }
+
+
+  static Confi_Status encryptData(std::string& encrypted
+                                  , const std::string& input
+                                  , std::vector<PKT_public_key*>& keys
+                                  , PKT_CipherAlgo alg
+                                  , KeyDb& keyDb
+                                  , const std::string& sender
+                                  , bool binary
+                                  , const std::string& fileName
+                                  , const std::string& password
+                                  , bool sign = true
+                                  , bool armor = true
+                                  ){
+    Confi_Status status;
+    std::string body;
+    std::string sessionKey = getRandomString(PktDo::keySize(alg));
+    status = encryptSession(body, sessionKey, keys, alg);
+    std::cout<<"encryptData after ses status="<<status<<std::endl;
+    if (status != ANG_OK){
+      return status;
+    }
+    encrypted.append(body);
+    body.clear();
+    if(sign){
+      status = data2SignStr(body, keyDb, sender, input, binary, fileName, password);
+    }
+    else{
+      status = data2LitrStr(body, input, binary, fileName);
+    }
+    if(status != ANG_OK) return status;
+    std::string compressed;
+    compressed.clear();
+    status = data2ComprStr(compressed, body);
+    if(status != ANG_OK) return status;
+    body.clear();
+    status = data2EncrStr(body, compressed, sessionKey, alg);
+    if(status != ANG_OK) return status;
+    PktDo::createHeader(encrypted, PKT_ENCRYPTED_MDC, body.size()+1, true);
+    encrypted.push_back(1);
+    encrypted.append(body);
+/*     std::cout<<" encrypted:"<<string_to_hex(encrypted)<<std::endl; */
+    if(armor){
+      std::string base64;
+      std::string crc = crc24b64(encrypted);
+      status = encBase64(base64, encrypted);
+/*       std::cout<<" base64:"<<string_to_hex(base64)<<std::endl; */
+      encrypted.clear();
+      encrypted.append( "-----BEGIN PGP MESSAGE-----\nVersion: Tryango 1.0\n\n");//TODO add real version number of tryango
+      for(unsigned int i=0; i<base64.size(); i+=64){
+        encrypted.append(base64.substr(i, 64));
+        encrypted.append("\n");
+      }
+      encrypted.append(crc);
+      encrypted.append("\n");
+      encrypted.append("-----END PGP MESSAGE-----\n");
+    }
+/*     std::cout<<" encrypted armoured:"<<string_to_hex(encrypted)<<std::endl; */
+    return ANG_OK;
+  }
+
+
+  static Confi_Status encryptFile(const std::string& outputFile
+                                  , const std::string& inputFile
+                                  , std::vector<PKT_public_key*>& keys
+                                  , PKT_CipherAlgo alg
+                                  , KeyDb& keyDb
+                                  , const std::string& sender
+                                  , const std::string& password = ""
+                                  , bool sign = true
+                                  , bool armor = false
+                                  ){
+    Confi_Status status;
+    //read source into RAM (TODO: probably improve...?)
+    std::stringstream strBody;
+    std::ifstream src(inputFile);
+    if(src.bad()){
+      return ANG_UNKNOWN_ERROR; //TODO: which error message to use?
+    }
+    strBody << src.rdbuf();
+    src.close();
+
+    //encrypt data
+    std::string encrypted;
+    encrypted.clear();
+    status = MessageHandler::encryptData(encrypted, strBody.str()
+                                         , keys
+                                         , alg
+                                         , keyDb
+                                         , sender
+                                         , true
+                                         , inputFile
+                                         , password
+                                         , sign, armor);
+    //write back to output file
+    if(status == ANG_OK){
+      std::ofstream dst(outputFile);
+      if(dst.bad()){
+        return ANG_UNKNOWN_ERROR; //TODO: which error message to use?
+      }
+      dst << encrypted;
+      dst.close();
+    }
+
+    return status;
+  }
+
+
+  static Confi_Status checkDecrPassword(std::string& fingerprint
+                                        , const std::string& input //message
+                                        , KeyDb& keyDb
+                                        , const std::string& password //password
+                                        ){
+    std::vector<PACKET> packets;
+    Confi_Status status = PacketParser::parsePackets(packets, input);
+    if(status==ANG_OK){
+      bool haveSessionKey = false;
+      status = ANG_NO_KEY_PRESENT;
+      unsigned int i = 0;
+      while(!haveSessionKey && (i<packets.size()) && packets.at(i).pkttype == PKT_PUBKEY_ENC){
+        PKT_pubkey_enc& pkt = *(packets.at(i).pkt.pubkey_enc);
+        KeyList keys = keyDb.getKeysById(pkt.keyid);
+        if(keys.size() > 0){
+          uint16_t csum = 0;
+          status = ANG_WRONG_PASSWORD;
+          RSA* skRsa = SecretKeyPair::newRSA();
+          unsigned char output[MAX_RSA_SIZE];
+          for(auto key:keys){
+            fingerprint = key->getSEKey()->pkey.fingerprint;
+            if(SecretKeyPair::getRsaSecretKey(skRsa, key->getSEKey(), password) == ANG_OK) {
+              int decr = RSA_private_decrypt((pkt.data.size()), (unsigned char*)(pkt.data.c_str()),
+                                             output, skRsa, RSA_PKCS1_PADDING);
+              if(decr == -1){
+                SecretKeyPair::freeRSA(skRsa);
+                return ANG_PARSE_ERROR;
+              }
+              csum = ((uint8_t)*(output + decr -2))<<8;
+              csum = csum + ((uint8_t)*(output + decr - 1));
+              if(csum == PktDo::checksum(std::string((char*)(output + 1), decr - 3))
+                 && ((uint8_t)(*output) <= CIPHER_ALGO_CAMELLIA256 )){
+                SecretKeyPair::freeRSA(skRsa);
+                return ANG_OK;
+              }
+            }
+          }
+          SecretKeyPair::freeRSA(skRsa);
+        }
+        i++;
+      }
+    }
+    return status;
+  }
+}

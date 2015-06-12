@@ -1,0 +1,148 @@
+#hdr
+#include <iostream>
+#include <fstream>
+#include <string>
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
+#include <time.h>
+#endif
+#include "angCommon.h"
+#end
+
+
+/*
+ * Explanation:
+ *
+ * for every output/logfile create an own logger
+ *
+ * e.g. when logging to cerr/cout:
+ * 	Logger log;
+ *	Logger err(&std::cerr);
+ *	log << "bla bla" << std::endl;
+ *	err << "error!" << std::endl;
+ *
+ * logging to files:
+ *	Logger log("./file.log");
+ *	Logger err("./error.log");
+ *	log << "bla bla" << std::endl;
+ *	err << "error!" << std::endl;
+ */
+
+// proof types (for logger.lzz)
+enum Proof_Type{
+  CHRON_TREE_EXTEND,
+  CHRON_TREE_PRESENCE,
+  LEX_TREE_PRESENCE_ABSENCE
+};
+
+
+class Logger{
+private:
+  //stream
+  std::filebuf fb; //filebuffer has to be closed
+  std::ostream* lout; //ostream cannot be closed!
+  friend Logger& operator<<(Logger& l, std::ostream& (*pf)(std::ostream& x));
+
+public:
+  //default constructor
+  Logger(){
+    lout = &std::cout;
+    putTimeStamp();
+  }
+
+  //constructor cloning a stream (e.g. std::cerr)
+  Logger(std::ostream* s){
+    lout = s;
+    putTimeStamp();
+  }
+
+  //constructor opening a file
+  Logger(std::string file){
+    fb.open(file, std::ios::out); //TODO: maybe std::ios::app append mode?
+    if(fb.is_open()){
+      lout = new std::ostream(&fb);
+      putTimeStamp();
+    }
+    else{
+      //TODO: FIXME: throw std::ios_base::failure("Could not open file " + file);
+      std::cerr << "Could not open file " << file << std::endl;
+    }
+  }
+
+  //destructor
+  virtual ~Logger(){
+    //close stream if exists
+    if(fb.is_open()){
+      fb.close();
+      delete lout;
+    }
+  }
+
+  //overload stream operator
+  template <typename T>
+  friend Logger& operator<<(Logger& l, T const& obj){
+    (*(l.lout)) << obj;
+    return l;
+  }
+
+  void flush(){
+    lout->flush();
+  }
+
+  // --- special cases ---
+  //use operator<< instead if possible
+
+  //log error number
+  void err(const char* message, uint32_t errNo){
+    (*lout) << message << ". Error:" << errNo;
+  }
+
+  //log proofs to store for random audits and for Thunderbird client
+  void logProof(Proof_Type pt, std::string proof, bool result){
+    //vars
+    std::string ret;
+
+    //init
+    switch(pt){
+    case CHRON_TREE_EXTEND:
+      ret = "PROOF CHRON-TREE EXTEND";
+      break;
+    case CHRON_TREE_PRESENCE:
+      ret = "PROOF CHRON-TREE PRESENCE";
+      break;
+    case LEX_TREE_PRESENCE_ABSENCE:
+      ret = "PROOF LEX-TREE PRESENCE/ABSENCE";
+      break;
+    default:
+      //error
+      ret = "PROOF (unknown proof type)";
+    }
+
+    //dump proof to file
+    (*lout) << ret << std::endl << proof << ": " << result << std::endl;
+  }
+
+  void putTimeStamp(){
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
+    time_t t;
+    struct tm *timeinfo;
+    time(&t);
+    timeinfo = localtime(&t);
+    (*lout) << asctime(timeinfo)<< std::endl << std::endl;
+#else
+    time_t now = time(0);
+    char buf[sizeof "2014-12-01T21:49:00Z"];
+    strftime(buf, sizeof buf, "%FT%TZ", gmtime(&now));
+    (*lout) << buf << std::endl << std::endl;
+#endif
+
+  }
+
+};
+
+//for std::endl
+Logger& operator<<(Logger& l, std::ostream& (*pf)(std::ostream& x)){
+  (*(l.lout)) << pf;
+  return l;
+}
+
+

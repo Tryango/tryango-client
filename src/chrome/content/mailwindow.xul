@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+
+<!-- Reference to CSS file (needed for toolbar button) -->
+<?xml-stylesheet href="chrome://tryango/skin/overlay.css" type="text/css" ?>
+
+<!-- language file -->
+<!DOCTYPE tryango SYSTEM "chrome://tryango/locale/lang.dtd">
+
+<overlay id="cm_mailwindow" 
+	 xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+
+  <!-- Reference to JavaScript file -->
+  <script type="application/javascript" src="chrome://tryango/content/mailwindow.js"/>
+  <!-- TODO: not needed? <script type="application/javascript" src="chrome://tryango/content/tryango.js"/> -->
+
+  <!-- Thunderbird parts to be altered -->
+  
+  <!-- Menu -->
+  <menubar id="mail-menubar">
+    <menu label="&tryango.label;"
+          id="tryango-menu-send"
+	  insertafter="optionsMenu"
+	  insertbefore="tasksMenu">
+      <menupopup>
+	<!-- encryption options -->
+	<menuitem id="menu-encrypt" label="&menu.encrypt;"
+		  type="checkbox" checked="true"
+		  oncommand="MailWindow.handleEvent(this.id);" />
+	<menuitem id="menu-sign" label="&menu.sign;"
+		  type="checkbox" checked="true"
+		  oncommand="MailWindow.handleEvent(this.id);" />
+      </menupopup>
+    </menu>
+  </menubar>
+
+  <!-- top Toolbar -->
+  <toolbarpalette id="MsgComposeToolbarPalette">
+    <toolbarbutton id="button-cm-send"
+                   class="toolbarbutton-1"
+                   label="&tryango.label;"
+                   type="menu"
+                   insertafter="button-send,button-attach"
+                   insertbefore="button-security,button-save"
+                   orient="horizontal">
+      <menupopup>
+        <!-- TODO: FIXME: fill element automatically: anchorNode nsIDOMElement -->
+	<menuitem id="button-encrypt" label="&menu.encrypt;"
+		  type="checkbox" checked="true"
+		  oncommand="MailWindow.handleEvent(this.id);" />
+	<menuitem id="button-sign" label="&menu.sign;"
+		  type="checkbox" checked="true"
+		  oncommand="MailWindow.handleEvent(this.id);" />
+      </menupopup>
+    </toolbarbutton>
+  </toolbarpalette>
+  <!-- hook button to top toolbar (attention: no spaces in defaultset!)-->
+  <toolbar id="composeToolbar2"
+           defaultset="button-send,separator,button-address,spellingButton,button-attach,button-cm-send,button-security,button-save"
+           />
+
+
+  <!-- language file -->
+  <stringbundleset id="stringbundleset">
+    <stringbundle id="lang_file" src="chrome://tryango/locale/lang.properties"/>
+  </stringbundleset>
+
+</overlay>

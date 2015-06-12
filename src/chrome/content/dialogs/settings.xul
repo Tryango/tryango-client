@@ -1,0 +1,199 @@
+<?xml version="1.0"?>
+<?xml-stylesheet href="chrome://communicator/skin/" type="text/css"?>
+
+<!-- language file -->
+<!DOCTYPE tryango SYSTEM "chrome://tryango/locale/lang.dtd"
+[
+<!-- own attribute to set advanced options (readonly) -->
+<!ATTLIST tag advOption CDATA #FIXED "true">
+]>
+
+<dialog id="tryango_settings" title="&settings.title;"
+	xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+	width="800px" height="600px"
+	onload="prefOnLoad(); infoOnLoad();"
+	onunload="Dialogs.settingsEnd();"
+	minheight="300"
+	buttons="help,extra1,accept,cancel"
+	defaultButton="accept"
+	buttonlabelhelp="&settings.buttonhelp;"
+	buttonlabelextra1="&settings.buttonaccept;"
+	buttonlabelaccept="&settings.buttonok;"
+	buttonlabelcancel="&settings.buttoncancel;"
+	ondialogaccept="return prefOnAccept();"
+	ondialogextra1="ret = prefOnAccept(); window.location.reload(true); return ret;"
+	ondialoghelp="Dialogs.help(window);">
+
+  <!-- Reference to JavaScript file -->
+  <script type="application/javascript" src="chrome://tryango/content/dialogs/settings.js"/>
+  <script type="application/javascript" src="chrome://tryango/content/dialogs/info.js"/>
+
+  <!-- Settings dialog -->
+  <tabbox orient="vertical" flex="1">
+    <tabs>
+      <!-- defined tabs -->
+      <tab id="settings-general" label="&settings.generaltab;"/>
+      <tab label="&settings.managedevices;"/>
+      <tab label="&settings.managekeys;"/>
+      <tab label="&settings.randomcheck;" id="tab_randomcheck"/>
+      <!-- more tabs if needed... -->
+    </tabs>
+
+    <tabpanels flex="1">
+      <!-- tab 1: general settings -->
+      <groupbox flex="0" style="overflow: auto;">
+
+	<!-- Encryption -->
+	<label value="&settings.labeldefault;" class="header"/>
+	<vbox align="left">
+	  <checkbox id="ang_encryptMessages"
+		    label="&settings.enc_default;" />
+	  <checkbox id="ang_signMessages"
+		    label="&settings.sign_default;" />
+	</vbox>
+        <spacer type="block" height="20"/>
+
+	<!-- Server -->
+	<label value="&settings.labelserversettings;" class="header"/>
+	<vbox align="left">
+	  <label value="&settings.labelserver;"/>
+	  <textbox id="ang_server"/>
+
+	  <label value="&settings.labelport;"/>
+	  <textbox id="ang_port"
+                   type="number"
+                   min="0" max="65536" />
+	</vbox>
+	<vbox align="left">
+	  <label value="&settings.labelmachineid;"/>
+	  <textbox id="ang_machineID" disabled="true"/>
+	</vbox>
+        <spacer type="block" height="20"/>
+
+        <!-- Server Status -->
+        <label class="header" value="&settings.desc_status;"/>
+        <textbox id="tex_status" multiline="true" rows="8" cols="20"/>
+        <!-- refresh button -->
+        <vbox align="left">
+          <button label="&settings.buttonrefresh;"
+                  width="100"
+                  oncommand="fillStatus(document.getElementById('lang_file'));">
+          </button>
+        </vbox>
+        <spacer type="block" height="20"/>
+
+	<!-- push rest to bottom -->
+	<spacer flex="1"/>
+
+	<!-- Advanced options (experts) -->
+	<vbox align="left">
+	  <checkbox id="ang_advancedOptions"
+              oncommand="advancedClicked(this);"
+              label="&settings.advoptions;"/>
+	</vbox>
+      </groupbox>
+      
+    <!-- tab 2: manage devices -->
+    <groupbox flex="1">
+      <label class="header" value="&settings.desc_devices;"/>
+      <!-- tree of devices -->
+      <!-- https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XUL/tree -->
+      <vbox>
+      <tree id="tree_devices" hidecolumnpicker="true" seltype="multiple"
+            rows="20" treelines="true">
+        <treecols>
+          <treecol id="col_device" label="&settings.devices;" primary="true" flex="1"/>
+        </treecols>
+        <treechildren id="tree_devices_content">
+          <!-- TAB WILL BE FILLED BY JAVASCRIPT -->
+        </treechildren>
+      </tree>
+      </vbox>
+      <!-- buttons -->
+      <hbox>
+        <!-- refresh button -->
+        <button label="&settings.buttonrefresh;"
+                width="100"
+                oncommand="fillDevices(document.getElementById('lang_file'));">
+        </button>
+        <!-- remove button -->
+        <button label="&settings.buttonremove;"
+                width="100"
+                oncommand="removeSelectedDevices();">
+        </button>
+      </hbox>
+      <label id="tree_devices_updated" value="-"/>
+    </groupbox>
+
+    <!-- tab 3: manage keys -->
+    <groupbox flex="1">
+      <label class="header" value="&settings.desc_keys;"/>
+
+      <!-- tree of keys -->
+      <!-- https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XUL/tree -->
+      <tree id="tree_keys" hidecolumnpicker="true" seltype="multiple"
+            rows="20" treelines="true">
+        <treecols>
+            <treecol primary="true" id="key_type" label="&wizard.importKeyPage.kt_type;" flex="1"/>
+            <splitter class="tree-splitter"/>
+            <treecol id="key_email" label="&wizard.importKeyPage.kt_email;" flex="1"/>
+            <splitter class="tree-splitter"/>
+            <treecol id="key_id" label="&wizard.importKeyPage.kt_fingerprint;" flex="1"/>
+            <splitter class="tree-splitter"/>
+            <treecol sortActive="true" id="key_created" label="&wizard.importKeyPage.kt_created;" flex="1"/>
+            <splitter class="tree-splitter"/>
+            <treecol id="key_expiry" label="&wizard.importKeyPage.kt_expiry;" flex="1"/>
+            <splitter class="tree-splitter"/>
+            <treecol id="key_version" label="&wizard.importKeyPage.kt_encrypted;" flex="1"/>
+        </treecols>
+        <treechildren id="tree_keys_content">
+          <!-- TAB WILL BE FILLED BY JAVASCRIPT -->
+        </treechildren>
+      </tree>
+
+      <!-- buttons -->
+      <hbox>
+        <!-- refresh button -->
+        <button label="&settings.buttonrefresh;"
+                width="100"
+                oncommand="fillKeys(document.getElementById('lang_file'));">
+        </button>
+        <!-- remove button -->
+        <button label="&settings.buttonremove;"
+                width="100"
+                oncommand="removeSelectedKeys();">
+        </button>
+      </hbox>
+      <label id="tree_keys_updated" value="-"/>
+    </groupbox>
+
+    <!-- tab 4: randomcheck/audit/proofs -->
+    <groupbox flex="1">
+      <label class="header" value="&settings.desc_randomcheck;"/>
+      <textbox id="tex_randomcheck" multiline="true" rows="25" cols="20"/>
+      <!-- refresh button -->
+      <vbox align="left">
+        <button label="&settings.buttonrefresh;"
+                width="100"
+                oncommand="fillAudit(document.getElementById('lang_file'));">
+        </button>
+      </vbox>
+    </groupbox>
+
+    <!-- more tabs if needed... -->
+    <!--
+        <groupbox>
+	<description>...</description>
+        </groupbox>
+    -->
+
+    </tabpanels>
+  </tabbox>
+
+
+  <!-- language file -->
+  <stringbundleset id="stringbundleset">
+    <stringbundle id="lang_file" src="chrome://tryango/locale/lang.properties"/>
+  </stringbundleset>
+  
+</dialog>

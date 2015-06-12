@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<?xml-stylesheet href="chrome://communicator/skin/" type="text/css"?>
+
+<!-- language file -->
+<!DOCTYPE tryango SYSTEM "chrome://tryango/locale/lang.dtd">
+
+<window id="tryango_about" title="&tryango.label;"
+	xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+	onclose="Dialogs.aboutEnd();"
+	width="800px" height="600px">
+  <script>
+    Components.utils.import("resource://tryango_modules/dialogs.jsm");
+  </script>
+  <!-- About window -->
+  <groupbox flex="1">
+    <caption label="&about.title;"/>
+    <browser type="content" src="chrome://tryango/locale/about.html" flex="1" readonly="true"/>
+  </groupbox>
+  <groupbox flex="1">
+    <caption label="&about.license;"/>
+    <browser type="content" src="resource://license/LICENSE" flex="1" readonly="true"/>
+  </groupbox>
+
+
+  <!-- language file -->
+  <stringbundleset id="stringbundleset">
+    <stringbundle id="lang_file" src="chrome://tryango/locale/lang.properties"/>
+  </stringbundleset>
+
+</window>

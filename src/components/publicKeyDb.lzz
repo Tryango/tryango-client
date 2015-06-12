@@ -1,0 +1,334 @@
+#hdr
+#include "secretKeyPair.h"
+#include <map> //O(log(n)) access
+#end
+#src
+#include "angClient.h"
+#end
+
+class ConfiClient;
+
+class PublicKeyPair{
+ private:
+  PKT_public_key* mainKey;
+  PKT_public_key* subKey;
+  PKT_signature* bindSig;
+
+  void freePKey(PKT_public_key* key){
+    if (key != NULL){
+      for (auto& it: key->user_ids){
+        if(it != NULL && it->signature != NULL) {
+          free(it->signature);
+        }
+      }
+      if(key->n != NULL) BN_clear_free(key->n);
+      if(key->e != NULL) BN_clear_free(key->e);
+      free(key);
+    }
+  }
+
+ public:
+
+  bool exportPair(std::string& result){
+    if(mainKey == NULL || subKey == NULL || bindSig == NULL) return false;
+    result.append(PktDo::pubKey2Str(mainKey));
+    for (auto& it:mainKey->user_ids){
+      result.append(PktDo::userId2Str(it));
+      result.append(PktDo::signature2Str(it->signature));
+    }
+    result.append(PktDo::pubKey2Str(subKey));
+    result.append(PktDo::signature2Str(bindSig));
+    return true;
+  }
+
+  static void getRsaKey(RSA* rsa
+                        , PKT_public_key* pk
+                        ){
+    if(rsa==NULL) return;
+    rsa->n = BN_new();
+    rsa->e = BN_new();
+
+    rsa->n = BN_dup(pk->n);
+    rsa->e = BN_dup(pk->e);
+
+    rsa->engine = NULL;
+  }
+
+  std::vector<PKT_user_id*> getUserIds()
+  {
+    if(mainKey != NULL){
+      return mainKey->user_ids;
+    }
+    else{
+      return std::vector<PKT_user_id*>();
+    }
+  }
+
+  PublicKeyPair()
+  {
+    mainKey = NULL;
+    subKey = NULL;
+    bindSig = NULL;
+  }
+
+  virtual ~PublicKeyPair()
+  {
+    freePKey(mainKey);
+    freePKey(subKey);
+    if(bindSig != NULL) free(bindSig);
+  }
+
+  PKT_public_key* getPEKey(){
+    return subKey;
+  }
+
+  PKT_public_key* getPSKey(){
+    return mainKey;
+  }
+
+  void setPSKey(PKT_public_key* key){
+    mainKey = key;
+  }
+
+  void setPEKey(PKT_public_key* key){
+    subKey = key;
+  }
+
+  void setBindSig(PKT_signature* sig){
+    bindSig = sig;
+    if(subKey != NULL && sig->key_expirePeriod != 0){
+      subKey->expirePeriod = sig->key_expirePeriod;
+    }
+  }
+
+  PKT_signature* getBindSig(){
+    return bindSig;
+  }
+
+  PKT_user_id* getUserId(const std::string& id)
+  {
+    if(mainKey == NULL) return NULL;
+    for (auto& it:mainKey->user_ids){
+      if(PktDo::stripId(it->id) == PktDo::stripId(id)){
+        return it;
+      }
+    }
+    return NULL;
+  }
+
+}
+
+
+typedef std::map <std::string, PublicKeyPair*> PubDbType;
+
+
+class PublicKeyDb{
+ private:
+  PubDbType userIdDb;  //contain public keys of the users - lookup by user id
+  ConfiClient* client;
+
+  Confi_Status addPackets(std::vector<PACKET>& packets, std::string uId){
+    PublicKeyPair* lastPair = NULL;
+    PKT_public_key* pkey;
+    for (auto& pkt:packets){
+      switch(pkt.pkttype){
+
+      case PKT_PUBLIC_SUBKEY: //  = 14, /* Public subkey. */
+      case PKT_PUBLIC_KEY:    //  = 6,  /* Public key. */
+        if(pkt.pkt.public_key->is_primary){
+          if (lastPair != NULL){
+            addKey(lastPair, uId);
+          }
+          lastPair = new PublicKeyPair;
+          lastPair->setPSKey(pkt.pkt.public_key);
+        }
+        else{
+          if(lastPair == NULL){
+            return ANG_PARSE_ERROR;
+          }
+          lastPair->setPEKey(pkt.pkt.public_key);
+        }
+        break;
+
+      case PKT_USER_ID:      // = 13, /* User id packet. */
+        if(lastPair == NULL){
+          return ANG_PARSE_ERROR;
+        }
+        lastPair->getPSKey()->user_ids.push_back(pkt.pkt.user_id);
+        break;
+
+      case PKT_SIGNATURE:    // = 2,  /* Secret key encrypted packet. */
+        if(lastPair == NULL){
+          return ANG_PARSE_ERROR;
+        }
+
+        switch(pkt.pkt.signature->sig_class){
+
+        case SGN_SUBKEY: //0x19
+          if(lastPair->getBindSig() != NULL){
+            return ANG_PARSE_ERROR;
+          }
+          lastPair->setBindSig(pkt.pkt.signature);
+          break;
+
+        case SGN_CERT_POS: // 0x13
+          pkey = lastPair->getPSKey();
+          if(pkey->user_ids.size() < 0){
+            return ANG_PARSE_ERROR;
+          }
+          if(pkey->user_ids.back() == NULL){
+            return ANG_PARSE_ERROR;
+          }
+          if(pkey->user_ids.back()->signature != NULL){
+            return ANG_PARSE_ERROR;
+          }
+          pkey->user_ids.back()->signature = pkt.pkt.signature;
+          if(pkt.pkt.signature->key_expirePeriod != 0){
+            pkey->expirePeriod = pkt.pkt.signature->key_expirePeriod;
+          }
+          break;
+
+        default:
+          return ANG_PARSE_ERROR;
+        }
+        break;
+
+      case PKT_SECRET_SUBKEY:// = 7,  /* Secret subkey */
+      case PKT_SECRET_KEY:   // = 5,  /* Secret key. */
+      case PKT_PUBKEY_ENC:   // = 1,  /* Public key encrypted packet. */
+      case PKT_SYMKEY_ENC:   // = 3,  /* Session key packet. */
+      case PKT_ONEPASS_SIG:  // = 4,  /* One pass sig packet. */
+      case PKT_COMPRESSED:   // = 8,  /* Compressed data packet. */
+      case PKT_ENCRYPTED:    // = 9,  /* Conventional encrypted data. */
+      case PKT_MARKER :      // = 10, /* Marker packet. */
+      case PKT_PLAINTEXT:    // = 11, /* Literal data packet. */
+      case PKT_RING_TRUST:   // = 12, /* Keyring trust packet. */
+      case PKT_OLD_COMMENT:  // = 16, /* Comment packet from an OpenPGP draft. */
+      case PKT_ATTRIBUTE:    // = 17, /* PGP's attribute packet. */
+      case PKT_ENCRYPTED_MDC:  //  = 18, /* Integrity protected encrypted data. */
+      case PKT_MDC:          // = 19 /* Manipulation detection code packet. */
+      case PKT_NONE:         // = 0,  /* Reserved. */
+      default:
+        return ANG_PARSE_ERROR;
+      }
+    }
+    if (lastPair != NULL){
+      addKey(lastPair, uId);
+    }
+    return ANG_OK;
+  }
+
+
+ public:
+
+  PublicKeyDb(ConfiClient* cl){
+    client = cl;
+  }
+  // for testing only
+  PublicKeyDb(){
+    client = NULL;
+  }
+
+  virtual ~PublicKeyDb(){
+    clearDb();
+  }
+
+  static bool hasExpired(PKT_public_key* key, time_t date=0){
+    if(key != NULL){
+      if(date == 0){
+        time(&date);
+      }
+      if(key->expirePeriod == 0){
+        return false;
+      }
+      time_t expire = key->expirePeriod + key->timestamp;
+      if(date > expire){
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Confi_Status checkMailAddr(const std::string& id)
+  {
+    PublicKeyPair* pk = getKey(id);
+    if(pk != NULL){
+      if(hasExpired(pk->getPEKey())){
+        return ANG_ENCKEY_EXPIRED;
+      }
+      return ANG_OK;
+    }
+    else{
+      return ANG_NO_KEY_PRESENT;
+    }
+  }
+
+  PublicKeyPair* getKey(const std::string& id)
+  {
+    PubDbType::iterator it = userIdDb.find(id);
+    if(it != userIdDb.end()){
+      return it->second;
+    }
+    else{
+      if(client != NULL){
+        std::string key = "";
+        tryango::Entry_Type type;
+        Confi_Status status = client->find_last(key, type, id);
+        if (status==ANG_OK && key.length()>0 && type == tryango::PUBLISH){
+          status = importKey(key, id);
+          if (status==ANG_OK){
+            PubDbType::iterator it = userIdDb.find(id);
+            if(it != userIdDb.end()){
+              return it->second;
+            }
+          }
+        }
+      }
+      return NULL;
+    }
+  }
+
+  void removeKey(const std::string& id)
+  {
+    PubDbType::iterator it = userIdDb.find(id);
+    if(it != userIdDb.end()){
+      free(it->second);
+      userIdDb.erase(it);
+    }
+  }
+
+
+  Confi_Status importKey(const std::string& key, const std::string& id){
+    std::vector<PACKET> packets;
+    Confi_Status status = PacketParser::parsePackets(packets, key);
+    if(status==ANG_OK){
+      status = addPackets(packets, id);
+      if(status != ANG_OK){
+        std::cout<<"Add packets failed with status:"<<status<<" hex key:"<<string_to_hex(key)<<std::endl;
+      }
+
+    }
+    else{
+      std::cout<<"Parse packets failed with status:"<<status<<" hex key:"<<string_to_hex(key)<<std::endl;
+    }
+    return status;
+  }
+
+  void addKey(PublicKeyPair* key, const std::string& id)
+  {//TOD check if id of key is the same as id
+    PKT_public_key* sKey = key->getPSKey();
+    PKT_public_key* eKey = key->getPEKey();
+    sKey->fingerprint = PktDo::getFingerprint(sKey);
+    eKey->fingerprint = PktDo::getFingerprint(eKey);
+/*     printf("Added public key with id %s and subid %s\n",string_to_hex(sKey->fingerprint).c_str() , string_to_hex(eKey->fingerprint).c_str()); */
+    userIdDb[id]= key;
+  }
+
+  void clearDb(){
+    for(auto& it:userIdDb){
+      free(it.second);
+    }
+    userIdDb.clear();
+  }
+
+}

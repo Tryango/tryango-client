@@ -1,0 +1,125 @@
+<?xml version="1.0"?>
+
+<!-- Reference to CSS file (needed for toolbar button) -->
+<?xml-stylesheet href="chrome://tryango/skin/overlay.css" type="text/css" ?>
+
+<!-- language file -->
+<!DOCTYPE tryango SYSTEM "chrome://tryango/locale/lang.dtd">
+
+<overlay id="tryango" 
+	 xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+
+  <!-- Reference to JavaScript file -->
+  <script type="application/x-javascript" src="chrome://tryango/content/tryango.js"/>
+
+  <!-- Thunderbird parts to be altered -->
+
+  <!-- Interface -->
+  <!-- Menu -->
+  <menubar id="mail-menubar">
+    <menu id="tryango-menu" label="&tryango.label;"
+	  insertafter="messageMenu,go-menu,view-menu"
+	  insertbefore="tools-menu" acceltext="1">
+      <menupopup id="tryango-menu-popup">
+	<menuitem id="menu-signup" label="&menu.signup;"
+		  oncommand="Tryango.handleEvent(this.id);" />
+	<menuitem id="menu-settings" label="&menu.settings;"
+		  oncommand="Tryango.handleEvent(this.id);" />
+
+	<menuseparator />
+	<menuitem id="menu-import" label="&menu.import;"
+		  oncommand="Tryango.handleEvent(this.id);" />
+	<menuitem id="menu-export" label="&menu.export;"
+		  oncommand="Tryango.handleEvent(this.id);" />
+
+	<menuitem id="menu-reset" label="&menu.reset;"
+		  oncommand="Tryango.handleEvent(this.id);" />
+
+	<menuseparator />
+	<menuitem id="menu-help" label="&menu.help;"
+		  oncommand="Tryango.handleEvent(this.id);" />
+	<menuitem id="menu-about" label="&about.title;"
+		  oncommand="Tryango.handleEvent(this.id);" />
+      </menupopup>
+    </menu>
+  </menubar>
+
+  <!-- top Toolbar -->
+  <toolbarpalette id="MailToolbarPalette">
+    <toolbarbutton id="button-cm"
+                   class="toolbarbutton-1"
+                   label="&tryango.label;"
+                   type="menu"
+                   insertafter="button-getmsg,button-newmsg,button-chat,button-address"
+                   insertbefore="button-tag,qfb-show-filter-bar,gloda-search"
+                   orient="horizontal"
+                   disabled="false">
+      <menupopup>
+        <!-- TODO: FIXME: fill element automatically: anchorNode nsIDOMElement (tryango-menu-popup) -->
+	<menuitem id="menu-signup" label="&menu.signup;"
+		  oncommand="Tryango.handleEvent(this.id);" />
+	<menuitem id="menu-settings" label="&menu.settings;"
+		  oncommand="Tryango.handleEvent(this.id);" />
+
+
+	<menuseparator />
+	<menuitem id="menu-import" label="&menu.import;"
+		  oncommand="Tryango.handleEvent(this.id);" />
+	<menuitem id="menu-export" label="&menu.export;"
+		  oncommand="Tryango.handleEvent(this.id);" />
+
+
+	<menuitem id="menu-reset" label="&menu.reset;"
+		  oncommand="Tryango.handleEvent(this.id);" />
+
+	<menuseparator />
+	<menuitem id="menu-help" label="&menu.help;"
+		  oncommand="Tryango.handleEvent(this.id);" />
+	<menuitem id="menu-about" label="&about.title;"
+		  oncommand="Tryango.handleEvent(this.id);" />
+      </menupopup>
+    </toolbarbutton>
+  </toolbarpalette>
+  <!-- hook button to top toolbar (attention: no spaces in defaultset!)-->
+  <toolbar id="mail-bar3"
+           defaultset="button-getmsg,button-newmsg,button-chat,button-address,spacer,button-tag,button-cm,qfb-show-filter-bar,spring,gloda-search,button-appmenu"
+           />
+
+  <!-- attachment toolbar -->
+  <toolbarpalette id="attachment-view-toolbar">
+    <!-- stop propagation to cancel onclick event of
+         toolbar (=opening the attachment-toolbar) -->
+    <toolbarbutton id="button-cm-decrypt"
+                   class="toolbarbutton-1 msgHeaderView-button"
+                   title="&menu.decryptSave;"
+                   label="&menu.decrypt;"
+                   tooltiptext="&menu.decryptSave;"
+                   insertbefore="attachmentSaveAll"
+                   onclick="event.stopPropagation();"
+                   oncommand="Tryango.handleEvent(this.id);"
+                   />
+  </toolbarpalette>
+
+  <!-- Overlay to show signature check -->
+  <vbox id="expandedHeadersBox"
+        xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+
+    <hbox id="tryango-verification-toolbar"
+          style="background-color: transparent;"
+          pack="center">
+      <!-- value will be filled by JavaScript -->
+      <label id="tryango-verification-label"
+          value=""
+          style="color: black;"
+          tooltiptext="&verifytoolbar.tooltip;" />
+    </hbox>
+  </vbox>
+
+  <!-- language file -->
+  <stringbundleset id="stringbundleset">
+    <stringbundle id="lang_file" src="chrome://tryango/locale/lang.properties"/>
+  </stringbundleset>
+
+</overlay>
+
+

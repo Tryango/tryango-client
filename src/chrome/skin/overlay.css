@@ -1,0 +1,11 @@
+/* CSS file including mark-ups */
+
+/* top toolbar button */
+#button-cm, #button-cm-send, #button-cm-decrypt{
+  list-style-image: url("chrome://tryango/skin/cm_logo_24x24.png") !important;
+}
+
+/* gpg key tree (all treechildren with parent id="info_key_tree") */
+#info_key_tree > treechildren::-moz-tree-row{
+  height: 75px !important;
+}

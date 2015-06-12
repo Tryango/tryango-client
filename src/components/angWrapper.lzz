@@ -1,0 +1,654 @@
+#hdr
+#include "angClient.h"
+#include "angPipe.h"
+#include <vector>
+#include <set>
+#include<stdio.h>
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
+#if !defined(_MSC_VER)
+#include<Winsock2.h>
+#endif
+#else
+#include <unistd.h>
+#endif
+#end
+
+ConfiClient client;
+KeyDb* infoKeyDb;
+
+#ifdef __cplusplus
+extern "C"{
+#endif
+
+
+  void initClient(const char* logfilePath
+                  ){
+    client.setLoggerPath(logfilePath);
+    infoKeyDb=NULL;
+  //  OPENSSL_Applink();
+  }
+
+
+  bool setServer(const char* host
+                 , const uint32_t port
+                 , const char* configDir
+                 ){
+    return client.setServer(std::string(host),port, std::string(configDir));
+  }
+
+
+  uint32_t signup(const char* identity
+                  , const char* device
+                  , const char* reqId
+                  ){
+    return client.signup(PktDo::stripId(std::string(identity)), std::string(device), std::string(reqId));
+  }
+
+
+  uint32_t getEncryptedSK(char** encrKey
+                          , uint32_t* encrKeySize
+                          , const char* id
+                          , const char* password
+                          ){
+    uint32_t c_status = ANG_UNKNOWN_ERROR;
+    std::string identity = PktDo::stripId(std::string(id));
+    std::string keyStr;
+    PublicKeyDb pubDb;
+    pubDb.importKey(client.getTempKey(), identity);
+    clearTempKey();
+    PublicKeyPair* pk = pubDb.getKey(id);
+    if(pk == NULL) {
+      return ANG_NO_KEY_PRESENT;
+    }
+    PKT_public_key* pkey = pk->getPEKey();
+    SecretKeyPair* skey = client.getKeyDb().getCurrentKey(id);
+    if(pkey != NULL && skey != NULL && skey->exportPair(keyStr, true) && keyStr.length() > 0){
+      std::vector<PKT_public_key*> keys;
+      keys.push_back(pkey);
+      std::string encrypted;
+      c_status = MessageHandler::encryptData(encrypted, keyStr, keys, CIPHER_ALGO_AES256,
+                                             client.getKeyDb(), identity, true, "secretKey.gpg",
+                                             password, true, true);
+      if(c_status == ANG_OK && !encrypted.empty()){
+        *encrKeySize = allocateAndCopy(encrKey, encrypted);
+      }
+      else{
+        (*encrKey)=NULL;
+        *encrKeySize = 0;
+      }
+    }
+    else{
+      c_status = ANG_NO_KEY_PRESENT;
+    }
+    return c_status;
+  }
+
+
+  void clearTempKey(){
+    client.setTempKey("");
+  }
+
+
+  uint32_t submitKey(char* hexAp
+                     , const char* id
+                     , const char* device
+                     ){
+    std::string identity = PktDo::stripId(std::string(id));
+/*     client.log("Submit begin id " + std::string(identity)); */
+    if(!client.hasSecretKey(identity)){
+/*       client.log("No private key for id: " + std::string(identity)); */
+      return ANG_NO_KEY_PRESENT;
+    }
+    Confi_Status c_status = ANG_UNKNOWN_ERROR;
+    std::string keyStr;
+    SecretKeyPair* key = client.getKeyDb().getCurrentKey(identity);
+    if(key != NULL && key->exportPair(keyStr, false) && keyStr.length() > 0){
+      client.log("Got public key to export: " + string_to_hex(keyStr));
+      std::string serverKey;
+      tryango::Entry_Type type;
+      client.log("Searching for id:"+ identity);
+      c_status = client.find_last(serverKey, type, identity);
+      if(keyStr.compare(serverKey) != 0 && c_status == ANG_OK){
+        client.log("Sumbitting new id:"+ identity + " device"+std::string(device));
+        std::string ap = hex_to_string(std::string(hexAp, 2 * HASH_SIZE));
+        c_status = client.submit(ap, identity, std::string(device), keyStr);
+        if(c_status == ANG_OK){
+          memcpy(hexAp, string_to_hex(ap).c_str(), 2 * HASH_SIZE);
+          client.setTempKey(serverKey);
+        }
+      }
+      else{
+        if( c_status == ANG_OK){
+          return ANG_ID_ALREADY_EXISTS;
+        }
+        else{
+          return c_status;
+        }
+      }
+    }
+    else{
+      c_status = ANG_NO_KEY_PRESENT;//TODO - check if public key is empty */
+      client.log("Error: key is null or not created properly (angWrapper::submitKey)");
+    }
+    return c_status;
+  }
+
+
+  uint32_t revokeKey(char* hexAp
+                     , const char* id
+                     , const char* device
+                     , const char* password
+                     ){
+    std::string identity = PktDo::stripId(std::string(id));
+    if(!client.hasSecretKey(identity)){
+      return ANG_NO_KEY_PRESENT;
+    }
+    Confi_Status c_status = ANG_UNKNOWN_ERROR;
+    std::string ap = hex_to_string(std::string(hexAp, 2 * HASH_SIZE));
+    c_status = client.revoke(ap, identity, std::string(device), std::string(password));
+    if(c_status == ANG_OK){
+      memcpy(hexAp, string_to_hex(ap).c_str(), 2 * HASH_SIZE);
+    }
+    return c_status;
+  }
+
+
+  uint32_t getServerInfo(char* dest
+                         , uint32_t size
+                         ){
+    std::string result;
+    Confi_Status status = client.getServerInfo(result);
+    if(status==ANG_OK){
+      memset(dest, '\0', size);
+      memcpy(dest, result.c_str(), (size < result.length())? size : result.length());
+    }
+    return status;
+  }
+
+
+  uint32_t getPort(){
+    return client.getPort();
+  }
+
+
+  void getServer(char** hostname
+                 , uint32_t* hostnameSize
+                 ){
+    std::string serverName = client.getHost();
+    *hostnameSize = allocateAndCopy(hostname, serverName);
+  }
+
+
+  void getHostName(char* hostname
+                   , uint32_t hostnameSize
+                   ){
+    gethostname(hostname, hostnameSize);
+  }
+
+
+  bool generateRsaKeys(char* userId
+                       , char* password
+                       , uint32_t size
+                       ){
+    return client.generateRsaKeys(PktDo::stripId(std::string(userId)), std::string(password), size);
+  }
+
+
+  bool useExistentTryangoKey(const char* email
+                             ){
+    //TODO: implement (adjust return type to uint32_t if needed)
+    return false;
+  }
+
+
+  uint32_t getDevices(char*** result
+                      , uint32_t* resultSize
+                      , char* hexAp
+                      , const char* id
+                      , const char* device
+                      ){
+    std::string identity = PktDo::stripId(std::string(id));
+    std::string ap = hex_to_string(std::string(hexAp, 2 * HASH_SIZE));
+    uint32_t status = client.getDevices(result, resultSize, ap, identity, std::string(device));
+    memcpy(hexAp, string_to_hex(ap).c_str(), 2 * HASH_SIZE);
+    return status;
+  }
+
+
+  uint32_t removeDevices(char* hexAp
+                        , const char* id
+                        , const char* device
+                        , const char** devices
+                        , const uint32_t devicesSize
+                         ){
+    //init
+    std::string identity = PktDo::stripId(std::string(id));
+    std::string ap = hex_to_string(std::string(hexAp, 2 * HASH_SIZE));
+
+    //request to server
+    uint32_t status = client.removeDevices(ap, identity, device, devices, devicesSize);
+
+    //update ap
+    memcpy(hexAp, string_to_hex(ap).c_str(), 2 * HASH_SIZE);
+
+    return status;
+  }
+
+
+  void removeKey(char* fingerprint
+                 ){
+    client.getKeyDb().removeKey(hex_to_string(std::string(fingerprint)));
+  }
+
+
+  uint32_t loadInfoKeysFromFile(const char* id , const char* fileName
+                                ){
+    std::string identity = PktDo::stripId(std::string(id));
+    if(infoKeyDb != NULL){
+      delete infoKeyDb;
+    }
+    infoKeyDb = new KeyDb;
+    return infoKeyDb->readFromFile(std::string(fileName), true, identity);
+  }
+
+
+  uint32_t loadInfoKeysFromGpg(const char* id
+                               ){
+    std::string identity = PktDo::stripId(std::string(id));
+    if(infoKeyDb != NULL){
+      delete infoKeyDb;
+    }
+    infoKeyDb = new KeyDb;
+    std::string secretKey;
+    CmdPiper::getSecretKey(secretKey, identity);
+    Confi_Status status = infoKeyDb->readFromStr(secretKey, true, identity);
+    return status;
+  }
+
+
+  void clearInfo(
+                 ){
+    if (infoKeyDb != NULL){
+      delete infoKeyDb;
+      infoKeyDb = NULL;
+    }
+  }
+
+
+  /*return keys in the keypurse for given email/id as an array of strings
+  contiaing description of the keys*/
+  uint32_t getInfoKeys(char*** keysInfo
+                      , uint32_t* noKeys
+                      , const char* id
+                      , const bool fromKeypurse
+                       ){
+    std::string identity = PktDo::stripId(std::string(id));
+    if(fromKeypurse){
+      return client.getKeyDb().getKeysInfo(keysInfo, noKeys, identity);
+    }
+    else{
+      if(infoKeyDb != NULL){
+        Confi_Status status = infoKeyDb->getKeysInfo(keysInfo, noKeys, identity);
+        return status;
+      }
+      else{
+        return ANG_NO_ENTRIES;
+      }
+    }
+  }
+
+
+  uint32_t transferKeysFromInfo(const char* fingerprint
+                                ){
+    if(infoKeyDb == NULL){
+      return ANG_NO_ENTRIES;
+    }
+    KeyList kl = infoKeyDb->getKeysById(hex_to_string(std::string(fingerprint)).substr(12, 8));
+    if(kl.size()<1){
+      return ANG_NO_ENTRIES;
+    }
+    std::string pair;
+    Confi_Status status = ANG_OK;
+    for(unsigned int i = 0; i < kl.size() && status == ANG_OK; i++){
+      if((kl.at(i)->getFingerprint() == fingerprint) || (kl.at(i)->getSubFingerprint() == fingerprint)){
+        kl.at(i)->exportPair(pair, true);
+        status = client.getKeyDb().readFromStr(pair, false, "");
+      }
+    }
+    clearInfo();
+    return status;
+  }
+
+
+  bool exportKeyPurse(const char* path
+                      , const char* password
+                      ){
+    return client.getKeyDb().writeToFile(std::string(path));
+  }
+
+
+  bool importKeyPurse(const char* path
+                      , bool clearOld
+                      ){
+    return client.getKeyDb().readFromFile(std::string(path), clearOld, "");
+  }
+
+
+  bool removeKeyPurse(const char* path
+                      ){
+    return client.removeKeyPurse(path);
+  }
+
+
+  bool checkMailAddr(const char* mailAddr
+                     ){
+    std::string mail = PktDo::stripId(std::string(mailAddr));
+    printf(("Checking mail for id" +mail +"\n").c_str());
+    return client.checkMailAddr(mail);
+  }
+
+
+  uint32_t verifySignature(char** verificationMsg //return
+                           , uint32_t* resultMsgSize //result size
+                           , const char* signedMail
+                           , const char* sender
+                           ){
+
+    std::string msg;
+    Confi_Status status =  MessageHandler::clearSignVerify(msg
+                                                       , std::string(signedMail)
+                                                       , PktDo::stripId(sender)
+                                                       , &(client.getPubDb()));
+
+    if(status == ANG_OK || status > ANG_UNKNOWN_ERROR){
+      std::cout<<("Verify mail command finished with result:" + patch::to_string(status) + " msg:" + msg);
+      *resultMsgSize = allocateAndCopy(verificationMsg, msg);
+    }
+    else{
+      (*verificationMsg)=NULL;
+      *resultMsgSize = 0;
+    }
+    return status;
+  }
+
+
+  Confi_Status getPubKeys(std::vector<PKT_public_key*>& keys
+                          , PKT_CipherAlgo alg
+                          , const char* recipients
+                          , const char* sender){
+    PublicKeyDb pubDb = client.getPubDb();
+    std::set<std::string> users;
+    std::string rec(recipients);
+    size_t pos=-1, lastPos=-1;
+    do{
+      pos = rec.find(",",pos + 1);
+      std::string user = PktDo::stripId(rec.substr(lastPos+1, pos > 0 ? pos - (1 + lastPos) : -1));
+      if(user.length() > 0 && (client.getPublicKey(user) != NULL)){
+        users.insert(user);
+      }
+      lastPos = pos;
+    }
+    while(pos != std::string::npos);
+    if(users.size() < 1) {
+      return ANG_NO_KEY_PRESENT;
+    }
+    if(sender != NULL){
+      users.insert(PktDo::stripId(sender)); //we encrypt for ourself
+    }
+    alg = MessageHandler::chooseAlg(users, &pubDb);
+    for(std::string uId:users){
+      PublicKeyPair* key = pubDb.getKey(uId);
+      if(key == NULL){
+        return ANG_NO_KEY_PRESENT;
+      }
+      PKT_public_key* pkey = key->getPEKey();
+      if(pkey == NULL){
+        return ANG_NO_KEY_PRESENT;
+      }
+      keys.push_back(pkey);
+    }
+    return ANG_OK;
+  }
+
+
+  uint32_t encryptSignMail(char** result //return
+                          , uint32_t* resultSize //result size
+                          , const char* mailBody //the body in clear text
+                          , const char* recipients //multiple addresses
+                          , const char* sender //the mail address of the sender
+                          , const char* password //the password used to protect the key
+                          , bool sign //if set, sign email
+                          , bool encrypt //if set, encrypt email
+                           ){
+    Confi_Status status = ANG_UNKNOWN_ERROR;
+    printf("encrypt: %d, signd %d \n", (int)sign, (int)encrypt);
+    SecretKeyPair* sk = client.getKeyDb().getCurrentKey(PktDo::stripId(sender));
+    if( sk == NULL){
+      (*result) = NULL;
+      *resultSize = 0;
+      return ANG_NO_KEY_PRESENT;
+    }
+    if(sign||encrypt){
+      PKT_CipherAlgo alg = CIPHER_ALGO_AES256; //initialize so compiler does not complain
+      //assuming we have public keys for all receipietns
+      std::vector<PKT_public_key*> keys;
+      status = getPubKeys(keys, alg, recipients, sender);
+      if (status != ANG_OK){
+        return status;
+      }
+      std::string encrypted;
+      encrypted.clear();
+
+      if(encrypt){
+        status = MessageHandler::encryptData(encrypted
+                                             , std::string(mailBody)
+                                             , keys
+                                             , alg
+                                             , client.getKeyDb()
+                                             , PktDo::stripId(std::string(sender))
+                                             , false
+                                             , "email.txt"
+                                             , std::string(password)
+                                             , sign
+                                             , true);
+        if(status == ANG_OK && !encrypted.empty()){
+          *resultSize = allocateAndCopy(result, encrypted);
+        }
+        else{
+          (*result)=NULL;
+          *resultSize = 0;
+        }
+      }
+      else if(sign){
+        std::cout<<"signing:\""<<std::string(mailBody)<<"\""<<std::endl;
+        status =  MessageHandler::clearSign(encrypted
+                                            , std::string(mailBody)
+                                            , client.getKeyDb()
+                                            , PktDo::stripId(sender)
+                                            , ""
+                                            );
+        if(status == ANG_OK){
+          *resultSize = allocateAndCopy(result, encrypted);
+        }
+        else{
+          (*result)=NULL;
+          *resultSize = 0;
+        }
+      }
+    }
+    return status;
+  }
+
+
+  uint32_t decryptAndSaveAttachment(const char* data //the attachment as raw data
+                                   , unsigned int dataLen
+                                   , const char* filePath //the path to store the file to (can be overwritten!)
+                                   , const char* sender //the mail address of the sender
+                                   , const char* password //password used to protect secret key
+                                    ){
+    //ATTENTION: this function runs parallel!
+    Confi_Status status = ANG_UNKNOWN_ERROR;
+    //decrypt and check signature
+    status =  MessageHandler::decryptFile(std::string(filePath)
+                                          , std::string(data, dataLen)
+                                          , PktDo::stripId(sender)
+                                          , &(client.getPubDb())
+                                          , client.getKeyDb()
+                                          , std::string(password));
+/*     if(status > ANG_UNKNOWN_ERROR) then signature is wrong but message is decrypted */
+    return status;
+  }
+
+
+  uint32_t encryptSignAttachment(const char* newFilePath //return (the file will be deleted by Thunderbird (if necessary))
+                                , const char* filePath //the attachment to encrypt
+                                , const char* recipients //multiple addresses
+                                , const char* sender //the mail address of the sender
+                                , const char* password //password used to protect secret key
+                                , bool sign //if set, sign attachment
+                                , bool encrypt //if set, encrypt attachment
+                                 ){
+    //init
+    Confi_Status status = ANG_UNKNOWN_ERROR;
+
+    //get key
+    SecretKeyPair* sk = client.getKeyDb().getCurrentKey(PktDo::stripId(sender));
+    if( sk == NULL){
+      return ANG_NO_KEY_PRESENT;
+    }
+
+    if(sign||encrypt){
+      PKT_CipherAlgo alg = CIPHER_ALGO_AES256; //initialize so compiler does not complain
+      //assuming we have public keys for all receipietns
+      std::vector<PKT_public_key*> keys;
+      status = getPubKeys(keys, alg, recipients, sender);
+      if (status != ANG_OK){
+        return status;
+      }
+      //processing
+      if(encrypt){
+        //encrypt the file
+        status = MessageHandler::encryptFile(std::string(newFilePath)
+                                             , std::string(filePath)
+                                             , keys
+                                             , alg
+                                             , client.getKeyDb()
+                                             , PktDo::stripId(std::string(sender))
+                                             , std::string(password)
+                                             , sign, false); //no armor
+      }
+      else if(sign){
+        //TODO: status =  MessageHandler::clearSign(newFilePath, filePath, client.getKeyDb(), PktDo::stripId(sender));
+      }
+    }
+
+    return status;
+  }
+
+
+  uint32_t decryptMail(char** result //return
+                    , uint32_t* resultSize //result size
+                    , const char* encMailBody//encrypted email
+                    , const char* sender  //sending email address
+                    , const char* recipient//receiving mail account TODO remove that
+                    , const char* password //password to protect secret key
+                    ){
+    std::string decrypted;
+    Confi_Status status =  MessageHandler::decryptText(decrypted
+                                                       , std::string(encMailBody)
+                                                       , PktDo::stripId(sender)
+                                                       , &(client.getPubDb())
+                                                       , client.getKeyDb()
+                                                       , std::string(password));
+
+    if(status == ANG_OK || status > ANG_UNKNOWN_ERROR){
+      std::cout<<("Decrypt command finished with result:" +patch::to_string(status) + " decrypted:" + decrypted);
+      *resultSize = allocateAndCopy(result, decrypted);
+    }
+    else{
+      (*result)=NULL;
+      *resultSize = 0;
+    }
+    return status;
+  }
+
+
+  //helper function
+  void freeString(char* string
+                  ){
+    if(string!=NULL){
+      free(string);
+    }
+  }
+
+
+  bool hasSecretKey(char* userId
+                    ){
+    return client.hasSecretKey(PktDo::stripId(std::string(userId)));
+  }
+
+
+  uint32_t checkPassword(char** keyId //return
+                         , uint32_t* keyIdSize //result size
+                         , char* id
+                         , char* password
+                         ){
+    std::string strKeyId;
+    Confi_Status status = client.getKeyDb().checkPassword(strKeyId
+                                                          , std::string(id)
+                                                          , std::string(password));
+    if(strKeyId.size()>0){
+      *keyIdSize = allocateAndCopy(keyId, string_to_hex(strKeyId));
+    }
+    else{
+      (*keyId)=NULL;
+      *keyIdSize = 0;
+    }
+    return status;
+  }
+
+
+  uint32_t checkDecrPassword(char** keyId //return
+                             , uint32_t* keyIdSize //result size
+                             , const char* encData//encrypted data
+                             , const unsigned int dataSize  // size of encrypted data
+                             , const char* password//password
+                             ){
+    std::string strKeyId;
+    Confi_Status status = MessageHandler::checkDecrPassword(strKeyId
+                                                            , std::string(encData, dataSize)
+                                                            , client.getKeyDb()
+                                                            , std::string(password));
+    if(strKeyId.size()>0){
+      *keyIdSize = allocateAndCopy(keyId, string_to_hex(strKeyId));
+    }
+    else{
+      (*keyId)=NULL;
+      *keyIdSize = 0;
+    }
+    return status;
+  }
+
+
+  inline int32_t allocateAndCopy(char** result
+                                 , std::string str
+                                 ){
+    int32_t size = str.length();
+
+    //has to be freed by javascript code (call to freeString)
+    *result = (char*) malloc((size+1) * sizeof(char));
+    assert(*result != NULL);
+    memcpy(*result, str.c_str(), size);
+    (*result)[size] = '\0'; //not resultSize+1!
+    return size;
+  }
+
+
+  bool hasGpg(){
+    return CmdPiper::hasGpg();
+  }
+
+
+#ifdef __cplusplus
+}
+#endif

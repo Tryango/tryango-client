@@ -1,0 +1,236 @@
+#hdr
+#include "angCommon.h"
+//protobuf structures
+#include "tryango.pb.h"
+//log proofs
+#include "logger.h"
+
+#end
+
+std::string string_to_hexa(const std::string& input)
+{
+  static const char* const lut = "0123456789ABCDEF";
+  size_t len = input.length();
+
+  std::string output;
+  output.reserve(2 * len);
+  for (size_t i = 0; i < len; ++i){
+    const unsigned char c = input[i];
+    output.push_back(lut[c >> 4]);
+    output.push_back(lut[c & 15]);
+  }
+  return output;
+}
+
+class ConfiVerifier{
+/*     """Verify proof of chron-tree extension. */
+/*     proof is an array of hashes of length 32, */
+/*     Returns calculated true if proof is correct.""" */
+ public:
+  inline static void hash(const std::string input, char* dest)
+  {
+      SHA256_CTX sha256;
+      SHA256_Init(&sha256);
+      SHA256_Update(&sha256, input.c_str(), input.size());
+      SHA256_Final((unsigned char*) dest, &sha256);
+/*       return std::string((char*) hash, SHA256_DIGEST_LENGTH); */
+  }
+
+  static bool vpfcte(std::string proof, const TreeNode oldRoot
+                     , const TreeNode newRoot
+                     , Logger* logger=NULL){
+    char dest[2 * HASH_SIZE];
+    assert(proof.length()% HASH_SIZE == 0);
+    bool result = calcVpfcte(proof.c_str(),proof.length()/HASH_SIZE-1, oldRoot.len, newRoot.len, dest);
+    result = result && ( memcmp(dest, oldRoot.hash.c_str(), HASH_SIZE) == 0 );
+    result = result && ( memcmp(dest+HASH_SIZE, newRoot.hash.c_str(), HASH_SIZE) == 0 );
+    if(logger!=NULL){
+      logger->logProof(CHRON_TREE_EXTEND, proof, result);
+    }
+    return result;
+  }
+ /** Verify proof of chron-tree presence for the leaf.
+  * proof is an array of hashes,
+  * Returns true if the proof is correct */
+  static bool vpfctp(const std::string proof
+                     , const TreeNode leaf
+                     , const TreeNode currRoot
+                     , Logger* logger=NULL){
+    char dest[HASH_SIZE];
+    assert(proof.length()%HASH_SIZE == 0);
+    bool result = calcVpfctp(proof.c_str(), leaf.hash,
+                             proof.length()/HASH_SIZE-1,
+                             leaf.len, currRoot.len, dest);
+    result = result && ( memcmp(dest,currRoot.hash.c_str(),HASH_SIZE) == 0 );
+    if(logger!=NULL){
+      logger->logProof(CHRON_TREE_PRESENCE, proof, result);
+    }
+    return result;
+  }
+
+  /*
+   * Verify proof of lex-tree presence (entry_set is not NULl) or absence
+   * (entry_set is NULL).
+   */
+  static bool vpfltpa(const std::string lt_hash
+                    , const tryango::PFLTP proof
+                    , const std::string key
+                    , const std::string* entry_set=NULL
+                    , Logger* logger=NULL
+                     ){
+    std::string result;
+    char dest[HASH_SIZE];
+    if(entry_set!=NULL){
+      hash(*entry_set, dest);
+      result = std::string(dest, HASH_SIZE);
+    }
+    else{
+      if(proof.has_wrong_leaf()){
+        // Proof of full absence.
+        std::string leaf;
+        proof.wrong_leaf().SerializeToString(&leaf);
+        hash(leaf, dest);
+        result = std::string(dest, HASH_SIZE);
+      }
+      else {
+        // Proof of empty absence.
+        return result.empty();
+      }
+    }
+    std::string proof_str;
+
+    for (int i = 0; i < proof.hashes_size(); i++){
+      std::string hash = proof.hashes(i);
+      if(logger!=NULL){
+        proof_str += proof.hashes(i);
+      }
+      int j=proof.hashes_size() - i -1;
+      if(!(key[j/8]>>(7-(j%8))) & 1){
+        hashLTLeaf(result,hash,dest);
+      }
+      else{
+        hashLTLeaf(hash, result, dest);
+      }//TODO test
+      result = std::string(dest,HASH_SIZE);
+    }
+    bool ret = (lt_hash.compare(result)==0);
+    if(logger!=NULL){
+      logger->logProof(LEX_TREE_PRESENCE_ABSENCE, proof_str, ret);
+    }
+    return ret;
+  }
+
+ private:
+  /*  Return largest power of two less than x.*/
+  static inline int64_t mid(int64_t num){
+    int64_t res = 1;
+    while(res < num){
+      res = res<<1;
+    }
+    return res >> 1;
+  }
+
+  static bool calcVpfcte(const char* proof, const int64_t j
+                        ,const int64_t index, const int64_t length
+                        ,char* result){
+    if(j<0){
+      return false;
+    }
+    if (index==length){
+      if(j<0){
+        return false;
+      }
+      else{
+        memcpy(result, proof+j*HASH_SIZE, HASH_SIZE);
+        memcpy(result+HASH_SIZE, proof+j*HASH_SIZE, HASH_SIZE);
+        return true;
+      }
+    }
+    else{
+      if(index<= mid(length)){//Traverse to the left
+        if(calcVpfcte(proof,j-1, index, mid(length), result)){
+          char dest[HASH_SIZE];
+          hashCTLeaf(length, result+HASH_SIZE, proof+HASH_SIZE*j, dest);
+/*           memcpy(result, result, 32); */
+          memcpy(result+HASH_SIZE,dest, HASH_SIZE);
+          return true;
+        }
+        else{
+          return false;
+        }
+      }
+      else{//Traverse to the right
+        if(calcVpfcte(proof,j-1, index - mid(length),length, result)){
+          char dest[HASH_SIZE];
+          hashCTLeaf(index, proof+HASH_SIZE*j, result, dest);
+          memcpy(dest, result, HASH_SIZE);
+          hashCTLeaf(length, proof+HASH_SIZE*j, result+HASH_SIZE, dest);
+          memcpy(dest, result+HASH_SIZE, HASH_SIZE);
+          return true;
+        }
+        else{
+          return false;
+        }
+      }
+    }
+  }
+
+  static bool calcVpfctp(const char* proof,
+                         const std::string& ct_leaf,
+                         const int64_t j,
+                         const int64_t index,
+                         const int64_t length,
+                         char* dest){
+    if (length == 1){
+      if(index!=1 || j > -1){
+        return false;
+      }
+      hash(ct_leaf, dest);
+      return true;
+    }
+    else{
+      if(j < 0){
+        return false;
+      }
+      bool result=false;
+      char tmp[HASH_SIZE];
+      if(index <= mid(length)){
+        result = calcVpfctp(proof, ct_leaf, j - 1, index, mid(length), dest);
+        hashCTLeaf(length, dest, proof + (j*HASH_SIZE), tmp);
+      }
+      else{
+        result = calcVpfctp(proof, ct_leaf, j - 1, index - mid(length),
+                            length - mid(length), dest);
+        hashCTLeaf(length, proof+(j*HASH_SIZE), dest, tmp);
+      }
+      memcpy(dest, tmp, HASH_SIZE);
+      return result;
+    }
+  }
+
+  static void hashLTLeaf(const std::string hLeft
+                        ,const std::string hRight
+                        ,char* dest){
+    tryango::LT_Node node;
+    if(!hLeft.empty()){
+      node.set_h_left(hLeft.c_str(), hLeft.size());
+    }
+    if(!hRight.empty()){
+      node.set_h_right(hRight.c_str(), hRight.size());
+    }
+    std::string strNode;
+    node.SerializeToString(&strNode);
+    hash(strNode, dest);
+  }
+
+  static void hashCTLeaf(int64_t nLeaves, const char* hLeft,
+                       const char* hRight, char* dest){
+    tryango::CT_Node node;
+    node.set_n_leaves(nLeaves);
+    node.set_h_left(hLeft, HASH_SIZE);
+    node.set_h_right(hRight, HASH_SIZE);
+    std::string strNode;
+    node.SerializeToString(&strNode);
+    hash(strNode, dest);
+  }
+}

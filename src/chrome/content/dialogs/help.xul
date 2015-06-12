@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<?xml-stylesheet href="chrome://communicator/skin/" type="text/css"?>
+
+<!-- language file -->
+<!DOCTYPE tryango SYSTEM "chrome://tryango/locale/lang.dtd">
+
+<window id="tryango_help" title="&tryango.label;"
+	xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+	onclose="Dialogs.helpEnd();"
+	width="800px" height="600px">
+  <script type="application/javascript" src="chrome://tryango/content/dialogs/help.js"/>
+
+  <!-- Help window -->
+  <groupbox flex="1">
+    <caption label="&help.title;"/>
+    <browser type="content" src="chrome://tryango/locale/help.html" flex="1" readonly="true"/>
+  </groupbox>
+
+  <!-- language file -->
+  <stringbundleset id="stringbundleset">
+    <stringbundle id="lang_file" src="chrome://tryango/locale/lang.properties"/>
+  </stringbundleset>
+
+</window>
