@@ -182,7 +182,7 @@ var CWrapper = {
           , ctypes.bool  //return type
           , ctypes.char.ptr   //param 1 - path
           , ctypes.bool); //param 2 - if to clear keypurse before import
-
+      
       this.removeKeyPurse = this.client.declare("removeKeyPurse"// method name 
           , ctypes.default_abi //binary interface type 
           , ctypes.bool  //return type

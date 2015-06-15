@@ -1,17 +1,77 @@
+//own modules
+Components.utils.import("resource://tryango_modules/pwmanager.jsm");
 Components.utils.import("resource://tryango_modules/cWrapper.jsm");
 Components.utils.import("resource://tryango_modules/prefs.jsm")
 Components.utils.import("resource://tryango_modules/logger.jsm");
+
+//standard modules
 Components.utils.import("resource:///modules/iteratorUtils.jsm"); //for fixIterator
 Components.utils.import("resource://gre/modules/FileUtils.jsm"); //for proofs.log file
 Components.utils.import("resource://gre/modules/NetUtil.jsm"); //reading file asynchonously
-Components.utils.import("resource://tryango_modules/pwmanager.jsm");
 
 
 //TODO: this should be a module called "utils" or "key/device-utils"
 
 //exports
-var EXPORTED_SYMBOLS = ["removeAllDevicesAndRevokeKeys"];
+var EXPORTED_SYMBOLS = ["Utils"]
 
+
+var Utils = new function()
+{  
+  this.exportKeyPurse = function(window, languagepack){
+    //pick file to save to
+    var fp = Components.classes["@mozilla.org/filepicker;1"].createInstance(
+      Components.interfaces.nsIFilePicker);
+    //filters:
+    fp.appendFilter("Keypurses", "*.purse"); //only key purses
+    fp.appendFilter("All files", "*");
+    fp.init(window, languagepack.getString("sel_keypurse_bak"),
+            Components.interfaces.nsIFilePicker.modeSave);
+
+    //check result
+    var res = fp.show();
+    if(res != Components.interfaces.nsIFilePicker.returnCancel){
+      //backup keypurse to selected location
+      if(!CWrapper.exportKeyPurse(fp.file.path)){
+        //error
+        Logger.error("exportKeyPurse failed");
+        Logger.infoPopup(languagepack.getString("bak_keypurese_fail"));
+      }
+      //else: everything ok
+    }
+  }
+
+  this.removeAllDevicesAndRevokeKeys = function(window, languagepack){
+    //function is called when plugin is deinstalled or user presses "reset"
+    //a lot of pop-ups are ok, we have to make sure the user is aware what he/she
+    //is doing
+    
+    //TODO: (server) remove devices
+    Logger.dbg("Removing devices");
+
+    //TODO: (server) revoke keys from server
+    Logger.dbg("Revoking keys");
+
+    //(local) remove keypurse (if it exists)
+    if((new FileUtils.File(Prefs.getPref("keyPursePath"))).exists()){
+      Logger.dbg("keypurse exists => remove it");
+      
+      //export keypurse if user wants to
+      if(Logger.promptService.confirm(null, "Tryango", languagepack.getString("exp_keypurse"))){
+        Logger.dbg("Export keypurse");
+        this.exportKeyPurse(window, languagepack);
+      }
+
+      //remove keypurse
+      if(!CWrapper.removeKeyPurse(Prefs.getPref("keyPursePath"))){
+        Logger.error("Could not remove keypurse: " +
+                     Prefs.getPref("keyPursePath"));
+        Logger.infoPopup(languagepack.getString("rm_keypurse_fail"));
+      }
+    }
+  }
+  
+}
 
 //function to initialise the info tabs
 function infoOnLoad(){
@@ -456,29 +516,6 @@ function removeDevices(identity, devices){
 
   //update list
   fillDevices(lang);
-}
-
-function removeAllDevicesAndRevokeKeys(languagepack){
-  //function is called when plugin is deinstalled or user presses "reset"
-  //a lot of pop-ups are ok, we have to make sure the user is aware what he/she
-  //is doing
-  
-  //TODO: (server) remove devices
-  Logger.dbg("Removing devices.");
-
-  //TODO: (server) revoke keys from server
-  Logger.dbg("Revoking keys.");
-
-  //TODO: (local) remove keypurse
-  //TODO: shall we ask the user for permission a second time? if he/she wants to keep the keypurse there is also "export"
-  if(Logger.promptService.confirm(null, "Tryango", languagepack.getString("rm_keypurse"))){
-    Logger.dbg("Removing keypurse.");
-    if(!CWrapper.removeKeyPurse(Prefs.getPref("keyPursePath"))){
-      Logger.error("Could not remove keypurse: " +
-                   Prefs.getPref("keyPursePath"));
-      Logger.infoPopup(languagepack.getString("rm_keypurse_fail"));
-    }
-  }
 }
 
 function removeSelectedKeys(){

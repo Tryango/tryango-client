@@ -199,12 +199,11 @@ Tryango.handleEvent = function(id){
 
     //warn user
     if(Logger.promptService.confirm(null, "Tryango", this.languagepack.getString("tryango_reset"))){
-      Logger.log("Reset!");
       this.removeEverything();
     }
     else{
       //user abort
-      Logger.log("user abort");
+      Logger.dbg("user abort");
     }
     break;
 
@@ -233,26 +232,7 @@ Tryango.handleEvent = function(id){
     break;
 
   case "menu-export":
-    //pick file to save to
-    var fp = Components.classes["@mozilla.org/filepicker;1"].createInstance(
-      Components.interfaces.nsIFilePicker);
-    //filters:
-    fp.appendFilter("Keypurses", "*.purse"); //only key purses
-    fp.appendFilter("All files", "*");
-    fp.init(window, this.languagepack.getString("sel_keypurse_bak"),
-            Components.interfaces.nsIFilePicker.modeSave);
-
-    //check result
-    var res = fp.show();
-    if(res != Components.interfaces.nsIFilePicker.returnCancel){
-      //backup keypurse to selected location
-      if(!CWrapper.exportKeyPurse(fp.file.path)){
-        //error
-        Logger.error("exportKeyPurse failed");
-        Logger.infoPopup(this.languagepack.getString("bak_keypurese_fail"));
-      }
-      //else: everything ok
-    }
+    Utils.exportKeyPurse(window, this.languagepack);
     break;
       
   case "button-cm-decrypt":
@@ -290,7 +270,10 @@ Tryango.removeEverything = function(){
   Logger.dbg("Removing everything.");
   
   //remove devices and keys from server as well as locally
-  removeAllDevicesAndRevokeKeys(this.languagepack); //info.js
+  Utils.removeAllDevicesAndRevokeKeys(window, this.languagepack); //info.js
+
+  //clear XHEADERS
+  MailListener.removeAllTryangoXHEADERS();
   
   //clear passwordmanager/preferences
   Prefs.removeAllTryangoPrefs();
@@ -307,29 +290,29 @@ Tryango.removeEverything = function(){
 //listener for removing the extension
 //https://developer.mozilla.org/en-US/docs/Observer_Notifications#Application_shutdown
 //http://xulsolutions.blogspot.co.uk/2006/07/creating-uninstall-script-for.html
-var ConfiCleaner = {
+var TryangoCleaner = {
   //variables
   isInit: false,
   uninstall: false,
 
   init: function(){
     //init
-    AddonManager.addAddonListener(ConfiCleaner);
+    AddonManager.addAddonListener(TryangoCleaner);
     var observerService = Components.classes["@mozilla.org/observer-service;1"]
       .getService(Components.interfaces.nsIObserverService);
-    observerService.addObserver(ConfiCleaner, "quit-application-granted", false);
+    observerService.addObserver(TryangoCleaner, "quit-application-granted", false);
 
     //save var
     this.isInit = true;
 
     //output
-    Logger.log("ConfiCleaner installed");
+    Logger.dbg("TryangoCleaner installed");
   },
 
   //1. listen if extension is set to uninstall in "Addons" => save it
   onUninstalling: function(addon, needsRestart){
-    if(addon.name == "Tryango" && addon.id == "tryango@bham.uni.ac.uk"){
-      Logger.log("ConfiCleaner: uninstall set");
+    if(addon.name == "Tryango" && addon.id == "tryango@cs.bham.ac.uk"){
+      Logger.dbg("TryangoCleaner: uninstall set");
       this.uninstall = true;
     }
   },
@@ -337,7 +320,7 @@ var ConfiCleaner = {
   //1. listen if uninstall is cancelled again
   onOperationCancelled: function(addon){
     if(addon.name == "Tryango" && addon.id == "tryango@bham.uni.ac.uk"){
-      Logger.log("ConfiCleaner: uninstall cancelled");
+      Logger.dbg("TryangoCleaner: uninstall cancelled");
       this.uninstall = false;
     }
   },
@@ -345,14 +328,14 @@ var ConfiCleaner = {
   //interface
   //https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsIObserver
   observe: function(subject, topic, data){
-    Logger.log("ConfiCleaner: " + topic);
+    Logger.dbg("TryangoCleaner: " + topic);
 
     //2. if we shutdown AND extension is set to uninstall => uninstall
     if(topic == "quit-application-granted"){
-      Logger.log("ConfiCleaner: shutdown");
+      Logger.dbg("TryangoCleaner: shutdown");
       if(this.uninstall){
         //remove the extension
-        Logger.log("ConfiCleaner: uninstalling...");
+        Logger.log("TryangoCleaner: uninstalling...");
         Tryango.removeEverything();
       }
 
@@ -360,7 +343,7 @@ var ConfiCleaner = {
       Tryango.cleanup(null);
 
       //clean up observer
-      AddonManager.removeAddonListener(ConfiCleaner);
+      AddonManager.removeAddonListener(TryangoCleaner);
       var observerService =
         Components.classes["@mozilla.org/observer-service;1"].
         getService(Components.interfaces.nsIObserverService);
@@ -399,8 +382,8 @@ else{
       }
 
       //initialise uninstall-listener
-      if(!ConfiCleaner.isInit){
-        ConfiCleaner.init();
+      if(!TryangoCleaner.isInit){
+        TryangoCleaner.init();
       }
     },
     false);

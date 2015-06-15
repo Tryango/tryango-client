@@ -199,7 +199,7 @@ function chooseEmailPageCreate(){
 
 function setRadioBtn(dropdownmenu){
   //check dropdown not empty
-  if(dropdownmenu.selectedItem.value != "empty"){
+  if(dropdownmenu != null && dropdownmenu.selectedItem.value != "empty"){
     //set radio button "use previous key" active if there is a previous key...
     var radio = document.getElementById("chooseEmailPage_prev_key");
     if(CWrapper.hasSecretKey(dropdownmenu.selectedItem.value)){
