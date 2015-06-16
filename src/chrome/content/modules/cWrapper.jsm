@@ -523,7 +523,7 @@ var CWrapper = {
     return output;
   },
 
-  removeDevices: function(identity, device, devices, totalDevices){
+  removeDevices: function(identity, device, devices, totalDevices, doNotPrompt){
     //init
     var arr_t = ctypes.ArrayType(ctypes.char.ptr);
     var c_devices = new arr_t(devices.length);
@@ -537,7 +537,12 @@ var CWrapper = {
 
     //revoke key?
     if(devices.length >= totalDevices){
-      if(Logger.promptService.confirm(null, "Trango", this.languagepack.getString("prompt_allRemoved_revoke"))){
+      if(doNotPrompt ||
+         Logger.promptService.confirm(
+           null, "Trango",
+           this.languagepack.getString("prompt_allRemoved_revoke")
+         )
+        ){
         var status = this.revokeKey(identity, device);
         if(status == 0){
           Logger.dbg("Key revocation was successful");

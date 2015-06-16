@@ -511,7 +511,7 @@ function signup(){
         var strbundle = document.getElementById("strings");
         var errorStr = CWrapper.getErrorStr(result);
         Logger.error("Error signing up: " + strbundle.getString(errorStr));
-        Logger.infoPopup(strbundle.getString(errorStr) + ": " + result);
+        Logger.infoPopup(strbundle.getString(errorStr) + " (" + result + ")");
       }else{
         Logger.dbg("deleting ap for email: " + email);
         Pwmgr.setAp(email, "");//delete ap as it is invalid since we submitted to server

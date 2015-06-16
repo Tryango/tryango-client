@@ -9,9 +9,6 @@ Components.utils.import("resource:///modules/iteratorUtils.jsm"); //for fixItera
 Components.utils.import("resource://gre/modules/FileUtils.jsm"); //for proofs.log file
 Components.utils.import("resource://gre/modules/NetUtil.jsm"); //reading file asynchonously
 
-
-//TODO: this should be a module called "utils" or similar
-
 //exports
 var EXPORTED_SYMBOLS = ["Utils"]; //only export Utils, not the rest
 
@@ -87,7 +84,7 @@ var Utils = new function()
         if(ap != undefined && ap.length > 1){
           //remove identity/machineID if it is signed up
           Logger.dbg("Removing device " + identity + " " + machineID);
-          removeDevices(identity, [machineID], languagepack);
+          removeDevices(identity, [machineID], languagepack, true); //doNotPrompt = true
         }
       }
     }
@@ -476,11 +473,16 @@ function getEmailAddresses(){
 
 function removeSelectedDevices(){
   var lang = document.getElementById('lang_file');
-  var start = new Object();
-  var end = new Object();
 
+  //ask user if they really want to remove the devices
+  if(!Logger.promptService.confirm(null, "Trango", lang.getString("prompt_remove_device"))){
+    return;
+  }
+  
   //nsITreeSelection: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsITreeSelection
   //nsITreeView: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsITreeView#getCellText%28%29
+  var start = new Object();
+  var end = new Object();
   var selected = document.getElementById("tree_devices").view.selection;
 
   //iterate over all selections
@@ -491,7 +493,7 @@ function removeSelectedDevices(){
     var col = document.getElementById("tree_devices").columns.getColumnAt(0);
 
     //iterate over selected indices
-//     var view = document.getElementById("tree_devices").view;
+    //var view = document.getElementById("tree_devices").view;
     for(var j = start.value; j <= end.value; j++){
       var parent = "";
       var elements = [];
@@ -512,7 +514,7 @@ function removeSelectedDevices(){
 
       //remove the devices
       if(devicesView.emails[parent] > 0){
-        removeDevices(parent, elements, lang);
+        removeDevices(parent, elements, lang, false); //doNotPrompt = false => DO prompt
         //update list
         fillDevices(lang);
       }
@@ -520,12 +522,12 @@ function removeSelectedDevices(){
   }
 }
 
-function removeDevices(identity, devices, lang){
-  //XXX: debug
+function removeDevices(identity, devices, lang, doNotPrompt){
   Logger.dbg("removeDevices: " + identity + " " + devices);
 
   //call C to remove devices
-  var status = CWrapper.removeDevices(identity, Prefs.getPref("machineID"), devices, devicesView.emails[identity]);
+  var status = CWrapper.removeDevices(identity, Prefs.getPref("machineID"), devices,
+                                      devicesView.emails[identity], doNotPrompt);
   if(status != 0){
     //error
     Logger.error("CWrapper exception removeDevice (" + identity + "," + devices + "): " + status);
