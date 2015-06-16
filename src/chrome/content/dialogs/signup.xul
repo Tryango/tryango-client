@@ -33,29 +33,61 @@
   <!-- Sign-up wizard -->
   <wizardpage id="welcomePage" pageid="welcomePage"
               label="&wizard.welcomePage.title;"
-              description="&wizard.welcomePage.subtitle;"
+              description=""
               onpageshow="welcomePageCreate()"
               next="chooseEmailPage"
               >
                 
     <vbox flex="1" id="welcome_vbox">
+      <spacer type="block" flex="1"/>
+      
+      <hbox flex="3">
         <spacer type="block" flex="1"/>
-      <hbox>
+        <!-- simple -->
+        <vbox>
+          <separator/>
+          <button label="&wizard.welcomePage.btnSimple;"
+                  oncommand="onSimple();" height="100px"
+                  style="font-size: 150%;"/>
+          <separator class="goove"/>
+          <description width="250px" style="font-size: 120%;">
+            &wizard.welcomePage.simpleTxt;
+          </description>
+          <spacer type="block" flex="1"/>
+        </vbox>
         <spacer type="block" flex="1"/>
-        <button label="&wizard.welcomePage.btnSimple;"
-                oncommand="onSimple();" flex="2" height="50px"/>
+        
+        <!-- line in middle -->
+        <separator orient="vertical" style="background-color: black; width: 1px;" height="100%"/>
+
         <spacer type="block" flex="1"/>
-        <button label="&wizard.welcomePage.btnAdvanced;"
-                oncommand="onAdvanced();" flex="2" height="50px"/>
+        <!-- advanced -->
+        <vbox>
+          <separator/>
+          <button label="&wizard.welcomePage.btnAdvanced;"
+                  oncommand="onAdvanced();" height="100px"
+                  style="font-size: 150%;"/>
+          <separator class="goove" />
+          <description width="250px" style="font-size: 120%;">
+            &wizard.welcomePage.advancedTxt;
+          </description>
+          <separator class="goove" />
+          <description width="250px">
+            &wizard.welcomePage.advancedRemark;
+          </description>
+          <spacer type="block" flex="1"/>
+        </vbox>
+        
         <spacer type="block" flex="1"/>
       </hbox>
+      
+      <!-- footer -->
       <spacer type="block" flex="1"/>
-<!--       <xul:separator xmlns:xul="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul" class="wizard-buttons-separator groove"/> -->
       <hbox>
         <spacer type="block" flex="1"/>
-         <box id="cancel_box"> </box>
-         <spacer type="block" flex="1"/>
-       </hbox>
+        <box id="cancel_box"> </box>
+        <spacer type="block" flex="1"/>
+      </hbox>
     </vbox>
               
   </wizardpage>
@@ -91,7 +123,7 @@
           <radio id="chooseEmailPage_new_key"
                  label="&wizard.chooseEmailPage.new_key;"/>
           <radio id="chooseEmailPage_import_key"
-                 label="&wizard.chooseEmailPage.import_key;"/>
+                 label=""/> <!-- filled by javascript -->
         </radiogroup>
       </vbox>
     </vbox>
@@ -104,7 +136,7 @@
               next="serverPage"
               >
     <vbox flex="1">
-      <label control="ang_key_pw" value="&wizard.createKeyPage.type_pw;"/>
+      <label id="ang_key_pw_label" control="ang_key_pw" value=""/> <!-- value filled by javascript -->
       <hbox>
         <textbox id="ang_key_pw" type="password"  size="50" oninput="comparePw()"/>
         <checkbox id="ang_show_pw"
@@ -175,7 +207,7 @@
              value="&wizard.importKeyPage.noKeys;"/>
       <spacer type="block" height="10"/>
       <!-- tree for gpg keys  -->
-      <hbox>
+      <hbox id="ang_table_importkeys">
         <spacer type="block" width="20"/>
         <hbox style="overflow:auto" flex="1" height="190"><!-- 190=150 tree + x scrollbar-->
           <stack>

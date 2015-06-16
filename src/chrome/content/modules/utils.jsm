@@ -75,7 +75,7 @@ var Utils = new function()
 
     //clear data on tryango server
     //(server) remove devices (will revoke keys if no device is signed up for it any more)
-    var addresses = getEmailAddresses();
+    var addresses = this.getEmailAddresses();
     var machineID = Prefs.getPref("machineID");
     if(machineID){
       for each(let identity in addresses){
@@ -91,7 +91,33 @@ var Utils = new function()
         
     return; //explicit end of method
   }
+
   
+  this.getEmailAddresses = function(){
+    // get all email addresses and check them for tryango (otherwise not possible,
+    // we cannot store all tryango-email-addresses on this device since they
+    // could come from another device)
+    var addresses = [];
+    var acctMgr = Components.classes["@mozilla.org/messenger/account-manager;1"]
+        .getService(Components.interfaces.nsIMsgAccountManager);
+    var accounts = acctMgr.accounts;
+
+    //iterate over accounts
+    for each (let account in fixIterator(accounts, 
+                                         Components.interfaces.nsIMsgAccount)) {
+      //get pretty names as "mail for foo@test.com" or "news on news.mozilla.org"
+      var mailaddrs = account.incomingServer.constructedPrettyName;
+      //filter for the ones which are mails
+      if(mailaddrs.substring(0, 4) == "Mail" || mailaddrs.substring(0, 4) == "mail"){
+        //cut "mail for " and save address
+        mailaddrs = mailaddrs.substring(9, mailaddrs.length);
+        addresses.push(mailaddrs);
+      }
+    }
+
+    return addresses;
+  }
+
 }//end of "Utils"
 
 //function to initialise the info tabs
@@ -316,7 +342,7 @@ function fillDevices(languagepack){
   Logger.dbg("filling devices");
   document.getElementById("tree_devices_updated").value = new Date().toISOString();
 
-  var addresses = getEmailAddresses();
+  var addresses = Utils.getEmailAddresses();
 
   //get actual device
   var device = Prefs.getPref("machineID");
@@ -392,7 +418,7 @@ function fillKeys(languagepack){
   }
 
   //get addresses
-  var addresses = getEmailAddresses();
+  var addresses = Utils.getEmailAddresses();
 
   //check all identities
   for each(let identity in addresses){    
@@ -444,31 +470,6 @@ function treeAppend(tree, id, string, container, op=false){
   tree.appendChild(item);
 
   return item;
-}
-
-function getEmailAddresses(){
-  // get all email addresses and check them for tryango (otherwise not possible,
-  // we cannot store all tryango-email-addresses on this device since they
-  // could come from another device)
-  var addresses = [];
-  var acctMgr = Components.classes["@mozilla.org/messenger/account-manager;1"]
-    .getService(Components.interfaces.nsIMsgAccountManager);
-  var accounts = acctMgr.accounts;
-
-  //iterate over accounts
-  for each (let account in fixIterator(accounts, 
-                                       Components.interfaces.nsIMsgAccount)) {
-    //get pretty names as "mail for foo@test.com" or "news on news.mozilla.org"
-    var mailaddrs = account.incomingServer.constructedPrettyName;
-    //filter for the ones which are mails
-    if(mailaddrs.substring(0, 4) == "Mail" || mailaddrs.substring(0, 4) == "mail"){
-      //cut "mail for " and save address
-      mailaddrs = mailaddrs.substring(9, mailaddrs.length);
-      addresses.push(mailaddrs);
-    }
-  }
-
-  return addresses;
 }
 
 function removeSelectedDevices(){
