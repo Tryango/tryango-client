@@ -568,13 +568,15 @@ function importKey(){
     //save key
     if(CWrapper.exportKeyPurse(Prefs.getPref("keyPursePath"), "")){ //TODO: change "" to password here too?
       //everything ok
-      Logger.dbg("Keypurse saved");
+      Logger.dbg("Keypurse saved with fingerprint " + fingerprint);
       return true;
-    }else{
+    }
+    else{
       //error saving keypurse
       Logger.error("Error saving keypurse to file " + Prefs.getPref("keyPursePath"));
     }
-  }else{
+  }
+  else{
     //error importing keys
     Logger.error("Transfer of RSA keys failed with status:"+ status);
   }
