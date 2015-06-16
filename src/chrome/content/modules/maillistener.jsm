@@ -27,6 +27,19 @@ function addHeader(header){
   }
 }
 
+function removeHeader(header){
+  var customHeaders = Services.prefs.getCharPref("mailnews.customDBHeaders").split(" ");
+  //ATTENTION: lowercase!
+  var index = customHeaders.indexOf(header.toLowerCase());
+  if(index >= 0){
+    customHeaders.splice(index, 1);
+    Logger.dbg(header);
+    Logger.dbg(customHeaders.join(" ").trim());
+    Services.prefs.setCharPref("mailnews.customDBHeaders",
+                               customHeaders.join(" ").trim());
+  }
+}
+
 // E-Mail Listener
 var MailListener = new function() {
   //declare XHEADER so it is stored in Thunderbird's DB-Headers
@@ -59,8 +72,19 @@ var MailListener = new function() {
     Logger.dbg("MailListener init done: " + Services.prefs.getCharPref("mailnews.customDBHeaders").trim());
   };
   
-
-
+  
+  /**
+   * function to be called when Tryango is uninstalled
+   */
+  this.removeAllTryangoXHEADERS = function(){
+    Logger.dbg("Removing XHEADERS");
+    
+    //remove all x-headers again
+    removeHeader(this.XHEADER);
+    removeHeader(this.XHEADER_REQID);
+    removeHeader(this.XHEADER_NEWKEY);
+    removeHeader(this.XHEADER_OLDKEY);
+  };
 
   // functions
   /**

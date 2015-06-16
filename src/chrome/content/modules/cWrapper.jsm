@@ -182,7 +182,7 @@ var CWrapper = {
           , ctypes.bool  //return type
           , ctypes.char.ptr   //param 1 - path
           , ctypes.bool); //param 2 - if to clear keypurse before import
-
+      
       this.removeKeyPurse = this.client.declare("removeKeyPurse"// method name 
           , ctypes.default_abi //binary interface type 
           , ctypes.bool  //return type
@@ -523,9 +523,8 @@ var CWrapper = {
     return output;
   },
 
-  removeDevices: function(identity, device, devices, totalDevices){
+  removeDevices: function(identity, device, devices, totalDevices, doNotPrompt){
     //init
-
     var arr_t = ctypes.ArrayType(ctypes.char.ptr);
     var c_devices = new arr_t(devices.length);
     var removeAp = false;
@@ -535,8 +534,15 @@ var CWrapper = {
         removeAp = true;
       }
     }
+
+    //revoke key?
     if(devices.length >= totalDevices){
-      if(Logger.promptService.confirm(null, "Trango", this.languagepack.getString("prompt_allRemoved_revoke"))){
+      if(doNotPrompt ||
+         Logger.promptService.confirm(
+           null, "Trango",
+           this.languagepack.getString("prompt_allRemoved_revoke")
+         )
+        ){
         var status = this.revokeKey(identity, device);
         if(status == 0){
           Logger.dbg("Key revocation was successful");

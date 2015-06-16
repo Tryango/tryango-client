@@ -76,11 +76,13 @@ var Pwmgr = new function()
       {}, "chrome://tryango", null, "tryango secure storage"
     );
 
-    Logger.dbg(logins.length);
+    Logger.dbg("#logins: " + logins.length);
 
     //iterate over all found logins and remove them
     for(var i = 0; i < logins.length; i++){
       Logger.dbg("Removing password: " + logins[i].username);
+      //remove password
+      this.passwordManager.removeLogin(logins[i]);
     }
   }
 
