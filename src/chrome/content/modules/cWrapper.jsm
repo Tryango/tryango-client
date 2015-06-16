@@ -525,7 +525,6 @@ var CWrapper = {
 
   removeDevices: function(identity, device, devices, totalDevices){
     //init
-
     var arr_t = ctypes.ArrayType(ctypes.char.ptr);
     var c_devices = new arr_t(devices.length);
     var removeAp = false;
@@ -535,6 +534,8 @@ var CWrapper = {
         removeAp = true;
       }
     }
+
+    //revoke key?
     if(devices.length >= totalDevices){
       if(Logger.promptService.confirm(null, "Trango", this.languagepack.getString("prompt_allRemoved_revoke"))){
         var status = this.revokeKey(identity, device);

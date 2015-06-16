@@ -26,7 +26,7 @@
 
   <!-- Reference to JavaScript file -->
   <script type="application/javascript" src="chrome://tryango/content/dialogs/settings.js"/>
-  <script type="application/javascript" src="chrome://tryango/content/dialogs/info.js"/>
+  <script type="application/javascript" src="chrome://tryango/content/modules/utils.jsm"/>
 
   <!-- Settings dialog -->
   <tabbox orient="vertical" flex="1">

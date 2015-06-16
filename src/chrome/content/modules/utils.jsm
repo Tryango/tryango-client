@@ -10,15 +10,21 @@ Components.utils.import("resource://gre/modules/FileUtils.jsm"); //for proofs.lo
 Components.utils.import("resource://gre/modules/NetUtil.jsm"); //reading file asynchonously
 
 
-//TODO: this should be a module called "utils" or "key/device-utils"
+//TODO: this should be a module called "utils" or similar
 
 //exports
-var EXPORTED_SYMBOLS = ["Utils"]
+var EXPORTED_SYMBOLS = ["Utils"]; //only export Utils, not the rest
 
 
 var Utils = new function()
 {  
   this.exportKeyPurse = function(window, languagepack){
+    if(!(new FileUtils.File(Prefs.getPref("keyPursePath"))).exists()){
+      //no keypurse => no export
+      Logger.infoPopup(languagepack.getString("exp_keypurse_fail"));
+      return;
+    }
+    
     //pick file to save to
     var fp = Components.classes["@mozilla.org/filepicker;1"].createInstance(
       Components.interfaces.nsIFilePicker);
@@ -29,10 +35,13 @@ var Utils = new function()
             Components.interfaces.nsIFilePicker.modeSave);
 
     //check result
+    var date = (new Date()).toISOString();
+    date = date.substring(0, date.indexOf("T"));
+    fp.defaultString = "tryango_" + date + "_key.purse";
     var res = fp.show();
     if(res != Components.interfaces.nsIFilePicker.returnCancel){
       //backup keypurse to selected location
-      if(!CWrapper.exportKeyPurse(fp.file.path)){
+      if(!CWrapper.exportKeyPurse(fp.file.path, "")){ //TODO: password?
         //error
         Logger.error("exportKeyPurse failed");
         Logger.infoPopup(languagepack.getString("bak_keypurese_fail"));
@@ -45,18 +54,15 @@ var Utils = new function()
     //function is called when plugin is deinstalled or user presses "reset"
     //a lot of pop-ups are ok, we have to make sure the user is aware what he/she
     //is doing
-    
-    //TODO: (server) remove devices
-    Logger.dbg("Removing devices");
 
-    //TODO: (server) revoke keys from server
-    Logger.dbg("Revoking keys");
+    //(local) remove keypurse (if it exists) => backup first
+    if(Prefs.getPref("keyPursePath") !=  undefined &&
+       (new FileUtils.File(Prefs.getPref("keyPursePath"))).exists()){
 
-    //(local) remove keypurse (if it exists)
-    if((new FileUtils.File(Prefs.getPref("keyPursePath"))).exists()){
+      //log
       Logger.dbg("keypurse exists => remove it");
       
-      //export keypurse if user wants to
+      //BACKUP: export keypurse if user wants to
       if(Logger.promptService.confirm(null, "Tryango", languagepack.getString("exp_keypurse"))){
         Logger.dbg("Export keypurse");
         this.exportKeyPurse(window, languagepack);
@@ -69,9 +75,27 @@ var Utils = new function()
         Logger.infoPopup(languagepack.getString("rm_keypurse_fail"));
       }
     }
+
+    //clear data on tryango server
+    //(server) remove devices (will revoke keys if no device is signed up for it any more)
+    var addresses = getEmailAddresses();
+    var machineID = Prefs.getPref("machineID");
+    if(machineID){
+      for each(let identity in addresses){
+        //check if identity/machineID is signed up
+        var ap = Pwmgr.getAp(identity);
+        if(ap != undefined && ap.length > 1){
+          //remove identity/machineID if it is signed up
+          Logger.dbg("Removing device " + identity + " " + machineID);
+          removeDevices(identity, [machineID], languagepack);
+        }
+      }
+    }
+        
+    return; //explicit end of method
   }
   
-}
+}//end of "Utils"
 
 //function to initialise the info tabs
 function infoOnLoad(){
@@ -292,7 +316,7 @@ function fillDevices(languagepack){
   //fill devices
 
   //set date for last update
-	Logger.dbg("filling devices");
+  Logger.dbg("filling devices");
   document.getElementById("tree_devices_updated").value = new Date().toISOString();
 
   var addresses = getEmailAddresses();
@@ -488,19 +512,19 @@ function removeSelectedDevices(){
 
       //remove the devices
       if(devicesView.emails[parent] > 0){
-        removeDevices(parent, elements);
+        removeDevices(parent, elements, lang);
+        //update list
+        fillDevices(lang);
       }
     }
   }
 }
 
-function removeDevices(identity, devices){
-  var lang = document.getElementById('lang_file');
-
+function removeDevices(identity, devices, lang){
   //XXX: debug
   Logger.dbg("removeDevices: " + identity + " " + devices);
 
-  //call C
+  //call C to remove devices
   var status = CWrapper.removeDevices(identity, Prefs.getPref("machineID"), devices, devicesView.emails[identity]);
   if(status != 0){
     //error
@@ -513,9 +537,6 @@ function removeDevices(identity, devices){
   }
 
   //DONE in CWrapper: (remDev) remove ap from Pwmgr too if this device was deleted too.
-
-  //update list
-  fillDevices(lang);
 }
 
 function removeSelectedKeys(){

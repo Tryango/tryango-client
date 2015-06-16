@@ -15,7 +15,7 @@ Components.utils.import("resource://tryango_modules/pwmanager.jsm");
 Components.utils.import("resource://tryango_modules/maillistener.jsm");
 Components.utils.import("resource://tryango_modules/cWrapper.jsm");
 Components.utils.import("resource://tryango_modules/attachmentManager.jsm");
-Components.utils.import("resource://tryango/dialogs/info.js");
+Components.utils.import("resource://tryango_modules/utils.jsm");
 
 //TODO: test with multiple send-windows open!
 //TODO: remove as many infoPopup's as possible to improve usability (user should not bother about anything, it should "just work")
@@ -267,10 +267,11 @@ Tryango.handleEvent = function(id){
 }
 
 Tryango.removeEverything = function(){
-  Logger.dbg("Removing everything.");
+  Logger.dbg("Removing everything");
   
   //remove devices and keys from server as well as locally
-  Utils.removeAllDevicesAndRevokeKeys(window, this.languagepack); //info.js
+  //this also asks if the user wants to backup the keypurse
+  Utils.removeAllDevicesAndRevokeKeys(window, this.languagepack);
 
   //clear XHEADERS
   MailListener.removeAllTryangoXHEADERS();
@@ -280,6 +281,9 @@ Tryango.removeEverything = function(){
   Pwmgr.removeAllTryangoPWs();
 
   //ATTENTION: no Tryango.cleanup() here yet! we are still running!
+
+  //log
+  Logger.dbg("removeEverything done");
 }
 
 
