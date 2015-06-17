@@ -312,7 +312,7 @@ var CWrapper = {
     var keyId = new ctypes.char.ptr;
     var keyIdSize = new ctypes.uint32_t;
     //variables
-    Logger.dbg("checkDecrPasswrod password:"+password);
+    Logger.dbg("checkDecrPassword password: '"+password+"'");
     var c_password = ctypes.char.array()(password);
 
     var status = this.c_checkDecrPassword(keyId.address()
@@ -320,7 +320,8 @@ var CWrapper = {
                                          , c_data
                                          , c_data_size
                                          , c_password);
-    Logger.dbg("checkDecrPasswrod status:" + status);
+    Logger.dbg("checkDecrPassword status:" + status);
+    
     if((ctypes.uint32_t(0)<keyIdSize)){
       keyIdStr.str = keyId.readString();
       this.freeString(keyId);
@@ -923,7 +924,8 @@ var CWrapper = {
     var pass = {value : ""};
     if(this.getDataPassword(pass, c_mailBody, mailBody.length)){
       var c_password = ctypes.char.array()(pass.value);
-      
+
+      Logger.dbg("c_decryptMail");
       var status = this.c_decryptMail(result.address()
                                      , resultSize.address()
                                      , c_mailBody

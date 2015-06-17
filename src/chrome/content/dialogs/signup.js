@@ -598,14 +598,6 @@ function signup(){
   var email = document.getElementById("signup_email").selectedItem.value;
   if(email != "empty"){
     var doSignup = false;
-
-    //display a "waiting" popup
-    if(!Logger.promptService.confirm(
-      null, "Tryango", document.getElementById("lang_file")
-        .getString("wizard_signup_waitingDialog"))){
-      //user abort
-      return false;
-    }
                                  
     //check which option was selected (previous key, new key, import key)
     //and execute it
@@ -615,6 +607,13 @@ function signup(){
       doSignup = true;
       break;
     case 1:
+      //display a "waiting" popup
+      if(!Logger.promptService.confirm(
+        null, "Tryango", document.getElementById("lang_file")
+          .getString("wizard_signup_waitingDialog"))){
+        //user abort
+        return false;
+      }
       doSignup = generateKey();
       break;
     case 2:

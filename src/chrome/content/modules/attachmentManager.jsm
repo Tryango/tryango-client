@@ -143,7 +143,7 @@ var AttachmentManager = new function()
                                ")");
             }
             else{
-              //XXX: remove debug output
+              //debug output
               Logger.dbg("Attachment " + this.path + " decryption/signature ok or cancelled");
             }
           },

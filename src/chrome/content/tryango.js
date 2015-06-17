@@ -18,7 +18,6 @@ Components.utils.import("resource://tryango_modules/attachmentManager.jsm");
 Components.utils.import("resource://tryango_modules/utils.jsm");
 
 //TODO: test with multiple send-windows open!
-//TODO: remove as many infoPopup's as possible to improve usability (user should not bother about anything, it should "just work")
 
 // (Singleton) Basic Tryango class
 // "main" class for all Tryango functions
@@ -104,6 +103,7 @@ Tryango.init = function(){
   //after loading everything: check if this is the first start, if so, display setup wizard
   var firstStartup = Prefs.getPref("firstStartup");
   if(firstStartup){
+    Logger.dbg("firstStartup");
     this.handleEvent("menu-signup");
     Prefs.setPref("firstStartup", false);
   }
@@ -127,23 +127,9 @@ Tryango.disable = function(){
   document.getElementById("button-cm").setAttribute("disabled", "true");
   document.getElementById("tryango-menu").setAttribute("hidden", "true");
 
-  /*this will only get set upon next Thunderbird start, therefore useless => disable buttons instead
-  //get addon...
-  AddonManager.getAddonByID("tryango@bham.uni.ac.uk", function(addon){
-    //...and disable it
-    if(addon != null && addon.id == "tryango@bham.uni.ac.uk"){
-      if(addon.isActive){
-        addon.userDisabled = true;
-      }
-    }else{
-      //null indicates addon not found
-      //other name means other addon was found (weird!)
-      Logger.error("Could not disable addon Tryango!");
-      Logger.infoPopup(this.languagepack.getString("err_disable_addon"));
-      throw "Tryango critical error (tried to disable Tryango but failed)";
-    }
-  });
-  */
+  /* ATTENTION: getting the addon via AddonManager.getAddonByID and disabling it will
+   * only get set upon next Thunderbird start, therefore useless => disable buttons instead
+   */
 }
 
 /*
