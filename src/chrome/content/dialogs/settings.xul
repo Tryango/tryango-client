@@ -138,11 +138,11 @@
             <splitter class="tree-splitter"/>
             <treecol id="key_email" label="&wizard.importKeyPage.kt_email;" flex="1"/>
             <splitter class="tree-splitter"/>
-            <treecol id="key_id" label="&wizard.importKeyPage.kt_fingerprint;" flex="1"/>
-            <splitter class="tree-splitter"/>
             <treecol sortActive="true" id="key_created" label="&wizard.importKeyPage.kt_created;" flex="1"/>
             <splitter class="tree-splitter"/>
             <treecol id="key_expiry" label="&wizard.importKeyPage.kt_expiry;" flex="1"/>
+            <splitter class="tree-splitter"/>
+            <treecol id="key_id" label="&wizard.importKeyPage.kt_fingerprint;" flex="1"/>
             <splitter class="tree-splitter"/>
             <treecol id="key_version" label="&wizard.importKeyPage.kt_encrypted;" flex="1"/>
         </treecols>

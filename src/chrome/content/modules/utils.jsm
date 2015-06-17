@@ -557,6 +557,7 @@ function fillKeys(languagepack){
 }
 
 
+/*TODO: not used?
 function treeAppend(tree, id, string, container, op=false){
   //create item
   var item = document.createElement("treeitem");
@@ -576,6 +577,7 @@ function treeAppend(tree, id, string, container, op=false){
 
   return item;
 }
+*/
 
 function removeSelectedDevices(){
   var lang = document.getElementById('lang_file');
