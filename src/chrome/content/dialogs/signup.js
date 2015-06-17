@@ -167,11 +167,13 @@ function chooseEmailPageCreate(){
 
   //set labels for advanced options
   if(Prefs.getPref("advancedOptions")){
-    document.getElementById("chooseEmailPage_import_key").label =
-      document.getElementById("lang_file").getString("wizard_chooseEmailPage_importKey_advanced");
+    document.getElementById("chooseEmailPage_import_key").setAttribute(
+      "label",
+      document.getElementById("lang_file").getString("wizard_chooseEmailPage_importKey_advanced"));
   }else{
-    document.getElementById("chooseEmailPage_import_key").label =
-      document.getElementById("lang_file").getString("wizard_chooseEmailPage_importKey_simple");
+    document.getElementById("chooseEmailPage_import_key").setAttribute(
+      "label",
+      document.getElementById("lang_file").getString("wizard_chooseEmailPage_importKey_simple"));
   }
   
   //get email accounts
@@ -360,24 +362,28 @@ function importKeyPageCreate(){
   if(Prefs.getPref("advancedOptions")){
     //advanced setup
     //set labels
-    document.getElementById("importKeyPage").label =
-      languagepack.getString("wizard_importKeyPage_title_advanced");
+    document.getElementById("importKeyPage").setAttribute(
+      "label", languagepack.getString("wizard_importKeyPage_title_advanced"));
     document.getElementById("ang_lbl_loadedFile").value =
       languagepack.getString("wizard_importKeyPage_loadedFile_advanced");
-    document.getElementById("key_id").label =
-      languagepack.getString("wizard_importKeyPage_fingerprint_advanced");
+    document.getElementById("key_id").setAttribute(
+      "label", languagepack.getString("wizard_importKeyPage_fingerprint_advanced"));
     //TODO: show rows in table
-    
+    document.getElementById("key_type").removeAttribute("hidden");
+    document.getElementById("key_expiry").removeAttribute("hidden");
+    document.getElementById("key_encrypted").removeAttribute("hidden");
+    document.getElementById("info_key_tree").removeAttribute("hidecolumnpicker");
   }else{
     //simple setup
     //set labels
-    document.getElementById("importKeyPage").label =
-      languagepack.getString("wizard_importKeyPage_title_simple");
+    document.getElementById("importKeyPage").setAttribute(
+      "label", languagepack.getString("wizard_importKeyPage_title_simple"));
     document.getElementById("ang_lbl_loadedFile").value =
       languagepack.getString("wizard_importKeyPage_loadedFile_simple");
-    document.getElementById("key_id").label =
-      languagepack.getString("wizard_importKeyPage_fingerprint_simple");
+    document.getElementById("key_id").setAttribute(
+      "label", languagepack.getString("wizard_importKeyPage_fingerprint_simple"));
     //TODO: hide rows in table
+    document.getElementById("key_type").setAttribute("hidden", "true");
     document.getElementById("key_expiry").setAttribute("hidden", "true");
     document.getElementById("key_encrypted").setAttribute("hidden", "true");
     document.getElementById("info_key_tree").setAttribute("hidecolumnpicker", "true");
@@ -431,7 +437,7 @@ function onInfoFile(){
   //file filters:
   fp.appendFilter(secKey, "*.purse; *.gpg; *.pgp; *.asc; *.txt");
   fp.appendFilter(allFiles, "*");
-  fp.init(window,languagepack.getString("sel_secret_key"),
+  fp.init(window,languagepack.getString("sel_secret_key"), //TODO: language simple setup!
           Components.interfaces.nsIFilePicker.modeOpen);
   //show filepicker
   var res = fp.show();
@@ -448,12 +454,7 @@ function onInfoFile(){
       //fill table
       var gotoNextPage = fillInfoTable(email);
       if(document.getElementById("info_key_list").childNodes.length != 0){
-        //adjust label to show "loaded from file"
-        var gpg = document.getElementById("ang_lbl_loadedGpg");
-        var file = document.getElementById("ang_lbl_loadedFile");
-        file.removeAttribute("hidden");
-        gpg.setAttribute("hidden", "true");
-        //show table (this is needed anyway to be able to access the selected key later!)
+        //show table (tree.view only works if table is visible!)
         var table = document.getElementById("ang_table_importkeys");
         table.removeAttribute("hidden");
         //default selection
@@ -461,7 +462,13 @@ function onInfoFile(){
         tree.view.selection.select(0);
         //next page?
         if(gotoNextPage){
-          getWizard().advance(null); //null for next page
+          //TODO: getWizard().advance(null); //null for next page
+        }else{
+          //adjust label to show "loaded from file"
+          var gpg = document.getElementById("ang_lbl_loadedGpg");
+          var file = document.getElementById("ang_lbl_loadedFile");
+          file.removeAttribute("hidden");
+          gpg.setAttribute("hidden", "true");
         }
       }
     }
@@ -506,8 +513,9 @@ function fillInfoTable(email){
       treeList.removeChild(treeList.childNodes[0]);
     }
     //add keys to tree
+    var languagepack = document.getElementById("lang_file");
     for (var i = 0; i < keys.length; i++) {
-      Utils.treeAppendRow(treeList, keys[i], document, false);
+      Utils.treeAppendRow(treeList, keys[i], document, false, languagepack);
     }
 
     //check length, if only 1 key & simple setup => proceed

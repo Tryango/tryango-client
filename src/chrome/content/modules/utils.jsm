@@ -118,7 +118,7 @@ var Utils = new function()
     return addresses;
   }
 
-  this.treeAppendRow = function (tree, keyRow, document, isOpen=false){
+  this.treeAppendRow = function (tree, keyRow, document, isOpen=false, lang){
     //TODO: FIXME: not working when columns are hidden
     
     //set open
@@ -139,17 +139,13 @@ var Utils = new function()
     row.appendChild(cell);
 
     cell = document.createElement("treecell");
-    cell.setAttribute("label", keyRow.signId);
-    row.appendChild(cell);
-
-    cell = document.createElement("treecell");
     var date = new Date(keyRow.signCreate);
     cell.setAttribute("label", date.toDateString());
     row.appendChild(cell);
 
     cell = document.createElement("treecell");
     if(keyRow.signExpire == 0){
-      cell.setAttribute("label", this.languagepack.getString("never"));
+      cell.setAttribute("label", lang.getString("never"));
       cell.style.color='green'; //TODO: not working: do setAttribute
     }
     else{
@@ -162,7 +158,11 @@ var Utils = new function()
     row.appendChild(cell);
 
     cell = document.createElement("treecell");
-    cell.setAttribute("label", this.languagepack.getString(keyRow.signEncrypted));
+    cell.setAttribute("label", keyRow.signId);
+    row.appendChild(cell);
+    
+    cell = document.createElement("treecell");
+    cell.setAttribute("label", lang.getString(keyRow.signEncrypted));
     row.appendChild(cell);
 
     item.appendChild(row);
@@ -186,17 +186,13 @@ var Utils = new function()
     row.appendChild(cell);
 
     cell = document.createElement("treecell");
-    cell.setAttribute("label", keyRow.encrId);
-    row.appendChild(cell);
-
-    cell = document.createElement("treecell");
     date = new Date(keyRow.encrCreate);
     cell.setAttribute("label", date.toDateString());
     row.appendChild(cell);
 
     cell = document.createElement("treecell");
     if(keyRow.encrExpire == 0){
-       cell.setAttribute("label", this.languagepack.getString("never"));
+       cell.setAttribute("label", lang.getString("never"));
     }else{
       var expire = new Date(keyRow.encrExpire);
       cell.setAttribute("label", expire.toDateString());
@@ -204,7 +200,11 @@ var Utils = new function()
     row.appendChild(cell);
 
     cell = document.createElement("treecell");
-    cell.setAttribute("label", this.languagepack.getString(keyRow.encrEncrypted));
+    cell.setAttribute("label", keyRow.encrId);
+    row.appendChild(cell);
+    
+    cell = document.createElement("treecell");
+    cell.setAttribute("label", lang.getString(keyRow.encrEncrypted));
     row.appendChild(cell);
 
     subitem.appendChild(row);
@@ -541,7 +541,7 @@ function fillKeys(languagepack){
       //add keys as sub-tree (= children)
       var subtree = document.createElement("treechildren");
       for each(let key in keys){
-        Utils.treeAppendRow(subtree, key, document, false);
+        Utils.treeAppendRow(subtree, key, document, false, languagepack);
       }
       item.appendChild(subtree);
       tree.appendChild(item);
