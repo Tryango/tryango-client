@@ -171,22 +171,18 @@ Tryango.handleEvent = function(id){
     else{
       Logger.dbg("Thunderbird is in online mode");
     }
-
     // display the sign-up wizard, it's result is handled
     // by a callback function (see signup.xul / signup.js)
     Dialogs.signup(window);
-//     window.open("chrome://tryango/content/dialogs/signup.xul",
-// 		"", "chrome,centerscreen,resizable");
     break;
     
   case "menu-settings":
-    //TODO: FIXME: just allow one settings window, do not allow signup and settings at the same time (both alter the settings, that might lead to inconsistent states) => OR hook "focus" event and update preferences/display every focus (a bit overkill maybe?)
     //display the settings window (see settings.xul)
     Dialogs.settings(window);
     break;
       
   case "menu-about":
-      //displays the about window (see about.xul)
+    //displays the about window (see about.xul)
     Dialogs.about(window);
     break;
 

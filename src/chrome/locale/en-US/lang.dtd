@@ -40,7 +40,6 @@
 <!ENTITY  wizard.createKeyPage.noexpire   "Key does not expire.">
 <!ENTITY  wizard.createKeyPage.keysize    "Choose key size.">
 
-<!-- TODO: set labels depending on simple/advanced setup -->
 <!ENTITY  wizard.importKeyPage.kt_type         "Key type">
 <!ENTITY  wizard.importKeyPage.kt_email        "Email address(es)">
 <!ENTITY  wizard.importKeyPage.kt_created      "Created">

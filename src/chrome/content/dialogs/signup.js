@@ -52,8 +52,11 @@ function onNext() {
     }
 
     //lastPage => wizard finished; do the signup
-    if (wizard.currentPage.next == "lastPage"){
-      signup();
+    if(wizard.currentPage.next == "lastPage"){
+      if(!signup()){
+        //error => stay on page
+        wizard.currentPage.next = wizard.currentPage;
+      }
     }
   }
   return true;
@@ -368,7 +371,7 @@ function importKeyPageCreate(){
       languagepack.getString("wizard_importKeyPage_loadedFile_advanced");
     document.getElementById("key_id").setAttribute(
       "label", languagepack.getString("wizard_importKeyPage_fingerprint_advanced"));
-    //TODO: show rows in table
+    //show rows in table
     document.getElementById("key_type").removeAttribute("hidden");
     document.getElementById("key_expiry").removeAttribute("hidden");
     document.getElementById("key_encrypted").removeAttribute("hidden");
@@ -382,7 +385,7 @@ function importKeyPageCreate(){
       languagepack.getString("wizard_importKeyPage_loadedFile_simple");
     document.getElementById("key_id").setAttribute(
       "label", languagepack.getString("wizard_importKeyPage_fingerprint_simple"));
-    //TODO: hide rows in table
+    //hide rows in table
     document.getElementById("key_type").setAttribute("hidden", "true");
     document.getElementById("key_expiry").setAttribute("hidden", "true");
     document.getElementById("key_encrypted").setAttribute("hidden", "true");
@@ -437,7 +440,13 @@ function onInfoFile(){
   //file filters:
   fp.appendFilter(secKey, "*.purse; *.gpg; *.pgp; *.asc; *.txt");
   fp.appendFilter(allFiles, "*");
-  fp.init(window,languagepack.getString("sel_secret_key"), //TODO: language simple setup!
+  var headerString;
+  if(Prefs.getPref("advancedOptions")){
+    headerString = "sel_secret_key_advanced";
+  }else{
+    headerString = "sel_secret_key_simple";
+  }
+  fp.init(window,languagepack.getString(headerString),
           Components.interfaces.nsIFilePicker.modeOpen);
   //show filepicker
   var res = fp.show();
@@ -462,7 +471,7 @@ function onInfoFile(){
         tree.view.selection.select(0);
         //next page?
         if(gotoNextPage){
-          //TODO: getWizard().advance(null); //null for next page
+          getWizard().advance(null); //null for next page
         }else{
           //adjust label to show "loaded from file"
           var gpg = document.getElementById("ang_lbl_loadedGpg");
@@ -514,12 +523,18 @@ function fillInfoTable(email){
     }
     //add keys to tree
     var languagepack = document.getElementById("lang_file");
+    var advSetup = Prefs.getPref("advancedOptions");
+    var expire;
     for (var i = 0; i < keys.length; i++) {
-      Utils.treeAppendRow(treeList, keys[i], document, false, languagepack);
+      expire = new Date(keys[i].signExpire);
+      //only display keys if they are not expired or advanced setup is on
+      if(advSetup || (expire.getTime() < Date.now()) ){
+        Utils.treeAppendRow(treeList, keys[i], document, false, languagepack);
+      }
     }
 
     //check length, if only 1 key & simple setup => proceed
-    if(keys.length == 1 && !Prefs.getPref("advancedOptions")){
+    if(!advSetup && keys.length == 1 ){
       return true;
     }else{
       return false;
@@ -584,8 +599,14 @@ function signup(){
   if(email != "empty"){
     var doSignup = false;
 
-    //TODO: display a "waiting" popup
-    
+    //display a "waiting" popup
+    if(!Logger.promptService.confirm(
+      null, "Tryango", document.getElementById("lang_file")
+        .getString("wizard_signup_waitingDialog"))){
+      //user abort
+      return false;
+    }
+                                 
     //check which option was selected (previous key, new key, import key)
     //and execute it
     var keyMethod = document.getElementById("ang_key_radiogroup");
@@ -619,13 +640,17 @@ function signup(){
         var errorStr = CWrapper.getErrorStr(result);
         Logger.error("Error signing up: " + strbundle.getString(errorStr));
         Logger.infoPopup(strbundle.getString(errorStr) + " (" + result + ")");
+        return false;
       }else{
         Logger.dbg("deleting ap for email: " + email);
         Pwmgr.setAp(email, "");//delete ap as it is invalid since we submitted to server
       }
       Logger.dbg("sign up: " + email);
+      return true;
     }
   }
+  
+  return false;
 }
 
 

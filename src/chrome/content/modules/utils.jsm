@@ -118,9 +118,7 @@ var Utils = new function()
     return addresses;
   }
 
-  this.treeAppendRow = function (tree, keyRow, document, isOpen=false, lang){
-    //TODO: FIXME: not working when columns are hidden
-    
+  this.treeAppendRow = function (tree, keyRow, document, isOpen=false, lang){  
     //set open
     var item = document.createElement("treeitem");
     item.setAttribute("container", "true");
@@ -146,14 +144,16 @@ var Utils = new function()
     cell = document.createElement("treecell");
     if(keyRow.signExpire == 0){
       cell.setAttribute("label", lang.getString("never"));
-      cell.style.color='green'; //TODO: not working: do setAttribute
-    }
-    else{
-      //TODO: check expiry when loading the keys (at least simple setup)
+      cell.setAttribute("properties", "greenCell");
+    }else{
       var expire = new Date(keyRow.signExpire);
-//       cell.setAttribute("label", expire.toLocaleDateString());
       cell.setAttribute("label", expire.toDateString());
-      cell.style.color="red"; //TODO: not working: do setAttribute
+      //expired dates red
+      if(expire.getTime() < Date.now()){
+        cell.setAttribute("properties", "redCell");
+      }else{
+        cell.setAttribute("properties", "greenCell");
+      }
     }
     row.appendChild(cell);
 
@@ -192,10 +192,17 @@ var Utils = new function()
 
     cell = document.createElement("treecell");
     if(keyRow.encrExpire == 0){
-       cell.setAttribute("label", lang.getString("never"));
+      cell.setAttribute("label", lang.getString("never"));
+      cell.setAttribute("properties", "greenCell");
     }else{
       var expire = new Date(keyRow.encrExpire);
       cell.setAttribute("label", expire.toDateString());
+      //expired dates red
+      if(expire.getTime() < Date.now()){
+        cell.setAttribute("properties", "redCell");
+      }else{
+        cell.setAttribute("properties", "greenCell");
+      }
     }
     row.appendChild(cell);
 
