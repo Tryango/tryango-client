@@ -1,16 +1,18 @@
 /* Basic file for JavaScript code on signing up with new E-mail address */
 
+//standard modules
+Components.utils.import("resource:///modules/iteratorUtils.jsm"); //for fixIterator
+
 // own modules
 Components.utils.import("resource://tryango_modules/logger.jsm");
 Components.utils.import("resource://tryango_modules/dialogs.jsm");
-Components.utils.import("resource:///modules/iteratorUtils.jsm"); //for fixIterator
 Components.utils.import("resource://tryango_modules/cWrapper.jsm");
 Components.utils.import("resource://tryango_modules/prefs.jsm");
-Components.utils.import("resource://tryango_modules/pwmanager.jsm");
+Components.utils.import("resource://tryango_modules/pwmanager.jsm")
+Components.utils.import("resource://tryango_modules/utils.jsm");
 
 // var EXPORTED_SYMBOLS = ["treeAppendRow"]
 
-var acctMgr;
 
 // ----- GENERAL -----
 
@@ -20,10 +22,13 @@ function onNext() {
   var wizard = getWizard();
 
   //progression through the dialog
-  if (wizard.currentPage) {    
+  if(wizard.currentPage){
     switch(wizard.currentPage.pageid) {
-    //1. page: welcome page (has no next button, therefore not here)
-
+    //1. page: welcome page
+    case "welcomePage":
+      wizard.currentPage.next = "chooseEmailPage";
+      break;
+      
     //2. page: choose email and key creation/import option
     case "chooseEmailPage":
       /*3. page =
@@ -72,7 +77,9 @@ function getNextKeyPage(){
   case 2: 
     return "importKeyPage";
   }
-  return "lastPage";
+
+  //error => restart
+  return "welcomePage";
 }
  
 
@@ -139,7 +146,7 @@ function welcomePageCreate(){
 
 function onSimple(){
   //set prefs and go to next page
-  Prefs.setPref("advancedOptions", false);
+  Prefs.setPref("advancedOptions", false);  
   getWizard().advance(null);
 }
 
@@ -159,23 +166,17 @@ function chooseEmailPageCreate(){
   var buttons = document.getAnonymousElementByAttribute(wizard, "anonid", "Buttons");
   buttons.removeAttribute("hidden");
 
-  //get email accounts
-  var addresses = [];
-  var acctMgr = Components.classes["@mozilla.org/messenger/account-manager;1"]
-                  .getService(Components.interfaces.nsIMsgAccountManager);
-  var accounts = acctMgr.accounts;
-  //iterate over accounts
-  for each (let account in fixIterator(accounts, 
-                                       Components.interfaces.nsIMsgAccount)) {
-    //get pretty names as "mail for foo@test.com" or "news on news.mozilla.org"
-    var mailaddrs = account.incomingServer.constructedPrettyName;
-    //filter for the ones which are mails
-    if(mailaddrs.substring(0, 4) == "Mail" || mailaddrs.substring(0, 4) == "mail"){
-      //cut "mail for " and save address
-      mailaddrs = mailaddrs.substring(9, mailaddrs.length)
-      addresses.push(mailaddrs);
-    }
+  //set labels for advanced options
+  if(Prefs.getPref("advancedOptions")){
+    document.getElementById("chooseEmailPage_import_key").label =
+      document.getElementById("lang_file").getString("wizard_chooseEmailPage_importKey_advanced");
+  }else{
+    document.getElementById("chooseEmailPage_import_key").label =
+      document.getElementById("lang_file").getString("wizard_chooseEmailPage_importKey_simple");
   }
+  
+  //get email accounts
+  var addresses = Utils.getEmailAddresses();
   
   // load drop down menu 
   var dropdownmenu = document.getElementById("signup_email");
@@ -203,10 +204,10 @@ function setRadioBtn(dropdownmenu){
     //set radio button "use previous key" active if there is a previous key...
     var radio = document.getElementById("chooseEmailPage_prev_key");
     if(CWrapper.hasSecretKey(dropdownmenu.selectedItem.value)){
-      radio.removeAttribute("disabled");
+      radio.removeAttribute("hidden");
     }else{
-      //...otherwise disable it
-      radio.setAttribute("disabled", "true");
+      //...otherwise hide it
+      radio.setAttribute("hidden", "true");
       //and set other option as default
       var radioGroup = document.getElementById("ang_key_radiogroup");
       if(radioGroup.selectedIndex == 0){
@@ -257,6 +258,10 @@ function createKeyPageCreate(){
     document.getElementById("ang_datepicker").setAttribute("hidden", "true");
     document.getElementById("createKey_size").setAttribute("hidden", "true");
     document.getElementById("ang_adv_size").setAttribute("hidden", "true");
+
+    //change labels
+    document.getElementById("ang_key_pw_label").value =
+      document.getElementById("lang_file").getString("wizard_createKeyPage_typePw_simple");
   }
   else{
     //advanced setup (show advanced settings)
@@ -266,6 +271,10 @@ function createKeyPageCreate(){
     document.getElementById("ang_datepicker").removeAttribute("hidden");
     document.getElementById("createKey_size").removeAttribute("hidden");
     document.getElementById("ang_adv_size").removeAttribute("hidden");
+
+    //change labels
+    document.getElementById("ang_key_pw_label").value =
+      document.getElementById("lang_file").getString("wizard_createKeyPage_typePw_advanced");
   }
 }
 
@@ -329,9 +338,33 @@ function importKeyPageCreate(){
   //when on advanced setup: check if GPG is installed
   if(Prefs.getPref("advancedOptions") && CWrapper.hasGpg()){
     document.getElementById("ang_btn_gpg").removeAttribute("hidden");
+  }else{
+    document.getElementById("ang_btn_gpg").setAttribute("hidden", "true");
   }
 
-  //TODO: simple setup: open file dialog straight away
+  //hide tables
+  Logger.dbg("hide tables...");
+  var gpg = document.getElementById("ang_lbl_loadedGpg");
+  var file = document.getElementById("ang_lbl_loadedFile");
+  var table = document.getElementById("ang_table_importkeys");
+  gpg.setAttribute("hidden", "true");
+  file.setAttribute("hidden", "true");
+  table.setAttribute("hidden", "true");
+
+  //labels etc.
+  if(Prefs.getPref("advancedOptions")){
+    //advanced setup
+    //TODO: set labels
+    //TODO: show rows in table
+    
+  }else{
+    //simple setup
+    //TODO: labels
+    //TODO: hide rows in table
+    
+    //open file dialog straight away (only simple setup)
+    onInfoFile();
+  }
 }
 
 function onInfoGpg(){
@@ -354,6 +387,11 @@ function onInfoGpg(){
     file.setAttribute("hidden", "true");
     //fill the table
     fillInfoTable(email);
+    //show table
+    var table = document.getElementById("ang_table_importkeys");
+    table.removeAttribute("hidden");
+    //default selection
+    document.getElementById("info_key_tree").view.selection.select(0);
   }
   //else: no entries - nothing to do?
 }
@@ -373,8 +411,8 @@ function onInfoFile(){
           Components.interfaces.nsIFilePicker.modeOpen);
   //show filepicker
   var res = fp.show();
-  var email = document.getElementById("signup_email").selectedItem.value;
   if(res != Components.interfaces.nsIFilePicker.returnCancel){
+    var email = document.getElementById("signup_email").selectedItem.value;
     //import keypurse from selected location
     var status = CWrapper.loadInfoKeysFromFile(email, fp.file.path);
     if(status != 0 && status != 15){ //15 = ANG_NO_ENTRIES 
@@ -389,7 +427,16 @@ function onInfoFile(){
       file.removeAttribute("hidden");
       gpg.setAttribute("hidden", "true");
       //fill table
-      fillInfoTable(email);
+      var gotoNextPage = fillInfoTable(email);
+      //show table (this is needed anyway to be able to access the selected key later!)
+      var table = document.getElementById("ang_table_importkeys");
+      table.removeAttribute("hidden");
+      //default selection
+      document.getElementById("info_key_tree").view.selection.select(0);
+      //next page?
+      if(gotoNextPage){
+        getWizard().advance(null); //null for next page
+      }
     }
     //else: no entries - nothing to do?
   }
@@ -407,11 +454,12 @@ function fillInfoTable(email){
   if(keys == null){
     //error
     Logger.err("Error in CWrapper.getInfoKeys");
-    return;
+    return false;
   }
   else if(keys.length <= 0){
     //keys.length == 0 - no results
     Logger.dbg("No keys to be filled into table");
+    return false;
   }else{
     //clear old tree
     while(treeList.childNodes.length != 0){
@@ -421,14 +469,15 @@ function fillInfoTable(email){
     for (var i = 0; i < keys.length; i++) {
       CWrapper.treeAppendRow(treeList, keys[i], document, false);
     }
-    //default selection
-    document.getElementById("info_key_tree").view.selection.select(0);
 
-    //TODO: check length, if only 1 key & simple setup => proceed
+    //check length, if only 1 key & simple setup => proceed
     if(keys.length == 1 && !Prefs.getPref("advancedOptions")){
-      getWizard().advance(null); //null for next page
+      return true;
+    }else{
+      return false;
     }
   }
+  return false;
 }
 
 function onKeySelect(){
@@ -452,7 +501,7 @@ function onKeySelect(){
 
     //check expiry of selected key
     //TODO: do that already when loading the keys
-    if( (new Date(expire)).getTime() < Date.now()){
+    if((new Date(expire)).getTime() < Date.now()){
       wizard.canAdvance = false;
     }
     else{
@@ -479,6 +528,9 @@ function signup(){
   var email = document.getElementById("signup_email").selectedItem.value;
   if(email != "empty"){
     var doSignup = false;
+
+    //TODO: display a "waiting" popup
+    
     //check which option was selected (previous key, new key, import key)
     //and execute it
     var keyMethod = document.getElementById("ang_key_radiogroup");
