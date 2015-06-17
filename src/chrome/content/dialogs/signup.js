@@ -11,7 +11,6 @@ Components.utils.import("resource://tryango_modules/prefs.jsm");
 Components.utils.import("resource://tryango_modules/pwmanager.jsm")
 Components.utils.import("resource://tryango_modules/utils.jsm");
 
-// var EXPORTED_SYMBOLS = ["treeAppendRow"]
 
 
 // ----- GENERAL -----
@@ -53,8 +52,11 @@ function onNext() {
     }
 
     //lastPage => wizard finished; do the signup
-    if (wizard.currentPage.next == "lastPage"){
-      signup();
+    if(wizard.currentPage.next == "lastPage"){
+      if(!signup()){
+        //error => stay on page
+        wizard.currentPage.next = wizard.currentPage;
+      }
     }
   }
   return true;
@@ -168,11 +170,13 @@ function chooseEmailPageCreate(){
 
   //set labels for advanced options
   if(Prefs.getPref("advancedOptions")){
-    document.getElementById("chooseEmailPage_import_key").label =
-      document.getElementById("lang_file").getString("wizard_chooseEmailPage_importKey_advanced");
+    document.getElementById("chooseEmailPage_import_key").setAttribute(
+      "label",
+      document.getElementById("lang_file").getString("wizard_chooseEmailPage_importKey_advanced"));
   }else{
-    document.getElementById("chooseEmailPage_import_key").label =
-      document.getElementById("lang_file").getString("wizard_chooseEmailPage_importKey_simple");
+    document.getElementById("chooseEmailPage_import_key").setAttribute(
+      "label",
+      document.getElementById("lang_file").getString("wizard_chooseEmailPage_importKey_simple"));
   }
   
   //get email accounts
@@ -343,24 +347,49 @@ function importKeyPageCreate(){
   }
 
   //hide tables
-  Logger.dbg("hide tables...");
+  Logger.dbg("set label, hide tables...");
+  //set appropriate text visibility
+  var none = document.getElementById("ang_lbl_noKeys");
+  none.removeAttribute("hidden");
+  var emptyfile = document.getElementById("ang_lbl_emptyFile");
+  emptyfile.setAttribute("hidden", "true");
   var gpg = document.getElementById("ang_lbl_loadedGpg");
-  var file = document.getElementById("ang_lbl_loadedFile");
-  var table = document.getElementById("ang_table_importkeys");
   gpg.setAttribute("hidden", "true");
+  var file = document.getElementById("ang_lbl_loadedFile");
   file.setAttribute("hidden", "true");
+  var table = document.getElementById("ang_table_importkeys");
   table.setAttribute("hidden", "true");
 
   //labels etc.
+  var languagepack = document.getElementById("lang_file");
   if(Prefs.getPref("advancedOptions")){
     //advanced setup
-    //TODO: set labels
-    //TODO: show rows in table
-    
+    //set labels
+    document.getElementById("importKeyPage").setAttribute(
+      "label", languagepack.getString("wizard_importKeyPage_title_advanced"));
+    document.getElementById("ang_lbl_loadedFile").value =
+      languagepack.getString("wizard_importKeyPage_loadedFile_advanced");
+    document.getElementById("key_id").setAttribute(
+      "label", languagepack.getString("wizard_importKeyPage_fingerprint_advanced"));
+    //show rows in table
+    document.getElementById("key_type").removeAttribute("hidden");
+    document.getElementById("key_expiry").removeAttribute("hidden");
+    document.getElementById("key_encrypted").removeAttribute("hidden");
+    document.getElementById("info_key_tree").removeAttribute("hidecolumnpicker");
   }else{
     //simple setup
-    //TODO: labels
-    //TODO: hide rows in table
+    //set labels
+    document.getElementById("importKeyPage").setAttribute(
+      "label", languagepack.getString("wizard_importKeyPage_title_simple"));
+    document.getElementById("ang_lbl_loadedFile").value =
+      languagepack.getString("wizard_importKeyPage_loadedFile_simple");
+    document.getElementById("key_id").setAttribute(
+      "label", languagepack.getString("wizard_importKeyPage_fingerprint_simple"));
+    //hide rows in table
+    document.getElementById("key_type").setAttribute("hidden", "true");
+    document.getElementById("key_expiry").setAttribute("hidden", "true");
+    document.getElementById("key_encrypted").setAttribute("hidden", "true");
+    document.getElementById("info_key_tree").setAttribute("hidecolumnpicker", "true");
     
     //open file dialog straight away (only simple setup)
     onInfoFile();
@@ -380,18 +409,22 @@ function onInfoGpg(){
     Logger.infoPopup(languagepack.getString("imp_keys_fail"));
   }
   else if(status == 0){
-    //adjust label to show gpg
-    var gpg = document.getElementById("ang_lbl_loadedGpg");
-    var file = document.getElementById("ang_lbl_loadedFile");
-    gpg.removeAttribute("hidden");
-    file.setAttribute("hidden", "true");
     //fill the table
     fillInfoTable(email);
-    //show table
-    var table = document.getElementById("ang_table_importkeys");
-    table.removeAttribute("hidden");
-    //default selection
-    document.getElementById("info_key_tree").view.selection.select(0);
+    //check if tree is empty
+    if(document.getElementById("info_key_list").childNodes.length != 0){
+      //adjust label to show gpg
+      var gpg = document.getElementById("ang_lbl_loadedGpg");
+      var file = document.getElementById("ang_lbl_loadedFile");
+      gpg.removeAttribute("hidden");
+      file.setAttribute("hidden", "true");
+      //show table
+      var table = document.getElementById("ang_table_importkeys");
+      table.removeAttribute("hidden");
+      //default selection
+      var tree = document.getElementById("info_key_tree");
+      tree.view.selection.select(0);
+    }
   }
   //else: no entries - nothing to do?
 }
@@ -407,7 +440,13 @@ function onInfoFile(){
   //file filters:
   fp.appendFilter(secKey, "*.purse; *.gpg; *.pgp; *.asc; *.txt");
   fp.appendFilter(allFiles, "*");
-  fp.init(window,languagepack.getString("sel_secret_key"),
+  var headerString;
+  if(Prefs.getPref("advancedOptions")){
+    headerString = "sel_secret_key_advanced";
+  }else{
+    headerString = "sel_secret_key_simple";
+  }
+  fp.init(window,languagepack.getString(headerString),
           Components.interfaces.nsIFilePicker.modeOpen);
   //show filepicker
   var res = fp.show();
@@ -421,21 +460,25 @@ function onInfoFile(){
       Logger.infoPopup(languagepack.getString("imp_keys_fail"));
     }
     else if(status == 0){
-      //adjust label to show "loaded from file"
-      var gpg = document.getElementById("ang_lbl_loadedGpg");
-      var file = document.getElementById("ang_lbl_loadedFile");
-      file.removeAttribute("hidden");
-      gpg.setAttribute("hidden", "true");
       //fill table
       var gotoNextPage = fillInfoTable(email);
-      //show table (this is needed anyway to be able to access the selected key later!)
-      var table = document.getElementById("ang_table_importkeys");
-      table.removeAttribute("hidden");
-      //default selection
-      document.getElementById("info_key_tree").view.selection.select(0);
-      //next page?
-      if(gotoNextPage){
-        getWizard().advance(null); //null for next page
+      if(document.getElementById("info_key_list").childNodes.length != 0){
+        //show table (tree.view only works if table is visible!)
+        var table = document.getElementById("ang_table_importkeys");
+        table.removeAttribute("hidden");
+        //default selection
+        var tree = document.getElementById("info_key_tree");
+        tree.view.selection.select(0);
+        //next page?
+        if(gotoNextPage){
+          getWizard().advance(null); //null for next page
+        }else{
+          //adjust label to show "loaded from file"
+          var gpg = document.getElementById("ang_lbl_loadedGpg");
+          var file = document.getElementById("ang_lbl_loadedFile");
+          file.removeAttribute("hidden");
+          gpg.setAttribute("hidden", "true");
+        }
       }
     }
     //else: no entries - nothing to do?
@@ -445,12 +488,17 @@ function onInfoFile(){
 function fillInfoTable(email){
   //set appropriate text visibility
   var none = document.getElementById("ang_lbl_noKeys");
-  none.setAttribute("hidden", "true");
-
+  none.removeAttribute("hidden");
+  var emptyfile = document.getElementById("ang_lbl_emptyFile");
+  emptyfile.setAttribute("hidden", "true");
+  var gpg = document.getElementById("ang_lbl_loadedGpg");
+  gpg.setAttribute("hidden", "true");
+  var file = document.getElementById("ang_lbl_loadedFile");
+  file.setAttribute("hidden", "true");
+  
   //load keys and add to tree
   var treeList = document.getElementById("info_key_list");
   var keys = CWrapper.getInfoKeys(email, false);
-  Logger.dbg("getInfoKeys size" + keys.length);
   if(keys == null){
     //error
     Logger.err("Error in CWrapper.getInfoKeys");
@@ -458,20 +506,35 @@ function fillInfoTable(email){
   }
   else if(keys.length <= 0){
     //keys.length == 0 - no results
-    Logger.dbg("No keys to be filled into table");
+    Logger.dbg("getInfoKeys size: " + keys.length);
+    Logger.log("No keys to be filled into table (empty file)");
+    none.setAttribute("hidden", "true");
+    emptyfile.removeAttribute("hidden");
     return false;
   }else{
+    Logger.dbg("getInfoKeys size: " + keys.length);
+    
+    //set appropriate text visibility
+    none.setAttribute("hidden", "true");
+    
     //clear old tree
     while(treeList.childNodes.length != 0){
       treeList.removeChild(treeList.childNodes[0]);
     }
     //add keys to tree
+    var languagepack = document.getElementById("lang_file");
+    var advSetup = Prefs.getPref("advancedOptions");
+    var expire;
     for (var i = 0; i < keys.length; i++) {
-      CWrapper.treeAppendRow(treeList, keys[i], document, false);
+      expire = new Date(keys[i].signExpire);
+      //only display keys if they are not expired or advanced setup is on
+      if(advSetup || (expire.getTime() < Date.now()) ){
+        Utils.treeAppendRow(treeList, keys[i], document, false, languagepack);
+      }
     }
 
     //check length, if only 1 key & simple setup => proceed
-    if(keys.length == 1 && !Prefs.getPref("advancedOptions")){
+    if(!advSetup && keys.length == 1 ){
       return true;
     }else{
       return false;
@@ -481,8 +544,16 @@ function fillInfoTable(email){
 }
 
 function onKeySelect(){
+  //assert
+  if(document.getElementById("info_key_list").childNodes.length == 0){
+    Logger.dbg("onKeySelect: tree is empty");
+    //tree is empty
+    tree.currentIndex = -1;
+    wizard.canAdvance = false;
+    return;
+  }
   //get tree
-  var tree = document.getElementById("info_key_tree")
+  var tree = document.getElementById("info_key_tree");
   var col = tree.columns.key_expiry;
   var index = tree.view.getParentIndex(tree.currentIndex);
   //-1 is returned if there is no parent
@@ -500,7 +571,6 @@ function onKeySelect(){
     //XXX: Logger.dbg("expire"+expire+"time compare:"+(new Date(expire)).toLocaleDateString()+ " now:"+Date.now()+ " bool:"+( (new Date(expire)).getTime() < Date.now()));
 
     //check expiry of selected key
-    //TODO: do that already when loading the keys
     if((new Date(expire)).getTime() < Date.now()){
       wizard.canAdvance = false;
     }
@@ -529,8 +599,14 @@ function signup(){
   if(email != "empty"){
     var doSignup = false;
 
-    //TODO: display a "waiting" popup
-    
+    //display a "waiting" popup
+    if(!Logger.promptService.confirm(
+      null, "Tryango", document.getElementById("lang_file")
+        .getString("wizard_signup_waitingDialog"))){
+      //user abort
+      return false;
+    }
+                                 
     //check which option was selected (previous key, new key, import key)
     //and execute it
     var keyMethod = document.getElementById("ang_key_radiogroup");
@@ -564,13 +640,17 @@ function signup(){
         var errorStr = CWrapper.getErrorStr(result);
         Logger.error("Error signing up: " + strbundle.getString(errorStr));
         Logger.infoPopup(strbundle.getString(errorStr) + " (" + result + ")");
+        return false;
       }else{
         Logger.dbg("deleting ap for email: " + email);
         Pwmgr.setAp(email, "");//delete ap as it is invalid since we submitted to server
       }
       Logger.dbg("sign up: " + email);
+      return true;
     }
   }
+  
+  return false;
 }
 
 

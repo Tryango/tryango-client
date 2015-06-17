@@ -10,3 +10,12 @@
   height: 75px !important;
 }
 
+/* properties to colour date-fields of keys */
+treechildren::-moz-tree-cell-text(greenCell){
+    color: #33EE33; /*green*/
+}
+treechildren::-moz-tree-cell-text(redCell){
+    color: red;
+    font-weight: bold;
+}
+

@@ -136,5 +136,6 @@ var Logger = new function()
    */
   this.infoPopup = function(string){
     this.log("infoPopup: " + string);
-    this.promptService.alert(null, "Tryango: Info", string);}
+    this.promptService.alert(null, "Tryango: Info", string);
+  }
 }
