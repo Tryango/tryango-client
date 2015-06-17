@@ -184,8 +184,7 @@
   <wizardpage id="importKeyPage" pageid="importKeyPage"
               next="serverPage"
               onpageshow="importKeyPageCreate()"
-              label="&wizard.importKeyPage.title;"
-              >
+              label=""> <!-- filled by javascript -->
     <vbox>
       <hbox flex="1">
         <spacer type="block" width="20"/>
@@ -202,9 +201,11 @@
       <label id="ang_lbl_loadedGpg" 
              value="&wizard.importKeyPage.loadedGpg;" hidden="true"/>
       <label id="ang_lbl_loadedFile" 
-             value="&wizard.importKeyPage.loadedFile;" hidden="true"/>
+             value="" hidden="true"/> <!-- filled by javascript -->
       <label id="ang_lbl_noKeys" 
              value="&wizard.importKeyPage.noKeys;"/>
+      <label id="ang_lbl_emptyFile"
+             value="&wizard.importKeyPage.emptyFile;" hidden="true"/>
       <spacer type="block" height="10"/>
       <!-- tree for gpg keys  -->
       <hbox id="ang_table_importkeys">
@@ -219,11 +220,11 @@
                 <splitter class="tree-splitter"/>
                 <treecol id="key_email" label="&wizard.importKeyPage.kt_email;" flex="1"/>
                 <splitter class="tree-splitter"/>
-                <treecol id="key_id" label="&wizard.importKeyPage.kt_fingerprint;" flex="1"/>
-                <splitter class="tree-splitter"/>
                 <treecol sortActive="true" id="key_created" label="&wizard.importKeyPage.kt_created;" flex="1"/>
                 <splitter class="tree-splitter"/>
                 <treecol id="key_expiry" label="&wizard.importKeyPage.kt_expiry;" flex="1"/>
+                <splitter class="tree-splitter"/>
+                <treecol id="key_id" label="" flex="1"/> <!-- filled by javascript -->
                 <splitter class="tree-splitter"/>
                 <treecol id="key_encrypted" label="&wizard.importKeyPage.kt_encrypted;" flex="1"/>
               </treecols>
@@ -238,9 +239,6 @@
         </hbox>
       </hbox>
     </vbox>
-
-
-    
   </wizardpage>
 
 

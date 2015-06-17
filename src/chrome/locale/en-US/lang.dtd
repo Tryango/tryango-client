@@ -41,19 +41,17 @@
 <!ENTITY  wizard.createKeyPage.keysize    "Choose key size.">
 
 <!-- TODO: set labels depending on simple/advanced setup -->
-<!ENTITY  wizard.importKeyPage.title           "Import private key.">
 <!ENTITY  wizard.importKeyPage.kt_type         "Key type">
 <!ENTITY  wizard.importKeyPage.kt_email        "Email address(es)">
-<!ENTITY  wizard.importKeyPage.kt_fingerprint  "Key Fingerprint">
 <!ENTITY  wizard.importKeyPage.kt_created      "Created">
 <!ENTITY  wizard.importKeyPage.kt_expiry       "Expiry">
 <!ENTITY  wizard.importKeyPage.kt_encrypted    "Encrypted">
+<!ENTITY  wizard.importKeyPage.kt_fingerprint  "Key Fingerprint"> <!-- only for settings.xul! rest: see lang.properties -->
 <!ENTITY  wizard.importKeyPage.importFile      "Import from file">
-<!ENTITY  wizard.importKeyPage.secret_key      "Secret key files">
 <!ENTITY  wizard.importKeyPage.importGpg       "Import from GnuPG">
 <!ENTITY  wizard.importKeyPage.loadedGpg  "Results from loading keys from GnuPG for chosen email address. Select one key.">
-<!ENTITY  wizard.importKeyPage.loadedFile "Results from loading keys from file for chosen email address. Select one key">
-<!ENTITY  wizard.importKeyPage.noKeys     "No keys have been loaded yet.">
+<!ENTITY  wizard.importKeyPage.noKeys     "No entries have been loaded yet.">
+<!ENTITY  wizard.importKeyPage.emptyFile     "File is empty.">
 
 
 <!ENTITY  wizard.lastPage.title      "Signup with Tryandgo is complete.">

@@ -118,7 +118,105 @@ var Utils = new function()
     return addresses;
   }
 
+  this.treeAppendRow = function (tree, keyRow, document, isOpen=false){
+    //TODO: FIXME: not working when columns are hidden
+    
+    //set open
+    var item = document.createElement("treeitem");
+    item.setAttribute("container", "true");
+    if(isOpen){
+      item.setAttribute("open", "true");
+    }
+
+    //add sign key
+    var row = document.createElement("treerow");
+    var cell = document.createElement("treecell");
+    cell.setAttribute("label", "Sign key");
+    row.appendChild(cell);
+
+    cell = document.createElement("treecell");
+    cell.setAttribute("label", keyRow.userIds);
+    row.appendChild(cell);
+
+    cell = document.createElement("treecell");
+    cell.setAttribute("label", keyRow.signId);
+    row.appendChild(cell);
+
+    cell = document.createElement("treecell");
+    var date = new Date(keyRow.signCreate);
+    cell.setAttribute("label", date.toDateString());
+    row.appendChild(cell);
+
+    cell = document.createElement("treecell");
+    if(keyRow.signExpire == 0){
+      cell.setAttribute("label", this.languagepack.getString("never"));
+      cell.style.color='green'; //TODO: not working: do setAttribute
+    }
+    else{
+      //TODO: check expiry when loading the keys (at least simple setup)
+      var expire = new Date(keyRow.signExpire);
+//       cell.setAttribute("label", expire.toLocaleDateString());
+      cell.setAttribute("label", expire.toDateString());
+      cell.style.color="red"; //TODO: not working: do setAttribute
+    }
+    row.appendChild(cell);
+
+    cell = document.createElement("treecell");
+    cell.setAttribute("label", this.languagepack.getString(keyRow.signEncrypted));
+    row.appendChild(cell);
+
+    item.appendChild(row);
+
+    //add encryption key
+    /* Sign key
+     *  |
+     *  +----Encryption key
+     */
+    var subtree = document.createElement("treechildren");
+    var subitem = document.createElement("treeitem");
+
+    row = document.createElement("treerow");
+
+    cell = document.createElement("treecell");
+    cell.setAttribute("label", "Encryption key");
+    row.appendChild(cell);
+
+    cell = document.createElement("treecell");
+    cell.setAttribute("label", "");
+    row.appendChild(cell);
+
+    cell = document.createElement("treecell");
+    cell.setAttribute("label", keyRow.encrId);
+    row.appendChild(cell);
+
+    cell = document.createElement("treecell");
+    date = new Date(keyRow.encrCreate);
+    cell.setAttribute("label", date.toDateString());
+    row.appendChild(cell);
+
+    cell = document.createElement("treecell");
+    if(keyRow.encrExpire == 0){
+       cell.setAttribute("label", this.languagepack.getString("never"));
+    }else{
+      var expire = new Date(keyRow.encrExpire);
+      cell.setAttribute("label", expire.toDateString());
+    }
+    row.appendChild(cell);
+
+    cell = document.createElement("treecell");
+    cell.setAttribute("label", this.languagepack.getString(keyRow.encrEncrypted));
+    row.appendChild(cell);
+
+    subitem.appendChild(row);
+    subtree.appendChild(subitem);
+    item.appendChild(subtree);
+    tree.appendChild(item);
+  }
+  
 }//end of "Utils"
+
+
+
 
 //function to initialise the info tabs
 function infoOnLoad(){
@@ -424,8 +522,8 @@ function fillKeys(languagepack){
   for each(let identity in addresses){    
     var keys = CWrapper.getInfoKeys(identity, true);
     if(keys == null || keys.length <= 0){
-      //error
-      Logger.error("Error: Keypurse for " + identity + " is empty/length <= 0: " + keys);
+      //just a warning, might be correct if there is no keypurse etc.
+      Logger.log("Error: Keypurse for " + identity + " is empty/length <= 0: " + keys);
       
       //leave identity/key-row empty
     }
@@ -443,7 +541,7 @@ function fillKeys(languagepack){
       //add keys as sub-tree (= children)
       var subtree = document.createElement("treechildren");
       for each(let key in keys){
-        CWrapper.treeAppendRow(subtree, key, document, false);
+        Utils.treeAppendRow(subtree, key, document, false);
       }
       item.appendChild(subtree);
       tree.appendChild(item);
