@@ -162,9 +162,9 @@ class ConfiClient
   }
 
 
-  PublicKeyDb& getPubDb(
+  PublicKeyDb* getPubDb(
                         ){
-    return publicKeyDb;
+    return &publicKeyDb;
   }
 
 

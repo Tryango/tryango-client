@@ -285,7 +285,7 @@ var MailWindow = new function(){
        * get sending email address
        */
       var sender = gCurrentIdentity.email;
-      Logger.log("Sending mail from: " + sender);
+      Logger.dbg("Sending mail from: " + sender);
 
       /******************
        * fill recipients
@@ -313,7 +313,7 @@ var MailWindow = new function(){
         //ATTENTION: second argument of substring is the LENGTH, not the end!
         recipients = recipients.substring(0, recipients.length-1);
       }
-      Logger.log("Sending mail to: " + recipients);
+      Logger.dbg("Sending mail to: " + recipients);
 
       /************
        *   KEYS
@@ -323,7 +323,10 @@ var MailWindow = new function(){
         //...check if any recipient has no key
         var r = recipients.split(",");
         for(var k = 0; k < r.length; k++){
+          Logger.dbg("Chencking mail: " + r[k]);
+
           status = CWrapper.checkMailAddr(r[k]);
+          Logger.dbg("Chencking mail status: " + status);
           if(status != 0){
             //at least one recipient is not signed up with tryango
             //=> only clear text message is possible

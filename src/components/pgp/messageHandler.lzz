@@ -797,6 +797,7 @@ class MessageHandler{
     std::map<PKT_CipherAlgo, unsigned int> count;
     int step = 0;
     bool isMore = true;
+    if(db == NULL){std::cout<<"0\n"; return CIPHER_ALGO_NONE;}
     while(count.size() == 0 && isMore){
       isMore = false;
       for(auto& id:users){

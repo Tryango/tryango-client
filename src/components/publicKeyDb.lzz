@@ -233,6 +233,7 @@ class PublicKeyDb{
     clearDb();
   }
 
+
   static bool hasExpired(PKT_public_key* key, time_t date=0){
     if(key != NULL){
       if(date == 0){
@@ -249,6 +250,7 @@ class PublicKeyDb{
     return true;
   }
 
+
   Confi_Status checkMailAddr(const std::string& id)
   {
     PublicKeyPair* pk = getKey(id);
@@ -263,19 +265,21 @@ class PublicKeyDb{
     }
   }
 
+
   PublicKeyPair* getKey(const std::string& id)
   {
+    if(id.size()<1){
+      return NULL;
+    }
     PubDbType::iterator it = userIdDb.find(id);
     if(it != userIdDb.end()){
       return it->second;
     }
     else{
       if(client != NULL){
-        std::cout<<"no local key in publicKeyDb.lzz:getKey"<<std::endl;
         std::string key = "";
         tryango::Entry_Type type;
         Confi_Status status = client->find_last(key, type, id);
-        std::cout<<"status:"<<status<<std::endl;
         if (status == ANG_OK && key.length() > 0 && type == tryango::PUBLISH){
           status = importKey(key, id);
           if (status == ANG_OK){
@@ -289,6 +293,7 @@ class PublicKeyDb{
       return NULL;
     }
   }
+
 
   void removeKey(const std::string& id)
   {

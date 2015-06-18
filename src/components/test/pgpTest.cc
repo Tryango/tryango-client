@@ -464,8 +464,8 @@ TEST_F(PgpTest, KeyGeneration){
     BN_CTX_free(ctx);
   }
   unsigned char output[RSA_size(skRsa)];
-  
-// 
+
+//
   PKT_secret_key* seKey = key->getSEKey();;
   SecretKeyPair::assignSecKey(seKey, skRsa, false, timestamp, (time_t)0, "");
   seKey->pkey.fingerprint = ssKey->pkey.fingerprint;
@@ -502,7 +502,7 @@ TEST_F(PgpTest, KeyGeneration){
     ASSERT_TRUE(RSA_check_key(skRsa) == 1);
     SecretKeyPair::freeRSA(skRsa);
     message.clear();
-    status = MessageHandler::decryptText(message, encryptedMessage, std::string("pkordy@gmail.com"), &(client.getPubDb()),  keyDb, "");
+    status = MessageHandler::decryptText(message, encryptedMessage, std::string("pkordy@gmail.com"), client.getPubDb(),  keyDb, "");
     ASSERT_TRUE(status == ANG_NO_SIG);
     ASSERT_TRUE(message == "message\n");
     std::cout<<".";

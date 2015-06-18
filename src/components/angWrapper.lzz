@@ -364,7 +364,7 @@ extern "C"{
     Confi_Status status =  MessageHandler::clearSignVerify(msg
                                                        , std::string(signedMail)
                                                        , PktDo::stripId(sender)
-                                                       , &(client.getPubDb()));
+                                                       , client.getPubDb());
 
     if(status == ANG_OK || status > ANG_UNKNOWN_ERROR){
       std::cout<<("Verify mail command finished with result:" + patch::to_string(status) + " msg:" + msg);
@@ -382,7 +382,8 @@ extern "C"{
                           , PKT_CipherAlgo alg
                           , const char* recipients
                           , const char* sender){
-    PublicKeyDb pubDb = client.getPubDb();
+    std::cout<<"getPubkeys start"<<std::endl;
+    PublicKeyDb* pubDb = client.getPubDb();
     std::set<std::string> users;
     std::string rec(recipients);
     size_t pos=-1, lastPos=-1;
@@ -398,12 +399,21 @@ extern "C"{
     if(users.size() < 1) {
       return ANG_NO_KEY_PRESENT;
     }
+    std::cout<<"getPubkeys 0"<<std::endl;
     if(sender != NULL){
       users.insert(PktDo::stripId(sender)); //we encrypt for ourself
     }
-    alg = MessageHandler::chooseAlg(users, &pubDb);
+    std::cout<<"getPubkeys 1"<<std::endl;
+
+    alg = MessageHandler::chooseAlg(users, pubDb);
+    if(alg == CIPHER_ALGO_NONE){
+      return ANG_NO_KEY_PRESENT;
+    }
+    std::cout<<"getPubkeys 2"<<std::endl;
+
     for(std::string uId:users){
-      PublicKeyPair* key = pubDb.getKey(uId);
+     std::cout<<"getPubkeys in:"<<uId<<std::endl;
+      PublicKeyPair* key = pubDb->getKey(uId);
       if(key == NULL){
         return ANG_NO_KEY_PRESENT;
       }
@@ -413,6 +423,7 @@ extern "C"{
       }
       keys.push_back(pkey);
     }
+    std::cout<<"getPubkeys size:"<<keys.size()<<std::endl;
     return ANG_OK;
   }
 
@@ -427,13 +438,13 @@ extern "C"{
                           , bool encrypt //if set, encrypt email
                            ){
     Confi_Status status = ANG_UNKNOWN_ERROR;
-    printf("encrypt: %d, signd %d \n", (int)sign, (int)encrypt);
     SecretKeyPair* sk = client.getKeyDb().getCurrentKey(PktDo::stripId(sender));
     if( sk == NULL){
       (*result) = NULL;
       *resultSize = 0;
       return ANG_NO_KEY_PRESENT;
     }
+
     if(sign||encrypt){
       PKT_CipherAlgo alg = CIPHER_ALGO_AES256; //initialize so compiler does not complain
       //assuming we have public keys for all receipietns
@@ -466,7 +477,6 @@ extern "C"{
         }
       }
       else if(sign){
-        std::cout<<"signing:\""<<std::string(mailBody)<<"\""<<std::endl;
         status =  MessageHandler::clearSign(encrypted
                                             , std::string(mailBody)
                                             , client.getKeyDb()
@@ -498,7 +508,7 @@ extern "C"{
     status =  MessageHandler::decryptFile(std::string(filePath)
                                           , std::string(data, dataLen)
                                           , PktDo::stripId(sender)
-                                          , &(client.getPubDb())
+                                          , client.getPubDb()
                                           , client.getKeyDb()
                                           , std::string(password));
 /*     if(status > ANG_UNKNOWN_ERROR) then signature is wrong but message is decrypted */
@@ -563,7 +573,7 @@ extern "C"{
     Confi_Status status =  MessageHandler::decryptText(decrypted
                                                        , std::string(encMailBody)
                                                        , PktDo::stripId(sender)
-                                                       , &(client.getPubDb())
+                                                       , client.getPubDb()
                                                        , client.getKeyDb()
                                                        , std::string(password));
 
