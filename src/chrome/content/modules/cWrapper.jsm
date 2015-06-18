@@ -389,8 +389,8 @@ var CWrapper = {
                                    , keyIdSize.address()
                                    , c_sender
                                    , c_password);
-    Logger.dbg("checkSignPassword status:" + status);
-    if((ctypes.uint32_t(0)<keyIdSize)){
+    Logger.dbg("checkSignPassword status:" + status + " keyFgprSize:"+keyIdSize);
+    if((ctypes.uint32_t(0) < keyIdSize)){
       keyIdStr.str = keyId.readString();
       this.freeString(keyId);
     }
