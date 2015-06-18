@@ -33,29 +33,61 @@
   <!-- Sign-up wizard -->
   <wizardpage id="welcomePage" pageid="welcomePage"
               label="&wizard.welcomePage.title;"
-              description="&wizard.welcomePage.subtitle;"
+              description=""
               onpageshow="welcomePageCreate()"
               next="chooseEmailPage"
               >
                 
     <vbox flex="1" id="welcome_vbox">
+      <spacer type="block" flex="1"/>
+      
+      <hbox flex="3">
         <spacer type="block" flex="1"/>
-      <hbox>
+        <!-- simple -->
+        <vbox>
+          <separator/>
+          <button label="&wizard.welcomePage.btnSimple;"
+                  oncommand="onSimple();" height="100px"
+                  style="font-size: 150%;"/>
+          <separator class="goove"/>
+          <description width="250px" style="font-size: 120%;">
+            &wizard.welcomePage.simpleTxt;
+          </description>
+          <spacer type="block" flex="1"/>
+        </vbox>
         <spacer type="block" flex="1"/>
-        <button label="&wizard.welcomePage.btnSimple;"
-                oncommand="onSimple();" flex="2" height="50px"/>
+        
+        <!-- line in middle -->
+        <separator orient="vertical" style="background-color: black; width: 1px;" height="100%"/>
+
         <spacer type="block" flex="1"/>
-        <button label="&wizard.welcomePage.btnAdvanced;"
-                oncommand="onAdvanced();" flex="2" height="50px"/>
+        <!-- advanced -->
+        <vbox>
+          <separator/>
+          <button label="&wizard.welcomePage.btnAdvanced;"
+                  oncommand="onAdvanced();" height="100px"
+                  style="font-size: 150%;"/>
+          <separator class="goove" />
+          <description width="250px" style="font-size: 120%;">
+            &wizard.welcomePage.advancedTxt;
+          </description>
+          <separator class="goove" />
+          <description width="250px">
+            &wizard.welcomePage.advancedRemark;
+          </description>
+          <spacer type="block" flex="1"/>
+        </vbox>
+        
         <spacer type="block" flex="1"/>
       </hbox>
+      
+      <!-- footer -->
       <spacer type="block" flex="1"/>
-<!--       <xul:separator xmlns:xul="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul" class="wizard-buttons-separator groove"/> -->
       <hbox>
         <spacer type="block" flex="1"/>
-         <box id="cancel_box"> </box>
-         <spacer type="block" flex="1"/>
-       </hbox>
+        <box id="cancel_box"> </box>
+        <spacer type="block" flex="1"/>
+      </hbox>
     </vbox>
               
   </wizardpage>
@@ -91,7 +123,7 @@
           <radio id="chooseEmailPage_new_key"
                  label="&wizard.chooseEmailPage.new_key;"/>
           <radio id="chooseEmailPage_import_key"
-                 label="&wizard.chooseEmailPage.import_key;"/>
+                 label=""/> <!-- filled by javascript -->
         </radiogroup>
       </vbox>
     </vbox>
@@ -104,7 +136,7 @@
               next="serverPage"
               >
     <vbox flex="1">
-      <label control="ang_key_pw" value="&wizard.createKeyPage.type_pw;"/>
+      <label id="ang_key_pw_label" control="ang_key_pw" value=""/> <!-- value filled by javascript -->
       <hbox>
         <textbox id="ang_key_pw" type="password"  size="50" oninput="comparePw()"/>
         <checkbox id="ang_show_pw"
@@ -152,8 +184,7 @@
   <wizardpage id="importKeyPage" pageid="importKeyPage"
               next="serverPage"
               onpageshow="importKeyPageCreate()"
-              label="&wizard.importKeyPage.title;"
-              >
+              label=""> <!-- filled by javascript -->
     <vbox>
       <hbox flex="1">
         <spacer type="block" width="20"/>
@@ -170,28 +201,30 @@
       <label id="ang_lbl_loadedGpg" 
              value="&wizard.importKeyPage.loadedGpg;" hidden="true"/>
       <label id="ang_lbl_loadedFile" 
-             value="&wizard.importKeyPage.loadedFile;" hidden="true"/>
+             value="" hidden="true"/> <!-- filled by javascript -->
       <label id="ang_lbl_noKeys" 
              value="&wizard.importKeyPage.noKeys;"/>
+      <label id="ang_lbl_emptyFile"
+             value="&wizard.importKeyPage.emptyFile;" hidden="true"/>
       <spacer type="block" height="10"/>
       <!-- tree for gpg keys  -->
-      <hbox>
-        <spacer type="block" width="20"/>
+      <hbox id="ang_table_importkeys">
+        <spacer type="block" width="5" flex="1"/>
         <hbox style="overflow:auto" flex="1" height="190"><!-- 190=150 tree + x scrollbar-->
           <stack>
-            <tree id="info_key_tree" flex="1" rows="2" seltype="single" width="630" 
+            <tree id="info_key_tree" flex="1" rows="2" seltype="single" width="590"
                   hidden="false" treelines="true" onselect="onKeySelect()">
               <!-- email, keyID, created, expiry, fingerprint -->
                <treecols id="key_treecols" disabled="true">
                 <treecol primary="true" id="key_type" label="&wizard.importKeyPage.kt_type;" flex="1"/>
                 <splitter class="tree-splitter"/>
-                <treecol id="key_email" label="&wizard.importKeyPage.kt_email;" flex="1"/>
-                <splitter class="tree-splitter"/>
-                <treecol id="key_id" label="&wizard.importKeyPage.kt_fingerprint;" flex="1"/>
+                <treecol id="key_email" label="&wizard.importKeyPage.kt_email;" flex="3"/>
                 <splitter class="tree-splitter"/>
                 <treecol sortActive="true" id="key_created" label="&wizard.importKeyPage.kt_created;" flex="1"/>
                 <splitter class="tree-splitter"/>
-                <treecol id="key_expiry" label="&wizard.importKeyPage.kt_expiry;" flex="1"/>
+                <treecol id="key_expiry" label="&wizard.importKeyPage.kt_expiry;" flex="2"/>
+                <splitter class="tree-splitter"/>
+                <treecol id="key_id" flex="2"/> <!-- label filled by javascript -->
                 <splitter class="tree-splitter"/>
                 <treecol id="key_encrypted" label="&wizard.importKeyPage.kt_encrypted;" flex="1"/>
               </treecols>
@@ -201,14 +234,11 @@
               </treechildren>
             </tree>
             <resizer dir="right" style="cursor: e-resize;"
-                     element="info_key_tree" right="0" width="2"/>
+                     element="info_key_tree" right="0" width="3" flex="1"/>
           </stack>
         </hbox>
       </hbox>
     </vbox>
-
-
-    
   </wizardpage>
 
 

@@ -1,6 +1,9 @@
 <?xml version="1.0"?>
 <?xml-stylesheet href="chrome://communicator/skin/" type="text/css"?>
 
+<!-- Reference to CSS file (needed for tree) -->
+<?xml-stylesheet href="chrome://tryango/skin/overlay.css" type="text/css" ?>
+
 <!-- language file -->
 <!DOCTYPE tryango SYSTEM "chrome://tryango/locale/lang.dtd"
 [
@@ -26,7 +29,7 @@
 
   <!-- Reference to JavaScript file -->
   <script type="application/javascript" src="chrome://tryango/content/dialogs/settings.js"/>
-  <script type="application/javascript" src="chrome://tryango/content/dialogs/info.js"/>
+  <script type="application/javascript" src="chrome://tryango/content/modules/utils.jsm"/>
 
   <!-- Settings dialog -->
   <tabbox orient="vertical" flex="1">
@@ -138,11 +141,11 @@
             <splitter class="tree-splitter"/>
             <treecol id="key_email" label="&wizard.importKeyPage.kt_email;" flex="1"/>
             <splitter class="tree-splitter"/>
-            <treecol id="key_id" label="&wizard.importKeyPage.kt_fingerprint;" flex="1"/>
-            <splitter class="tree-splitter"/>
             <treecol sortActive="true" id="key_created" label="&wizard.importKeyPage.kt_created;" flex="1"/>
             <splitter class="tree-splitter"/>
             <treecol id="key_expiry" label="&wizard.importKeyPage.kt_expiry;" flex="1"/>
+            <splitter class="tree-splitter"/>
+            <treecol id="key_id" label="&wizard.importKeyPage.kt_fingerprint;" flex="1"/>
             <splitter class="tree-splitter"/>
             <treecol id="key_version" label="&wizard.importKeyPage.kt_encrypted;" flex="1"/>
         </treecols>

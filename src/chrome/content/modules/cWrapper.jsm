@@ -182,7 +182,7 @@ var CWrapper = {
           , ctypes.bool  //return type
           , ctypes.char.ptr   //param 1 - path
           , ctypes.bool); //param 2 - if to clear keypurse before import
-
+      
       this.removeKeyPurse = this.client.declare("removeKeyPurse"// method name 
           , ctypes.default_abi //binary interface type 
           , ctypes.bool  //return type
@@ -312,7 +312,7 @@ var CWrapper = {
     var keyId = new ctypes.char.ptr;
     var keyIdSize = new ctypes.uint32_t;
     //variables
-    Logger.dbg("checkDecrPasswrod password:"+password);
+    Logger.dbg("checkDecrPassword password: '"+password+"'");
     var c_password = ctypes.char.array()(password);
 
     var status = this.c_checkDecrPassword(keyId.address()
@@ -320,7 +320,8 @@ var CWrapper = {
                                          , c_data
                                          , c_data_size
                                          , c_password);
-    Logger.dbg("checkDecrPasswrod status:" + status);
+    Logger.dbg("checkDecrPassword status:" + status);
+    
     if((ctypes.uint32_t(0)<keyIdSize)){
       keyIdStr.str = keyId.readString();
       this.freeString(keyId);
@@ -523,9 +524,8 @@ var CWrapper = {
     return output;
   },
 
-  removeDevices: function(identity, device, devices, totalDevices){
+  removeDevices: function(identity, device, devices, totalDevices, doNotPrompt){
     //init
-
     var arr_t = ctypes.ArrayType(ctypes.char.ptr);
     var c_devices = new arr_t(devices.length);
     var removeAp = false;
@@ -535,8 +535,15 @@ var CWrapper = {
         removeAp = true;
       }
     }
+
+    //revoke key?
     if(devices.length >= totalDevices){
-      if(Logger.promptService.confirm(null, "Trango", this.languagepack.getString("prompt_allRemoved_revoke"))){
+      if(doNotPrompt ||
+         Logger.promptService.confirm(
+           null, "Trango",
+           this.languagepack.getString("prompt_allRemoved_revoke")
+         )
+        ){
         var status = this.revokeKey(identity, device);
         if(status == 0){
           Logger.dbg("Key revocation was successful");
@@ -917,7 +924,8 @@ var CWrapper = {
     var pass = {value : ""};
     if(this.getDataPassword(pass, c_mailBody, mailBody.length)){
       var c_password = ctypes.char.array()(pass.value);
-      
+
+      Logger.dbg("c_decryptMail");
       var status = this.c_decryptMail(result.address()
                                      , resultSize.address()
                                      , c_mailBody
@@ -972,107 +980,9 @@ var CWrapper = {
     return 0;
   },
 
-
-
   closeLibrary : function(){
     this.client.close(); //TODO: FIXME: this does not work sometimes
-  },
-
-
-  treeAppendRow: function (tree, keyRow, document, isOpen=false){
-  //ATTENTION: the tree is altered while iterating over it, thus "normal" iterators break!
-//     Logger.dbg("treeAppendRow");
-
-    var item = document.createElement("treeitem");
-    item.setAttribute("container", "true");
-    if(isOpen){
-      item.setAttribute("open", "true");
-    }
-
-/*  Sign key */
-    var row = document.createElement("treerow");
-    var cell = document.createElement("treecell");
-    cell.setAttribute("label", "Sign key");
-    row.appendChild(cell);
-
-    cell = document.createElement("treecell");
-    cell.setAttribute("label", keyRow.userIds);
-    row.appendChild(cell);
-
-    cell = document.createElement("treecell");
-    cell.setAttribute("label", keyRow.signId);
-    row.appendChild(cell);
-
-    cell = document.createElement("treecell");
-    var date = new Date(keyRow.signCreate);
-    cell.setAttribute("label", date.toDateString());
-    row.appendChild(cell);
-
-    cell = document.createElement("treecell");
-    if(keyRow.signExpire == 0){
-      cell.setAttribute("label", this.languagepack.getString("never"));
-      cell.style.color='green';
-    }
-    else{
-      var expire = new Date(keyRow.signExpire);
-//       cell.setAttribute("label", expire.toLocaleDateString());
-      cell.setAttribute("label", expire.toDateString());
-      cell.style.color="red";
-    }
-    row.appendChild(cell);
-
-    cell = document.createElement("treecell");
-    cell.setAttribute("label", this.languagepack.getString(keyRow.signEncrypted));
-    row.appendChild(cell);
-
-    item.appendChild(row);
-
-/* Sign key
-     |
-     +----Encryption key */
-    var subtree = document.createElement("treechildren");
-    var subitem = document.createElement("treeitem");
-
-    row = document.createElement("treerow");
-
-    cell = document.createElement("treecell");
-    cell.setAttribute("label", "Encryption key");
-    row.appendChild(cell);
-
-    cell = document.createElement("treecell");
-    cell.setAttribute("label", "");
-    row.appendChild(cell);
-
-    cell = document.createElement("treecell");
-    cell.setAttribute("label", keyRow.encrId);
-    row.appendChild(cell);
-
-    cell = document.createElement("treecell");
-    date = new Date(keyRow.encrCreate);
-    cell.setAttribute("label", date.toDateString());
-    row.appendChild(cell);
-
-    cell = document.createElement("treecell");
-    if(keyRow.encrExpire == 0){
-       cell.setAttribute("label", this.languagepack.getString("never"));
-    }
-    else{
-      var expire = new Date(keyRow.encrExpire);
-      cell.setAttribute("label", expire.toDateString());
-    }
-    row.appendChild(cell);
-
-    cell = document.createElement("treecell");
-    cell.setAttribute("label", this.languagepack.getString(keyRow.encrEncrypted));
-    row.appendChild(cell);
-
-    subitem.appendChild(row);
-    subtree.appendChild(subitem);
-    item.appendChild(subtree);
-    tree.appendChild(item);
-//     Logger.dbg("treeAppendRow end");
   }
-
 }
 
 CWrapper.QuestionEnum = {

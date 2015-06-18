@@ -78,7 +78,7 @@ void* runPythonServer(void* args){
     char setPort[40];
     sprintf(setPort, "args['port']=%d\n",params->port);
     PyRun_SimpleString("args={'database':\"temp.db\"}\n\
-args['certificate']=\"../../../../certs/tryango.pem\"\n\
+args['certificate']=\"../../../../confimail/certs/tryango.pem\"\n\
 args['reset']=1\n\
 args['cachesize']=1000\n\
 args['smtp_server']=\"localhost\"\n\

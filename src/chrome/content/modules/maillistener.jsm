@@ -27,6 +27,19 @@ function addHeader(header){
   }
 }
 
+function removeHeader(header){
+  var customHeaders = Services.prefs.getCharPref("mailnews.customDBHeaders").split(" ");
+  //ATTENTION: lowercase!
+  var index = customHeaders.indexOf(header.toLowerCase());
+  if(index >= 0){
+    customHeaders.splice(index, 1);
+    Logger.dbg(header);
+    Logger.dbg(customHeaders.join(" ").trim());
+    Services.prefs.setCharPref("mailnews.customDBHeaders",
+                               customHeaders.join(" ").trim());
+  }
+}
+
 // E-Mail Listener
 var MailListener = new function() {
   //declare XHEADER so it is stored in Thunderbird's DB-Headers
@@ -59,8 +72,19 @@ var MailListener = new function() {
     Logger.dbg("MailListener init done: " + Services.prefs.getCharPref("mailnews.customDBHeaders").trim());
   };
   
-
-
+  
+  /**
+   * function to be called when Tryango is uninstalled
+   */
+  this.removeAllTryangoXHEADERS = function(){
+    Logger.dbg("Removing XHEADERS");
+    
+    //remove all x-headers again
+    removeHeader(this.XHEADER);
+    removeHeader(this.XHEADER_REQID);
+    removeHeader(this.XHEADER_NEWKEY);
+    removeHeader(this.XHEADER_OLDKEY);
+  };
 
   // functions
   /**
@@ -364,7 +388,6 @@ var MailListener = new function() {
     else{
       //error: body is null (this should never happen, Thunderbird should supply us with the email)
       Logger.error("event.currentTarget.contentDocument.body is null");
-      //TODO: tell user?
     }
   };
 
@@ -392,7 +415,7 @@ var MailListener = new function() {
     for(var p in pre){
       if(p.search("-----BEGIN PGP") != -1){
         Logger.dbg("Found correct <PRE>");
-        p.innerHTML = this.makeEmailLayout(email);
+        p.innerHTML = email;
         return;
       }
     }
@@ -400,7 +423,7 @@ var MailListener = new function() {
     for(var d in div){
       if(d.search("-----BEGIN PGP") != -1){
         Logger.dbg("Found correct <DIV>");
-        d.innerHTML = this.makeEmailLayout(email);
+        d.innerHTML = email;
         return;
       }
     }
@@ -416,10 +439,10 @@ var MailListener = new function() {
       //check html vs text
       if(Prefs.getPrefByString("html_as", "mailnews.display.") == 1){
         //display email as text
-        div.textContent = this.makeEmailLayout(email);
+        div.textContent = email;
       }else{
         //display email as HTML
-        div.innerHTML = this.makeEmailLayout(email);
+        div.innerHTML = email;
       }
       document.body.appendChild(div);
       return;
@@ -427,13 +450,7 @@ var MailListener = new function() {
     
     //could not find PGP message
     //write decrypted content as pure-text... (at least)
-    document.body.textContent = this.makeEmailLayout(email);
-  };
-
-  //helper function to create correct email layout
-  this.makeEmailLayout = function(email){
-    //TODO: not needed? then remove this function!!!
-    return email;//;.replace(/\n/g, "\n<br>");
+    document.body.textContent = email;
   };
 
   //helper function to colorize verification toolbar
@@ -465,7 +482,6 @@ var MailListener = new function() {
 
   //helper function to find account from a message header
   this.findAccountFromHeader = function(msgHdr){
-    //TODO: FIXME: some gmail accounts from subfolders are not found
     if(msgHdr.accountKey){
       //message has been moved and the original account is specified by accountKey
       //=> search for accountKey in accounts and get the email-address
@@ -495,7 +511,7 @@ var MailListener = new function() {
   };
 
   //helper function to find an account from the folder a message is in
-/// TODO https://github.com/protz/thunderbird-stdlib
+  //https://github.com/protz/thunderbird-stdlib
   this.findAccountFromFolder = function(searchFolder) {
     //check
     if (!searchFolder){

@@ -11,7 +11,7 @@ if (! Dialogs){
 }
 
 Dialogs.signup = function(window){
-  Logger.dbg("sinup dialog = " + this.signupOpen);
+  Logger.dbg("signup dialog = " + this.signupOpen);
   if(this.settingsOpen){
     this.settingsDialog.close();
     this.settingsOpen = false;
@@ -30,7 +30,7 @@ Dialogs.signup = function(window){
 
 Dialogs.signupEnd = function(window){
   this.signupOpen = false;
-  Logger.dbg("sinup dialog after close = " + this.signupOpen);
+  Logger.dbg("signup dialog after close = " + this.signupOpen);
   return true;
 }
 

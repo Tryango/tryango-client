@@ -15,10 +15,9 @@ Components.utils.import("resource://tryango_modules/pwmanager.jsm");
 Components.utils.import("resource://tryango_modules/maillistener.jsm");
 Components.utils.import("resource://tryango_modules/cWrapper.jsm");
 Components.utils.import("resource://tryango_modules/attachmentManager.jsm");
-Components.utils.import("resource://tryango/dialogs/info.js");
+Components.utils.import("resource://tryango_modules/utils.jsm");
 
 //TODO: test with multiple send-windows open!
-//TODO: remove as many infoPopup's as possible to improve usability (user should not bother about anything, it should "just work")
 
 // (Singleton) Basic Tryango class
 // "main" class for all Tryango functions
@@ -104,6 +103,7 @@ Tryango.init = function(){
   //after loading everything: check if this is the first start, if so, display setup wizard
   var firstStartup = Prefs.getPref("firstStartup");
   if(firstStartup){
+    Logger.dbg("firstStartup");
     this.handleEvent("menu-signup");
     Prefs.setPref("firstStartup", false);
   }
@@ -127,23 +127,9 @@ Tryango.disable = function(){
   document.getElementById("button-cm").setAttribute("disabled", "true");
   document.getElementById("tryango-menu").setAttribute("hidden", "true");
 
-  /*this will only get set upon next Thunderbird start, therefore useless => disable buttons instead
-  //get addon...
-  AddonManager.getAddonByID("tryango@bham.uni.ac.uk", function(addon){
-    //...and disable it
-    if(addon != null && addon.id == "tryango@bham.uni.ac.uk"){
-      if(addon.isActive){
-        addon.userDisabled = true;
-      }
-    }else{
-      //null indicates addon not found
-      //other name means other addon was found (weird!)
-      Logger.error("Could not disable addon Tryango!");
-      Logger.infoPopup(this.languagepack.getString("err_disable_addon"));
-      throw "Tryango critical error (tried to disable Tryango but failed)";
-    }
-  });
-  */
+  /* ATTENTION: getting the addon via AddonManager.getAddonByID and disabling it will
+   * only get set upon next Thunderbird start, therefore useless => disable buttons instead
+   */
 }
 
 /*
@@ -171,22 +157,18 @@ Tryango.handleEvent = function(id){
     else{
       Logger.dbg("Thunderbird is in online mode");
     }
-
     // display the sign-up wizard, it's result is handled
     // by a callback function (see signup.xul / signup.js)
     Dialogs.signup(window);
-//     window.open("chrome://tryango/content/dialogs/signup.xul",
-// 		"", "chrome,centerscreen,resizable");
     break;
     
   case "menu-settings":
-    //TODO: FIXME: just allow one settings window, do not allow signup and settings at the same time (both alter the settings, that might lead to inconsistent states) => OR hook "focus" event and update preferences/display every focus (a bit overkill maybe?)
     //display the settings window (see settings.xul)
     Dialogs.settings(window);
     break;
       
   case "menu-about":
-      //displays the about window (see about.xul)
+    //displays the about window (see about.xul)
     Dialogs.about(window);
     break;
 
@@ -199,12 +181,11 @@ Tryango.handleEvent = function(id){
 
     //warn user
     if(Logger.promptService.confirm(null, "Tryango", this.languagepack.getString("tryango_reset"))){
-      Logger.log("Reset!");
       this.removeEverything();
     }
     else{
       //user abort
-      Logger.log("user abort");
+      Logger.dbg("user abort");
     }
     break;
 
@@ -233,26 +214,7 @@ Tryango.handleEvent = function(id){
     break;
 
   case "menu-export":
-    //pick file to save to
-    var fp = Components.classes["@mozilla.org/filepicker;1"].createInstance(
-      Components.interfaces.nsIFilePicker);
-    //filters:
-    fp.appendFilter("Keypurses", "*.purse"); //only key purses
-    fp.appendFilter("All files", "*");
-    fp.init(window, this.languagepack.getString("sel_keypurse_bak"),
-            Components.interfaces.nsIFilePicker.modeSave);
-
-    //check result
-    var res = fp.show();
-    if(res != Components.interfaces.nsIFilePicker.returnCancel){
-      //backup keypurse to selected location
-      if(!CWrapper.exportKeyPurse(fp.file.path)){
-        //error
-        Logger.error("exportKeyPurse failed");
-        Logger.infoPopup(this.languagepack.getString("bak_keypurese_fail"));
-      }
-      //else: everything ok
-    }
+    Utils.exportKeyPurse(window, this.languagepack);
     break;
       
   case "button-cm-decrypt":
@@ -287,16 +249,23 @@ Tryango.handleEvent = function(id){
 }
 
 Tryango.removeEverything = function(){
-  Logger.dbg("Removing everything.");
+  Logger.dbg("Removing everything");
   
   //remove devices and keys from server as well as locally
-  removeAllDevicesAndRevokeKeys(this.languagepack); //info.js
+  //this also asks if the user wants to backup the keypurse
+  Utils.removeAllDevicesAndRevokeKeys(window, this.languagepack);
+
+  //clear XHEADERS
+  MailListener.removeAllTryangoXHEADERS();
   
   //clear passwordmanager/preferences
   Prefs.removeAllTryangoPrefs();
   Pwmgr.removeAllTryangoPWs();
 
   //ATTENTION: no Tryango.cleanup() here yet! we are still running!
+
+  //log
+  Logger.dbg("removeEverything done");
 }
 
 
@@ -307,29 +276,29 @@ Tryango.removeEverything = function(){
 //listener for removing the extension
 //https://developer.mozilla.org/en-US/docs/Observer_Notifications#Application_shutdown
 //http://xulsolutions.blogspot.co.uk/2006/07/creating-uninstall-script-for.html
-var ConfiCleaner = {
+var TryangoCleaner = {
   //variables
   isInit: false,
   uninstall: false,
 
   init: function(){
     //init
-    AddonManager.addAddonListener(ConfiCleaner);
+    AddonManager.addAddonListener(TryangoCleaner);
     var observerService = Components.classes["@mozilla.org/observer-service;1"]
       .getService(Components.interfaces.nsIObserverService);
-    observerService.addObserver(ConfiCleaner, "quit-application-granted", false);
+    observerService.addObserver(TryangoCleaner, "quit-application-granted", false);
 
     //save var
     this.isInit = true;
 
     //output
-    Logger.log("ConfiCleaner installed");
+    Logger.dbg("TryangoCleaner installed");
   },
 
   //1. listen if extension is set to uninstall in "Addons" => save it
   onUninstalling: function(addon, needsRestart){
-    if(addon.name == "Tryango" && addon.id == "tryango@bham.uni.ac.uk"){
-      Logger.log("ConfiCleaner: uninstall set");
+    if(addon.name == "Tryango" && addon.id == "tryango@cs.bham.ac.uk"){
+      Logger.dbg("TryangoCleaner: uninstall set");
       this.uninstall = true;
     }
   },
@@ -337,7 +306,7 @@ var ConfiCleaner = {
   //1. listen if uninstall is cancelled again
   onOperationCancelled: function(addon){
     if(addon.name == "Tryango" && addon.id == "tryango@bham.uni.ac.uk"){
-      Logger.log("ConfiCleaner: uninstall cancelled");
+      Logger.dbg("TryangoCleaner: uninstall cancelled");
       this.uninstall = false;
     }
   },
@@ -345,14 +314,14 @@ var ConfiCleaner = {
   //interface
   //https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsIObserver
   observe: function(subject, topic, data){
-    Logger.log("ConfiCleaner: " + topic);
+    Logger.dbg("TryangoCleaner: " + topic);
 
     //2. if we shutdown AND extension is set to uninstall => uninstall
     if(topic == "quit-application-granted"){
-      Logger.log("ConfiCleaner: shutdown");
+      Logger.dbg("TryangoCleaner: shutdown");
       if(this.uninstall){
         //remove the extension
-        Logger.log("ConfiCleaner: uninstalling...");
+        Logger.log("TryangoCleaner: uninstalling...");
         Tryango.removeEverything();
       }
 
@@ -360,7 +329,7 @@ var ConfiCleaner = {
       Tryango.cleanup(null);
 
       //clean up observer
-      AddonManager.removeAddonListener(ConfiCleaner);
+      AddonManager.removeAddonListener(TryangoCleaner);
       var observerService =
         Components.classes["@mozilla.org/observer-service;1"].
         getService(Components.interfaces.nsIObserverService);
@@ -399,8 +368,8 @@ else{
       }
 
       //initialise uninstall-listener
-      if(!ConfiCleaner.isInit){
-        ConfiCleaner.init();
+      if(!TryangoCleaner.isInit){
+        TryangoCleaner.init();
       }
     },
     false);

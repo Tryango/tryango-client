@@ -1,16 +1,229 @@
+//own modules
+Components.utils.import("resource://tryango_modules/pwmanager.jsm");
 Components.utils.import("resource://tryango_modules/cWrapper.jsm");
 Components.utils.import("resource://tryango_modules/prefs.jsm")
 Components.utils.import("resource://tryango_modules/logger.jsm");
+
+//standard modules
 Components.utils.import("resource:///modules/iteratorUtils.jsm"); //for fixIterator
 Components.utils.import("resource://gre/modules/FileUtils.jsm"); //for proofs.log file
 Components.utils.import("resource://gre/modules/NetUtil.jsm"); //reading file asynchonously
-Components.utils.import("resource://tryango_modules/pwmanager.jsm");
-
-
-//TODO: this should be a module called "utils" or "key/device-utils"
 
 //exports
-var EXPORTED_SYMBOLS = ["removeAllDevicesAndRevokeKeys"];
+var EXPORTED_SYMBOLS = ["Utils"]; //only export Utils, not the rest
+
+
+var Utils = new function()
+{  
+  this.exportKeyPurse = function(window, languagepack){
+    if(!(new FileUtils.File(Prefs.getPref("keyPursePath"))).exists()){
+      //no keypurse => no export
+      Logger.infoPopup(languagepack.getString("exp_keypurse_fail"));
+      return;
+    }
+    
+    //pick file to save to
+    var fp = Components.classes["@mozilla.org/filepicker;1"].createInstance(
+      Components.interfaces.nsIFilePicker);
+    //filters:
+    fp.appendFilter("Keypurses", "*.purse"); //only key purses
+    fp.appendFilter("All files", "*");
+    fp.init(window, languagepack.getString("sel_keypurse_bak"),
+            Components.interfaces.nsIFilePicker.modeSave);
+
+    //check result
+    var date = (new Date()).toISOString();
+    date = date.substring(0, date.indexOf("T"));
+    fp.defaultString = "tryango_" + date + "_key.purse";
+    var res = fp.show();
+    if(res != Components.interfaces.nsIFilePicker.returnCancel){
+      //backup keypurse to selected location
+      if(!CWrapper.exportKeyPurse(fp.file.path, "")){ //TODO: password?
+        //error
+        Logger.error("exportKeyPurse failed");
+        Logger.infoPopup(languagepack.getString("bak_keypurese_fail"));
+      }
+      //else: everything ok
+    }
+  }
+
+  this.removeAllDevicesAndRevokeKeys = function(window, languagepack){
+    //function is called when plugin is deinstalled or user presses "reset"
+    //a lot of pop-ups are ok, we have to make sure the user is aware what he/she
+    //is doing
+
+    //(local) remove keypurse (if it exists) => backup first
+    if(Prefs.getPref("keyPursePath") !=  undefined &&
+       (new FileUtils.File(Prefs.getPref("keyPursePath"))).exists()){
+
+      //log
+      Logger.dbg("keypurse exists => remove it");
+      
+      //BACKUP: export keypurse if user wants to
+      if(Logger.promptService.confirm(null, "Tryango", languagepack.getString("exp_keypurse"))){
+        Logger.dbg("Export keypurse");
+        this.exportKeyPurse(window, languagepack);
+      }
+
+      //remove keypurse
+      if(!CWrapper.removeKeyPurse(Prefs.getPref("keyPursePath"))){
+        Logger.error("Could not remove keypurse: " +
+                     Prefs.getPref("keyPursePath"));
+        Logger.infoPopup(languagepack.getString("rm_keypurse_fail"));
+      }
+    }
+
+    //clear data on tryango server
+    //(server) remove devices (will revoke keys if no device is signed up for it any more)
+    var addresses = this.getEmailAddresses();
+    var machineID = Prefs.getPref("machineID");
+    if(machineID){
+      for each(let identity in addresses){
+        //check if identity/machineID is signed up
+        var ap = Pwmgr.getAp(identity);
+        if(ap != undefined && ap.length > 1){
+          //remove identity/machineID if it is signed up
+          Logger.dbg("Removing device " + identity + " " + machineID);
+          removeDevices(identity, [machineID], languagepack, true); //doNotPrompt = true
+        }
+      }
+    }
+        
+    return; //explicit end of method
+  }
+
+  
+  this.getEmailAddresses = function(){
+    // get all email addresses and check them for tryango (otherwise not possible,
+    // we cannot store all tryango-email-addresses on this device since they
+    // could come from another device)
+    var addresses = [];
+    var acctMgr = Components.classes["@mozilla.org/messenger/account-manager;1"]
+        .getService(Components.interfaces.nsIMsgAccountManager);
+    var accounts = acctMgr.accounts;
+
+    //iterate over accounts
+    for each (let account in fixIterator(accounts, 
+                                         Components.interfaces.nsIMsgAccount)) {
+      //get pretty names as "mail for foo@test.com" or "news on news.mozilla.org"
+      var mailaddrs = account.incomingServer.constructedPrettyName;
+      //filter for the ones which are mails
+      if(mailaddrs.substring(0, 4) == "Mail" || mailaddrs.substring(0, 4) == "mail"){
+        //cut "mail for " and save address
+        mailaddrs = mailaddrs.substring(9, mailaddrs.length);
+        addresses.push(mailaddrs);
+      }
+    }
+
+    return addresses;
+  }
+
+  this.treeAppendRow = function (tree, keyRow, document, isOpen=false, lang){  
+    //set open
+    var item = document.createElement("treeitem");
+    item.setAttribute("container", "true");
+    if(isOpen){
+      item.setAttribute("open", "true");
+    }
+
+    //add sign key
+    var row = document.createElement("treerow");
+    var cell = document.createElement("treecell");
+    cell.setAttribute("label", "Sign key");
+    row.appendChild(cell);
+
+    cell = document.createElement("treecell");
+    cell.setAttribute("label", keyRow.userIds);
+    row.appendChild(cell);
+
+    cell = document.createElement("treecell");
+    var date = new Date(keyRow.signCreate);
+    cell.setAttribute("label", date.toDateString());
+    row.appendChild(cell);
+
+    cell = document.createElement("treecell");
+    if(keyRow.signExpire == 0){
+      cell.setAttribute("label", lang.getString("never"));
+      cell.setAttribute("properties", "greenCell");
+    }
+    else{
+      var expire = new Date(keyRow.signExpire);
+      cell.setAttribute("label", expire.toDateString());
+      //expired dates red
+      if(expire.getTime() < Date.now()){
+        cell.setAttribute("properties", "redCell");
+      }else{
+        cell.setAttribute("properties", "greenCell");
+      }
+    }
+    row.appendChild(cell);
+
+    cell = document.createElement("treecell");
+    cell.setAttribute("label", keyRow.signId);
+    row.appendChild(cell);
+    
+    cell = document.createElement("treecell");
+    cell.setAttribute("label", lang.getString(keyRow.signEncrypted));
+    row.appendChild(cell);
+
+    item.appendChild(row);
+
+    //add encryption key
+    /* Sign key
+     *  |
+     *  +----Encryption key
+     */
+    var subtree = document.createElement("treechildren");
+    var subitem = document.createElement("treeitem");
+
+    row = document.createElement("treerow");
+
+    cell = document.createElement("treecell");
+    cell.setAttribute("label", "Encryption key");
+    row.appendChild(cell);
+
+    cell = document.createElement("treecell");
+    cell.setAttribute("label", "");
+    row.appendChild(cell);
+
+    cell = document.createElement("treecell");
+    date = new Date(keyRow.encrCreate);
+    cell.setAttribute("label", date.toDateString());
+    row.appendChild(cell);
+
+    cell = document.createElement("treecell");
+    if(keyRow.encrExpire == 0){
+      cell.setAttribute("label", lang.getString("never"));
+      cell.setAttribute("properties", "greenCell");
+    }else{
+      var expire = new Date(keyRow.encrExpire);
+      cell.setAttribute("label", expire.toDateString());
+      //expired dates red
+      if(expire.getTime() < Date.now()){
+        cell.setAttribute("properties", "redCell");
+      }else{
+        cell.setAttribute("properties", "greenCell");
+      }
+    }
+    row.appendChild(cell);
+
+    cell = document.createElement("treecell");
+    cell.setAttribute("label", keyRow.encrId);
+    row.appendChild(cell);
+    
+    cell = document.createElement("treecell");
+    cell.setAttribute("label", lang.getString(keyRow.encrEncrypted));
+    row.appendChild(cell);
+
+    subitem.appendChild(row);
+    subtree.appendChild(subitem);
+    item.appendChild(subtree);
+    tree.appendChild(item);
+  }
+  
+}//end of "Utils"
+
+
 
 
 //function to initialise the info tabs
@@ -232,10 +445,10 @@ function fillDevices(languagepack){
   //fill devices
 
   //set date for last update
-	Logger.dbg("filling devices");
+  Logger.dbg("filling devices");
   document.getElementById("tree_devices_updated").value = new Date().toISOString();
 
-  var addresses = getEmailAddresses();
+  var addresses = Utils.getEmailAddresses();
 
   //get actual device
   var device = Prefs.getPref("machineID");
@@ -311,14 +524,14 @@ function fillKeys(languagepack){
   }
 
   //get addresses
-  var addresses = getEmailAddresses();
+  var addresses = Utils.getEmailAddresses();
 
   //check all identities
   for each(let identity in addresses){    
     var keys = CWrapper.getInfoKeys(identity, true);
     if(keys == null || keys.length <= 0){
-      //error
-      Logger.error("Error: Keypurse for " + identity + " is empty/length <= 0: " + keys);
+      //just a warning, might be correct if there is no keypurse etc.
+      Logger.log("Error: Keypurse for " + identity + " is empty/length <= 0: " + keys);
       
       //leave identity/key-row empty
     }
@@ -336,7 +549,7 @@ function fillKeys(languagepack){
       //add keys as sub-tree (= children)
       var subtree = document.createElement("treechildren");
       for each(let key in keys){
-        CWrapper.treeAppendRow(subtree, key, document, false);
+        Utils.treeAppendRow(subtree, key, document, false, languagepack);
       }
       item.appendChild(subtree);
       tree.appendChild(item);
@@ -345,6 +558,7 @@ function fillKeys(languagepack){
 }
 
 
+/*TODO: not used?
 function treeAppend(tree, id, string, container, op=false){
   //create item
   var item = document.createElement("treeitem");
@@ -364,39 +578,20 @@ function treeAppend(tree, id, string, container, op=false){
 
   return item;
 }
-
-function getEmailAddresses(){
-  // get all email addresses and check them for tryango (otherwise not possible,
-  // we cannot store all tryango-email-addresses on this device since they
-  // could come from another device)
-  var addresses = [];
-  var acctMgr = Components.classes["@mozilla.org/messenger/account-manager;1"]
-    .getService(Components.interfaces.nsIMsgAccountManager);
-  var accounts = acctMgr.accounts;
-
-  //iterate over accounts
-  for each (let account in fixIterator(accounts, 
-                                       Components.interfaces.nsIMsgAccount)) {
-    //get pretty names as "mail for foo@test.com" or "news on news.mozilla.org"
-    var mailaddrs = account.incomingServer.constructedPrettyName;
-    //filter for the ones which are mails
-    if(mailaddrs.substring(0, 4) == "Mail" || mailaddrs.substring(0, 4) == "mail"){
-      //cut "mail for " and save address
-      mailaddrs = mailaddrs.substring(9, mailaddrs.length);
-      addresses.push(mailaddrs);
-    }
-  }
-
-  return addresses;
-}
+*/
 
 function removeSelectedDevices(){
   var lang = document.getElementById('lang_file');
-  var start = new Object();
-  var end = new Object();
 
+  //ask user if they really want to remove the devices
+  if(!Logger.promptService.confirm(null, "Trango", lang.getString("prompt_remove_device"))){
+    return;
+  }
+  
   //nsITreeSelection: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsITreeSelection
   //nsITreeView: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsITreeView#getCellText%28%29
+  var start = new Object();
+  var end = new Object();
   var selected = document.getElementById("tree_devices").view.selection;
 
   //iterate over all selections
@@ -407,7 +602,7 @@ function removeSelectedDevices(){
     var col = document.getElementById("tree_devices").columns.getColumnAt(0);
 
     //iterate over selected indices
-//     var view = document.getElementById("tree_devices").view;
+    //var view = document.getElementById("tree_devices").view;
     for(var j = start.value; j <= end.value; j++){
       var parent = "";
       var elements = [];
@@ -428,20 +623,20 @@ function removeSelectedDevices(){
 
       //remove the devices
       if(devicesView.emails[parent] > 0){
-        removeDevices(parent, elements);
+        removeDevices(parent, elements, lang, false); //doNotPrompt = false => DO prompt
+        //update list
+        fillDevices(lang);
       }
     }
   }
 }
 
-function removeDevices(identity, devices){
-  var lang = document.getElementById('lang_file');
-
-  //XXX: debug
+function removeDevices(identity, devices, lang, doNotPrompt){
   Logger.dbg("removeDevices: " + identity + " " + devices);
 
-  //call C
-  var status = CWrapper.removeDevices(identity, Prefs.getPref("machineID"), devices, devicesView.emails[identity]);
+  //call C to remove devices
+  var status = CWrapper.removeDevices(identity, Prefs.getPref("machineID"), devices,
+                                      devicesView.emails[identity], doNotPrompt);
   if(status != 0){
     //error
     Logger.error("CWrapper exception removeDevice (" + identity + "," + devices + "): " + status);
@@ -453,32 +648,6 @@ function removeDevices(identity, devices){
   }
 
   //DONE in CWrapper: (remDev) remove ap from Pwmgr too if this device was deleted too.
-
-  //update list
-  fillDevices(lang);
-}
-
-function removeAllDevicesAndRevokeKeys(languagepack){
-  //function is called when plugin is deinstalled or user presses "reset"
-  //a lot of pop-ups are ok, we have to make sure the user is aware what he/she
-  //is doing
-  
-  //TODO: (server) remove devices
-  Logger.dbg("Removing devices.");
-
-  //TODO: (server) revoke keys from server
-  Logger.dbg("Revoking keys.");
-
-  //TODO: (local) remove keypurse
-  //TODO: shall we ask the user for permission a second time? if he/she wants to keep the keypurse there is also "export"
-  if(Logger.promptService.confirm(null, "Tryango", languagepack.getString("rm_keypurse"))){
-    Logger.dbg("Removing keypurse.");
-    if(!CWrapper.removeKeyPurse(Prefs.getPref("keyPursePath"))){
-      Logger.error("Could not remove keypurse: " +
-                   Prefs.getPref("keyPursePath"));
-      Logger.infoPopup(languagepack.getString("rm_keypurse_fail"));
-    }
-  }
 }
 
 function removeSelectedKeys(){

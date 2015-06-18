@@ -15,49 +15,46 @@
 <!ENTITY  verifytoolbar.tooltip	"Shows the status of signature verification (green=good, grey=no info, orange=no key for verification available, red=bad)">
 
 <!-- signup dialog -->
-<!ENTITY  wizard.title           "Sign-Up Wizard">
-<!ENTITY  wizard.welcomePage.title   "Signup to Tryango server.">
-<!ENTITY  wizard.welcomePage.subtitle "To simply signup without being to many questions click 'Simple' button. To have more control over the signup procedure choose 'Advanced'.">
-<!ENTITY  wizard.welcomePage.btnSimple "Simple">
+<!ENTITY  wizard.title                   "Sign-Up Wizard">
+<!ENTITY  wizard.welcomePage.title       "Signup to Tryango server.">
+<!ENTITY  wizard.welcomePage.simpleTxt   "To simply signup without being asked too many questions.">
+<!ENTITY  wizard.welcomePage.advancedTxt "To have more control over the signup procedure.">
+<!ENTITY  wizard.welcomePage.advancedRemark "(this includes import from GnuPG, server settings etc.)">
+<!ENTITY  wizard.welcomePage.btnSimple   "Simple">
 <!ENTITY  wizard.welcomePage.btnAdvanced "Advanced">
 
-<!ENTITY  wizard.chooseEmailPage.title   "Signup to Tryango server.">
-<!ENTITY  wizard.welcemePage.email    "Please choose which E-mail address to use for Tryango">
-<!ENTITY  wizard.chooseEmailPage.key_label "Private key options:">
-<!-- <!ENTITY  wizard.key_keycreation "Key (enable 'advanced options' for full access):"> -->
-<!ENTITY  wizard.chooseEmailPage.prev_key "Use key stored by Tryango used previously with this email account.">
-<!ENTITY  wizard.chooseEmailPage.new_key "Create a new key.">
-<!ENTITY  wizard.chooseEmailPage.import_key "Import existing key (e. g. exported from another device or GnuPG).">
+<!ENTITY  wizard.chooseEmailPage.title     "Signup to Tryango server.">
+<!ENTITY  wizard.chooseEmailPage.key_label "Sign-up options:">
+<!ENTITY  wizard.chooseEmailPage.prev_key  "Use previous Tryango setup stored on this machine.">
+<!ENTITY  wizard.chooseEmailPage.new_key   "Create new Tryango credentials.">
 
 <!ENTITY  wizard.serverPage.title   "Server settings.">
 
-<!ENTITY  wizard.createKeyPage.title      "Create new private key.">
+<!ENTITY  wizard.createKeyPage.title      "Create new Tryango credentials.">
 <!ENTITY  wizard.createKeyPage.show_pw    "Show password.">
-<!ENTITY  wizard.createKeyPage.type_pw    "Choose a password for encrypting a key or leave empty to store key unencrypted.">
 <!ENTITY  wizard.createKeyPage.repeat_pw  "Repeat password.">
 <!ENTITY  wizard.createKeyPage.nomatch_pw "Passwords do not match!">
+<!-- advanced options -->
 <!ENTITY  wizard.createKeyPage.advanced   "Advanced key options">
 <!ENTITY  wizard.createKeyPage.expirydate "Choose expiry date.">
 <!ENTITY  wizard.createKeyPage.noexpire   "Key does not expire.">
 <!ENTITY  wizard.createKeyPage.keysize    "Choose key size.">
 
-<!ENTITY  wizard.importKeyPage.title     "Import private key.">
-<!ENTITY  wizard.importKeyPage.kt_type   "Key type">
-<!ENTITY  wizard.importKeyPage.kt_email  "Email address(es)">
-<!ENTITY  wizard.importKeyPage.kt_fingerprint  "Key Fingerprint">
-<!ENTITY  wizard.importKeyPage.kt_created     "Created">
-<!ENTITY  wizard.importKeyPage.kt_expiry      "Expiry">
-<!ENTITY  wizard.importKeyPage.kt_encrypted "Encrypted">
-<!ENTITY  wizard.importKeyPage.importFile "Import from file">
-<!ENTITY  wizard.importKeyPage.secret_key "Secret key files">
-<!ENTITY  wizard.importKeyPage.importGpg  "Import from GnuPG">
+<!ENTITY  wizard.importKeyPage.kt_type         "Key type">
+<!ENTITY  wizard.importKeyPage.kt_email        "Email address(es)">
+<!ENTITY  wizard.importKeyPage.kt_created      "Created">
+<!ENTITY  wizard.importKeyPage.kt_expiry       "Expiry">
+<!ENTITY  wizard.importKeyPage.kt_encrypted    "Encrypted">
+<!ENTITY  wizard.importKeyPage.kt_fingerprint  "Key Fingerprint"> <!-- only for settings.xul! rest: see lang.properties -->
+<!ENTITY  wizard.importKeyPage.importFile      "Import from file">
+<!ENTITY  wizard.importKeyPage.importGpg       "Import from GnuPG">
 <!ENTITY  wizard.importKeyPage.loadedGpg  "Results from loading keys from GnuPG for chosen email address. Select one key.">
-<!ENTITY  wizard.importKeyPage.loadedFile "Results from loading keys from file for chosen email address. Select one key">
-<!ENTITY  wizard.importKeyPage.noKeys     "No keys have been loaded yet.">
-<!-- <!ENTITY  wizard.importKeyPage.pgp_path  "Path to GPG (optional): "> -->
+<!ENTITY  wizard.importKeyPage.noKeys     "No entries have been loaded yet.">
+<!ENTITY  wizard.importKeyPage.emptyFile     "File is empty.">
 
-<!ENTITY  wizard.lastPage.title   "Signup with Tryandgo is complete.">
-<!ENTITY  wizard.lastPage.completed   "You have signed up with Tryango server. Shortly you should receive email with secret value which will complete the signup procedure. You can safely igrore/delete that email.">
+
+<!ENTITY  wizard.lastPage.title      "Signup with Tryandgo is complete.">
+<!ENTITY  wizard.lastPage.completed  "You have signed up with Tryango. Shortly you should receive an email with a secret value which will complete the signup procedure. You can safely igrore/delete that email after you see the confirmation pop-up of Tryango.">
 
 <!-- settings -->
 <!ENTITY  settings.title         "Settings">

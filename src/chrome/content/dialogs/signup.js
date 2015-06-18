@@ -1,16 +1,17 @@
 /* Basic file for JavaScript code on signing up with new E-mail address */
 
+//standard modules
+Components.utils.import("resource:///modules/iteratorUtils.jsm"); //for fixIterator
+
 // own modules
 Components.utils.import("resource://tryango_modules/logger.jsm");
 Components.utils.import("resource://tryango_modules/dialogs.jsm");
-Components.utils.import("resource:///modules/iteratorUtils.jsm"); //for fixIterator
 Components.utils.import("resource://tryango_modules/cWrapper.jsm");
 Components.utils.import("resource://tryango_modules/prefs.jsm");
-Components.utils.import("resource://tryango_modules/pwmanager.jsm");
+Components.utils.import("resource://tryango_modules/pwmanager.jsm")
+Components.utils.import("resource://tryango_modules/utils.jsm");
 
-// var EXPORTED_SYMBOLS = ["treeAppendRow"]
 
-var acctMgr;
 
 // ----- GENERAL -----
 
@@ -20,10 +21,13 @@ function onNext() {
   var wizard = getWizard();
 
   //progression through the dialog
-  if (wizard.currentPage) {    
+  if(wizard.currentPage){
     switch(wizard.currentPage.pageid) {
-    //1. page: welcome page (has no next button, therefore not here)
-
+    //1. page: welcome page
+    case "welcomePage":
+      wizard.currentPage.next = "chooseEmailPage";
+      break;
+      
     //2. page: choose email and key creation/import option
     case "chooseEmailPage":
       /*3. page =
@@ -48,8 +52,11 @@ function onNext() {
     }
 
     //lastPage => wizard finished; do the signup
-    if (wizard.currentPage.next == "lastPage"){
-      signup();
+    if(wizard.currentPage.next == "lastPage"){
+      if(!signup()){
+        //error => stay on page
+        wizard.currentPage.next = wizard.currentPage;
+      }
     }
   }
   return true;
@@ -72,7 +79,9 @@ function getNextKeyPage(){
   case 2: 
     return "importKeyPage";
   }
-  return "lastPage";
+
+  //error => restart
+  return "welcomePage";
 }
  
 
@@ -139,7 +148,7 @@ function welcomePageCreate(){
 
 function onSimple(){
   //set prefs and go to next page
-  Prefs.setPref("advancedOptions", false);
+  Prefs.setPref("advancedOptions", false);  
   getWizard().advance(null);
 }
 
@@ -159,23 +168,19 @@ function chooseEmailPageCreate(){
   var buttons = document.getAnonymousElementByAttribute(wizard, "anonid", "Buttons");
   buttons.removeAttribute("hidden");
 
-  //get email accounts
-  var addresses = [];
-  var acctMgr = Components.classes["@mozilla.org/messenger/account-manager;1"]
-                  .getService(Components.interfaces.nsIMsgAccountManager);
-  var accounts = acctMgr.accounts;
-  //iterate over accounts
-  for each (let account in fixIterator(accounts, 
-                                       Components.interfaces.nsIMsgAccount)) {
-    //get pretty names as "mail for foo@test.com" or "news on news.mozilla.org"
-    var mailaddrs = account.incomingServer.constructedPrettyName;
-    //filter for the ones which are mails
-    if(mailaddrs.substring(0, 4) == "Mail" || mailaddrs.substring(0, 4) == "mail"){
-      //cut "mail for " and save address
-      mailaddrs = mailaddrs.substring(9, mailaddrs.length)
-      addresses.push(mailaddrs);
-    }
+  //set labels for advanced options
+  if(Prefs.getPref("advancedOptions")){
+    document.getElementById("chooseEmailPage_import_key").setAttribute(
+      "label",
+      document.getElementById("lang_file").getString("wizard_chooseEmailPage_importKey_advanced"));
+  }else{
+    document.getElementById("chooseEmailPage_import_key").setAttribute(
+      "label",
+      document.getElementById("lang_file").getString("wizard_chooseEmailPage_importKey_simple"));
   }
+  
+  //get email accounts
+  var addresses = Utils.getEmailAddresses();
   
   // load drop down menu 
   var dropdownmenu = document.getElementById("signup_email");
@@ -199,14 +204,14 @@ function chooseEmailPageCreate(){
 
 function setRadioBtn(dropdownmenu){
   //check dropdown not empty
-  if(dropdownmenu.selectedItem.value != "empty"){
+  if(dropdownmenu != null && dropdownmenu.selectedItem.value != "empty"){
     //set radio button "use previous key" active if there is a previous key...
     var radio = document.getElementById("chooseEmailPage_prev_key");
     if(CWrapper.hasSecretKey(dropdownmenu.selectedItem.value)){
-      radio.removeAttribute("disabled");
+      radio.removeAttribute("hidden");
     }else{
-      //...otherwise disable it
-      radio.setAttribute("disabled", "true");
+      //...otherwise hide it
+      radio.setAttribute("hidden", "true");
       //and set other option as default
       var radioGroup = document.getElementById("ang_key_radiogroup");
       if(radioGroup.selectedIndex == 0){
@@ -257,6 +262,10 @@ function createKeyPageCreate(){
     document.getElementById("ang_datepicker").setAttribute("hidden", "true");
     document.getElementById("createKey_size").setAttribute("hidden", "true");
     document.getElementById("ang_adv_size").setAttribute("hidden", "true");
+
+    //change labels
+    document.getElementById("ang_key_pw_label").value =
+      document.getElementById("lang_file").getString("wizard_createKeyPage_typePw_simple");
   }
   else{
     //advanced setup (show advanced settings)
@@ -266,6 +275,10 @@ function createKeyPageCreate(){
     document.getElementById("ang_datepicker").removeAttribute("hidden");
     document.getElementById("createKey_size").removeAttribute("hidden");
     document.getElementById("ang_adv_size").removeAttribute("hidden");
+
+    //change labels
+    document.getElementById("ang_key_pw_label").value =
+      document.getElementById("lang_file").getString("wizard_createKeyPage_typePw_advanced");
   }
 }
 
@@ -329,9 +342,59 @@ function importKeyPageCreate(){
   //when on advanced setup: check if GPG is installed
   if(Prefs.getPref("advancedOptions") && CWrapper.hasGpg()){
     document.getElementById("ang_btn_gpg").removeAttribute("hidden");
+  }else{
+    document.getElementById("ang_btn_gpg").setAttribute("hidden", "true");
   }
 
-  //TODO: simple setup: open file dialog straight away
+  //hide tables
+  Logger.dbg("set label, hide tables...");
+  //set appropriate text visibility
+  var none = document.getElementById("ang_lbl_noKeys");
+  none.removeAttribute("hidden");
+  var emptyfile = document.getElementById("ang_lbl_emptyFile");
+  emptyfile.setAttribute("hidden", "true");
+  var gpg = document.getElementById("ang_lbl_loadedGpg");
+  gpg.setAttribute("hidden", "true");
+  var file = document.getElementById("ang_lbl_loadedFile");
+  file.setAttribute("hidden", "true");
+  var table = document.getElementById("ang_table_importkeys");
+  table.setAttribute("hidden", "true");
+
+  //labels etc.
+  var languagepack = document.getElementById("lang_file");
+  if(Prefs.getPref("advancedOptions")){
+    //advanced setup
+    //set labels
+    document.getElementById("importKeyPage").setAttribute(
+      "label", languagepack.getString("wizard_importKeyPage_title_advanced"));
+    document.getElementById("ang_lbl_loadedFile").value =
+      languagepack.getString("wizard_importKeyPage_loadedFile_advanced");
+    document.getElementById("key_id").setAttribute(
+      "label", languagepack.getString("wizard_importKeyPage_fingerprint_advanced"));
+    //show rows in table
+    document.getElementById("key_type").removeAttribute("hidden");
+    document.getElementById("key_expiry").removeAttribute("hidden");
+    document.getElementById("key_encrypted").removeAttribute("hidden");
+    document.getElementById("info_key_tree").removeAttribute("hidecolumnpicker");
+  }
+  else{
+    //simple setup
+    //set labels
+    document.getElementById("importKeyPage").setAttribute(
+      "label", languagepack.getString("wizard_importKeyPage_title_simple"));
+    document.getElementById("ang_lbl_loadedFile").value =
+      languagepack.getString("wizard_importKeyPage_loadedFile_simple");
+    document.getElementById("key_id").setAttribute(
+      "label", languagepack.getString("wizard_importKeyPage_fingerprint_simple"));
+    //hide rows in table
+    document.getElementById("key_type").setAttribute("hidden", "true");
+    document.getElementById("key_expiry").setAttribute("hidden", "true");
+    document.getElementById("key_encrypted").setAttribute("hidden", "true");
+    document.getElementById("info_key_tree").setAttribute("hidecolumnpicker", "true");
+    
+    //open file dialog straight away (only simple setup)
+    onInfoFile();
+  }
 }
 
 function onInfoGpg(){
@@ -347,13 +410,22 @@ function onInfoGpg(){
     Logger.infoPopup(languagepack.getString("imp_keys_fail"));
   }
   else if(status == 0){
-    //adjust label to show gpg
-    var gpg = document.getElementById("ang_lbl_loadedGpg");
-    var file = document.getElementById("ang_lbl_loadedFile");
-    gpg.removeAttribute("hidden");
-    file.setAttribute("hidden", "true");
     //fill the table
     fillInfoTable(email);
+    //check if tree is empty
+    if(document.getElementById("info_key_list").childNodes.length != 0){
+      //adjust label to show gpg
+      var gpg = document.getElementById("ang_lbl_loadedGpg");
+      var file = document.getElementById("ang_lbl_loadedFile");
+      gpg.removeAttribute("hidden");
+      file.setAttribute("hidden", "true");
+      //show table
+      var table = document.getElementById("ang_table_importkeys");
+      table.removeAttribute("hidden");
+      //default selection
+      var tree = document.getElementById("info_key_tree");
+      tree.view.selection.select(0);
+    }
   }
   //else: no entries - nothing to do?
 }
@@ -369,12 +441,18 @@ function onInfoFile(){
   //file filters:
   fp.appendFilter(secKey, "*.purse; *.gpg; *.pgp; *.asc; *.txt");
   fp.appendFilter(allFiles, "*");
-  fp.init(window,languagepack.getString("sel_secret_key"),
+  var headerString;
+  if(Prefs.getPref("advancedOptions")){
+    headerString = "sel_secret_key_advanced";
+  }else{
+    headerString = "sel_secret_key_simple";
+  }
+  fp.init(window,languagepack.getString(headerString),
           Components.interfaces.nsIFilePicker.modeOpen);
   //show filepicker
   var res = fp.show();
-  var email = document.getElementById("signup_email").selectedItem.value;
   if(res != Components.interfaces.nsIFilePicker.returnCancel){
+    var email = document.getElementById("signup_email").selectedItem.value;
     //import keypurse from selected location
     var status = CWrapper.loadInfoKeysFromFile(email, fp.file.path);
     if(status != 0 && status != 15){ //15 = ANG_NO_ENTRIES 
@@ -383,13 +461,26 @@ function onInfoFile(){
       Logger.infoPopup(languagepack.getString("imp_keys_fail"));
     }
     else if(status == 0){
-      //adjust label to show "loaded from file"
-      var gpg = document.getElementById("ang_lbl_loadedGpg");
-      var file = document.getElementById("ang_lbl_loadedFile");
-      file.removeAttribute("hidden");
-      gpg.setAttribute("hidden", "true");
       //fill table
-      fillInfoTable(email);
+      var gotoNextPage = fillInfoTable(email);
+      if(document.getElementById("info_key_list").childNodes.length != 0){
+        //show table (tree.view only works if table is visible!)
+        var table = document.getElementById("ang_table_importkeys");
+        table.removeAttribute("hidden");
+        //default selection
+        var tree = document.getElementById("info_key_tree");
+        tree.view.selection.select(0);
+        //next page?
+        if(gotoNextPage){
+          getWizard().advance(null); //null for next page
+        }else{
+          //adjust label to show "loaded from file"
+          var gpg = document.getElementById("ang_lbl_loadedGpg");
+          var file = document.getElementById("ang_lbl_loadedFile");
+          file.removeAttribute("hidden");
+          gpg.setAttribute("hidden", "true");
+        }
+      }
     }
     //else: no entries - nothing to do?
   }
@@ -398,42 +489,74 @@ function onInfoFile(){
 function fillInfoTable(email){
   //set appropriate text visibility
   var none = document.getElementById("ang_lbl_noKeys");
-  none.setAttribute("hidden", "true");
-
+  none.removeAttribute("hidden");
+  var emptyfile = document.getElementById("ang_lbl_emptyFile");
+  emptyfile.setAttribute("hidden", "true");
+  var gpg = document.getElementById("ang_lbl_loadedGpg");
+  gpg.setAttribute("hidden", "true");
+  var file = document.getElementById("ang_lbl_loadedFile");
+  file.setAttribute("hidden", "true");
+  
   //load keys and add to tree
   var treeList = document.getElementById("info_key_list");
   var keys = CWrapper.getInfoKeys(email, false);
-  Logger.dbg("getInfoKeys size" + keys.length);
   if(keys == null){
     //error
     Logger.err("Error in CWrapper.getInfoKeys");
-    return;
+    return false;
   }
   else if(keys.length <= 0){
     //keys.length == 0 - no results
-    Logger.dbg("No keys to be filled into table");
-  }else{
+    Logger.dbg("getInfoKeys size: " + keys.length);
+    Logger.log("No keys to be filled into table (empty file)");
+    none.setAttribute("hidden", "true");
+    emptyfile.removeAttribute("hidden");
+    return false;
+  }
+  else{
+    Logger.dbg("getInfoKeys size: " + keys.length);
+    
+    //set appropriate text visibility
+    none.setAttribute("hidden", "true");
+    
     //clear old tree
     while(treeList.childNodes.length != 0){
       treeList.removeChild(treeList.childNodes[0]);
     }
     //add keys to tree
+    var languagepack = document.getElementById("lang_file");
+    var advSetup = Prefs.getPref("advancedOptions");
+    var expire;
     for (var i = 0; i < keys.length; i++) {
-      CWrapper.treeAppendRow(treeList, keys[i], document, false);
+      expire = new Date(keys[i].signExpire);
+      //only display keys if they are not expired or advanced setup is on
+      if(advSetup || (keys[i].signExpire == 0) || (expire.getTime() < Date.now()) ){
+        Utils.treeAppendRow(treeList, keys[i], document, false, languagepack);
+      }
     }
-    //default selection
-    document.getElementById("info_key_tree").view.selection.select(0);
 
-    //TODO: check length, if only 1 key & simple setup => proceed
-    if(keys.length == 1 && !Prefs.getPref("advancedOptions")){
-      getWizard().advance(null); //null for next page
+    //check length, if only 1 key & simple setup => proceed
+    if(!advSetup && keys.length == 1 ){
+      return true;
+    }
+    else{
+      return false;
     }
   }
+  return false;
 }
 
 function onKeySelect(){
+  //assert
+  if(document.getElementById("info_key_list").childNodes.length == 0){
+    Logger.dbg("onKeySelect: tree is empty");
+    //tree is empty
+    tree.currentIndex = -1;
+    wizard.canAdvance = false;
+    return;
+  }
   //get tree
-  var tree = document.getElementById("info_key_tree")
+  var tree = document.getElementById("info_key_tree");
   var col = tree.columns.key_expiry;
   var index = tree.view.getParentIndex(tree.currentIndex);
   //-1 is returned if there is no parent
@@ -447,12 +570,12 @@ function onKeySelect(){
   var languagepack = document.getElementById("lang_file");
   if(expire == languagepack.getString("never")){
     wizard.canAdvance = true;
-  }else{
+  }
+  else{
     //XXX: Logger.dbg("expire"+expire+"time compare:"+(new Date(expire)).toLocaleDateString()+ " now:"+Date.now()+ " bool:"+( (new Date(expire)).getTime() < Date.now()));
 
     //check expiry of selected key
-    //TODO: do that already when loading the keys
-    if( (new Date(expire)).getTime() < Date.now()){
+    if((new Date(expire)).getTime() < Date.now()){
       wizard.canAdvance = false;
     }
     else{
@@ -479,6 +602,7 @@ function signup(){
   var email = document.getElementById("signup_email").selectedItem.value;
   if(email != "empty"){
     var doSignup = false;
+                                 
     //check which option was selected (previous key, new key, import key)
     //and execute it
     var keyMethod = document.getElementById("ang_key_radiogroup");
@@ -487,6 +611,13 @@ function signup(){
       doSignup = true;
       break;
     case 1:
+      //display a "waiting" popup
+      if(!Logger.promptService.confirm(
+        null, "Tryango", document.getElementById("lang_file")
+          .getString("wizard_signup_waitingDialog"))){
+        //user abort
+        return false;
+      }
       doSignup = generateKey();
       break;
     case 2:
@@ -511,14 +642,18 @@ function signup(){
         var strbundle = document.getElementById("strings");
         var errorStr = CWrapper.getErrorStr(result);
         Logger.error("Error signing up: " + strbundle.getString(errorStr));
-        Logger.infoPopup(strbundle.getString(errorStr) + ": " + result);
+        Logger.infoPopup(strbundle.getString(errorStr) + " (" + result + ")");
+        return false;
       }else{
         Logger.dbg("deleting ap for email: " + email);
         Pwmgr.setAp(email, "");//delete ap as it is invalid since we submitted to server
       }
       Logger.dbg("sign up: " + email);
+      return true;
     }
   }
+  
+  return false;
 }
 
 
@@ -556,6 +691,7 @@ function importKey(){
   var email = document.getElementById("signup_email").selectedItem.value;
   var col = tree.columns.key_id;
   var index = tree.view.getParentIndex(tree.currentIndex);
+  Logger.dbg("Transfering of RSA keys");
   //-1 means no parent
   if(index == -1){
     index = tree.currentIndex;
@@ -568,15 +704,17 @@ function importKey(){
     //save key
     if(CWrapper.exportKeyPurse(Prefs.getPref("keyPursePath"), "")){ //TODO: change "" to password here too?
       //everything ok
-      Logger.dbg("Keypurse saved");
+      Logger.dbg("Keypurse saved with fingerprint " + fingerprint);
       return true;
-    }else{
+    }
+    else{
       //error saving keypurse
       Logger.error("Error saving keypurse to file " + Prefs.getPref("keyPursePath"));
     }
-  }else{
+  }
+  else{
     //error importing keys
-    Logger.error("Transfer of RSA keys failed with status:"+ status);
+    Logger.error("Transfer of RSA keys failed with status:" + status);
   }
   return false;
 }

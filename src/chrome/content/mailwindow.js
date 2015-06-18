@@ -265,7 +265,8 @@ var MailWindow = new function(){
     //  SaveAsTemplate, SendUnsent, AutoSaveAsDraft
     //TODO: encrypt/decrypt drafts
     if(!(msg_type == nsIMsgCompDeliverMode.Now ||
-         msg_type == nsIMsgCompDeliverMode.Later)){
+         msg_type == nsIMsgCompDeliverMode.Later ||
+         msg_type == nsIMsgCompDeliverMode.SaveAsDraft)){
       return 0;
     }
 
@@ -284,37 +285,7 @@ var MailWindow = new function(){
        * get sending email address
        */
       var sender = gCurrentIdentity.email;
-      /*XXX: remove after testing
-      var searchKey = document.getElementById("msgIdentity").getAttribute("accountkey");
-      //msgIdentity.label/.description usually include the mail-address, too
-      //but this could also be renamed
-      var accMgr = Components.classes["@mozilla.org/messenger/account-manager;1"]
-                   .getService(Components.interfaces.nsIMsgAccountManager);
-      var accounts = accMgr.accounts;
-      var accountId = document.getElementById("msgIdentity").value;
-      //iterate over accounts and search for the right key
-      for(var i = 0; i < accounts.length; i++){
-        var account = accounts.queryElementAt(i, Components.interfaces.nsIMsgAccount);
-        if(account.key == searchKey){
-          //account found, search for correct identity
-          var accountIds = account.identities;
-          for(var j = 0; j < accountIds.length; j++){
-            var identity = accountIds.queryElementAt(j, Components.interfaces.nsIMsgIdentity);
-            //correct identity found
-            if(identity.key == accountId){
-              sender = identity.email;
-              break;
-            }
-          }
-          break;
-        }
-      }
-      if(sender == ""){
-        throw("Could not determine sending email address");
-      }
-      */
-
-      Logger.log("Sending mail from: " + sender);
+      Logger.dbg("Sending mail from: " + sender);
 
       /******************
        * fill recipients
@@ -342,7 +313,7 @@ var MailWindow = new function(){
         //ATTENTION: second argument of substring is the LENGTH, not the end!
         recipients = recipients.substring(0, recipients.length-1);
       }
-      Logger.log("Sending mail to: " + recipients);
+      Logger.dbg("Sending mail to: " + recipients);
 
       /************
        *   KEYS
@@ -352,7 +323,10 @@ var MailWindow = new function(){
         //...check if any recipient has no key
         var r = recipients.split(",");
         for(var k = 0; k < r.length; k++){
+          Logger.dbg("Chencking mail: " + r[k]);
+
           status = CWrapper.checkMailAddr(r[k]);
+          Logger.dbg("Chencking mail status: " + status);
           if(status != 0){
             //at least one recipient is not signed up with tryango
             //=> only clear text message is possible
@@ -541,8 +515,7 @@ ConfiComposeStateListener = {
     Logger.log("compose-mail: PGP body found");
 
     //cut email out of quotations
-//     get indent from beginning to the line before "BEGIN PGP" (= removing "> -----BEGIN PGP")
-
+    //get indent from beginning to the line before "BEGIN PGP" (= removing "> -----BEGIN PGP")
     var indent = body.substring(body.substr(0, PGPstart).lastIndexOf("\n") + 1, PGPstart);
 
     var beginIndexObj = new Object();
@@ -551,10 +524,12 @@ ConfiComposeStateListener = {
     var blockType = Prefs.locateArmoredBlock(body, 0, indent,
                                              beginIndexObj, endIndexObj,
                                              indentStrObj);
-    Logger.log("block type \"" + blockType + "\"");
+    Logger.dbg("block type \"" + blockType + "\"");
     
-    if ((blockType != "MESSAGE") && (blockType != "SIGNED MESSAGE"))
+    if ((blockType != "MESSAGE") && (blockType != "SIGNED MESSAGE")){
+      Logger.error("block type not a valid PGP block");
       return;
+    }
     
     var beginIndex = beginIndexObj.value;
     var endIndex   = endIndexObj.value;
@@ -606,6 +581,7 @@ ConfiComposeStateListener = {
 
 
     //decrypt email
+    Logger.dbg("decrypting email...");
     var plaintext = {str : ""};
     if(blockType == "MESSAGE"){
 
@@ -635,6 +611,7 @@ ConfiComposeStateListener = {
     }
 
     //write decrypted email back
+    Logger.dbg("write decrypted email back");
     editor.beginningOfDocument();
     editor.selectAll(); //replace everything (easier than handling ranges in thunderbird!)
     var mailEditor;

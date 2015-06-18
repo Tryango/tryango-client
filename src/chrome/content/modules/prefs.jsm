@@ -255,7 +255,7 @@ var Prefs = new function()
       //update server/port
       var server = this.getPref("server");
       var port = this.getPref("port");
-      result = CWrapper.setServer(server, port); //C will not update if server/port are the same
+      let result = CWrapper.setServer(server, port); //C will not update if server/port are the same
       //check errors
       if(!result){
         var errorStr = this.languagepack.getString("info_update_server_port");
@@ -269,12 +269,10 @@ var Prefs = new function()
   /* Locates string in TEXT occurring only at the beginning of a line
    */
   this.IndexOfArmorDelimiter = function(text, str, offset) {
-
     while (offset < text.length) {
-
       var loc = text.indexOf(str, offset);
 
-      if ((loc < 1) || (text.charAt(loc-1) == "\n"))
+      if ((loc < 1) || (text.charAt(loc-1) == "\n") || (text.charAt(loc-1) == "\r"))
         return loc;
 
       offset = loc + str.length;
@@ -302,24 +300,30 @@ var Prefs = new function()
     if (beginIndex == -1) {
       var blockStart=text.indexOf("-----BEGIN PGP ");
       if (blockStart>=0) {
-        var indentStart=text.search(/\n.*\-\-\-\-\-BEGIN PGP /)+1;
+        var indentStart=text.search(/\n?.*\-\-\-\-\-BEGIN PGP /)+1;
         indentStrObj.value=text.substring(indentStart, blockStart);
         indentStr=indentStrObj.value;
         beginIndex = this.IndexOfArmorDelimiter(text, indentStr+"-----BEGIN PGP ", offset);
       }
     }
-
+    
     if (beginIndex < 0)
       return "";
 
     // Locate newline at end of armor header
     offset = text.indexOf("\n", beginIndex);
-
+    
     if (offset == -1)
       return "";
 
+    
     var endIndex = this.IndexOfArmorDelimiter(text, indentStr+"-----END PGP ", offset);
-
+    if(endIndex < 0){
+      //buggy: sometimes "...BEGIN PGP" is prefixed with a space but the rest of
+      //the email is NOT! => try again without prefix
+      endIndex = this.IndexOfArmorDelimiter(text, "-----END PGP ", offset);
+    }
+    
     if (endIndex < 0)
       return "";
 
