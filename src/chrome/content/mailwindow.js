@@ -260,13 +260,24 @@ var MailWindow = new function(){
     //vars
     var msgcomposeWindow = document.getElementById("msgcomposeWindow");
     let msg_type = Number(msgcomposeWindow.getAttribute("msgtype"));
+    var draft = false;
 
-    //Events:   Now, Later, Save, SaveAs, SaveAsDraft,
-    //  SaveAsTemplate, SendUnsent, AutoSaveAsDraft
+    //Events:  Now, Later, Save, SaveAs, SaveAsDraft,
+    //         SaveAsTemplate, SendUnsent, AutoSaveAsDraft
+    if(msg_type == nsIMsgCompDeliverMode.Now ||
+       msg_type == nsIMsgCompDeliverMode.Later){
+      //normal send => continue
+    }
     //TODO: encrypt/decrypt drafts
-    if(!(msg_type == nsIMsgCompDeliverMode.Now ||
-         msg_type == nsIMsgCompDeliverMode.Later ||
-         msg_type == nsIMsgCompDeliverMode.SaveAsDraft)){
+    else if(msg_type == nsIMsgCompDeliverMode.SaveAsDraft ||
+            msg_type == nsIMsgCompDeliverMode.AutoSaveAsDraft ||
+            msg_type == nsIMsgCompDeliverMode.SaveAs ||
+            msg_type == nsIMsgCompDeliverMode.Save
+           ){
+      //draft => continue
+      draft = true;
+    }else{
+      //other options => stop here
       return 0;
     }
 
@@ -285,41 +296,47 @@ var MailWindow = new function(){
        * get sending email address
        */
       var sender = gCurrentIdentity.email;
-      Logger.dbg("Sending mail from: " + sender);
+      if(draft){
+        Logger.dbg("Saving draft (" + sender + ")");
+      }else{
+        Logger.dbg("Sending mail from: " + sender);
+      }
 
       /******************
        * fill recipients
        */
-      var i = 1; //recipientsfield starts with 1!!!
       var recipients = "";
-      //read them from the mailwindow-field(s)
-      var addrCol = document.getElementById(MailWindow.RECIPIENTSFIELD_PREFIX + i);
-      while(addrCol){
-        //check for empty string
-        if(/([^\s])/.test(addrCol.value)){
-          //store into an array
-          recipients += addrCol.value + ",";
-        }
+      if(!draft){
+        var i = 1; //recipientsfield starts with 1!!!
+        //read them from the mailwindow-field(s)
+        var addrCol = document.getElementById(MailWindow.RECIPIENTSFIELD_PREFIX + i);
+        while(addrCol){
+          //check for empty string
+          if(/([^\s])/.test(addrCol.value)){
+            //store into an array
+            recipients += addrCol.value + ",";
+          }
 
-        //next field
-        i++;
-        addrCol = document.getElementById(MailWindow.RECIPIENTSFIELD_PREFIX + i);
+          //next field
+          i++;
+          addrCol = document.getElementById(MailWindow.RECIPIENTSFIELD_PREFIX + i);
+        }
+        if(recipients.length == 0){
+          return -5;
+        }
+        //strip last ","
+        if(recipients.charAt(recipients.length-1) == ","){
+          //ATTENTION: second argument of substring is the LENGTH, not the end!
+          recipients = recipients.substring(0, recipients.length-1);
+        }
+        Logger.dbg("Sending mail to: " + recipients);
       }
-      if(recipients.length == 0){
-        return -5;
-      }
-      //strip last ","
-      if(recipients.charAt(recipients.length-1) == ","){
-        //ATTENTION: second argument of substring is the LENGTH, not the end!
-        recipients = recipients.substring(0, recipients.length-1);
-      }
-      Logger.dbg("Sending mail to: " + recipients);
 
       /************
        *   KEYS
        */
-      //if encrypted...
-      if(this.encrypt){
+      //if encrypted and not a draft...
+      if(this.encrypt && !draft){
         //...check if any recipient has no key
         var r = recipients.split(",");
         for(var k = 0; k < r.length; k++){

@@ -419,7 +419,7 @@ function onInfoGpg(){
       var file = document.getElementById("ang_lbl_loadedFile");
       gpg.removeAttribute("hidden");
       file.setAttribute("hidden", "true");
-      //show table
+      //show table (ATTENTION: this is needed to access tree.view apparently!)
       var table = document.getElementById("ang_table_importkeys");
       table.removeAttribute("hidden");
       //default selection
@@ -465,7 +465,7 @@ function onInfoFile(){
       //fill table
       var gotoNextPage = fillInfoTable(email);
       if(document.getElementById("info_key_list").childNodes.length != 0){
-        //show table (tree.view only works if table is visible!)
+        //show table (ATTENTION: this is needed to access tree.view apparently!)
         var table = document.getElementById("ang_table_importkeys");
         table.removeAttribute("hidden");
         //default selection

@@ -3,7 +3,7 @@
 // Imports
 Components.utils.import("resource:///modules/gloda/mimemsg.js"); //to view messages
 Components.utils.import("resource://gre/modules/Services.jsm");  //load resource
-Components.utils.import("resource://gre/modules/FileUtils.jsm"); //for proofs.log file
+Components.utils.import("resource://gre/modules/FileUtils.jsm"); //file operations
 Components.utils.import("resource://gre/modules/AddonManager.jsm"); //uninstall
 
 // own modules
@@ -51,7 +51,7 @@ Tryango.init = function(){
   this.languagepack = document.getElementById("lang_file");
   var lang = this.languagepack.getString("language");
   Logger.log("Language: " + lang);
-  
+
   //init C interface
   try{
     CWrapper.initLibrary(this.languagepack);
@@ -63,14 +63,14 @@ Tryango.init = function(){
     return;
   }
 
+  // load preference system 
+  Prefs.init(this.languagepack);
+  Logger.log("Preferences initialised");
+  
   //check offline status
   if(this.checkOfflineStatus()){
     Logger.infoPopup(this.languagepack.getString("warn_offline"));
   }
-  
-  // load preference system 
-  Prefs.init(this.languagepack);
-  Logger.log("Preferences initialised");
   
   //load password manager
   Pwmgr.init();
