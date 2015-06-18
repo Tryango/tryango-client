@@ -50,19 +50,20 @@ var CWrapper = {
       Logger.dbg("Library OK loaded for directory:" + this.certificateFile.path );
       this.certificateFile.append("certificate.pem");
 
-      //TODO: put proofs.log into Prefs => attention: Prefs cyclic dependency on cWrapper! => utils.jsm also incldes a hard-coded "proofs.log"
-      /*
+      //load logfileName from prefs (without calling Prefs!)
       var pb = Components.classes["@mozilla.org/preferences-service;1"]//cannot use prefs.jsm because of cyclic dependancy
-                          .getService(Components.interfaces.nsIPrefService)
-                          .getBranch("extensions.tryango.");
-      */
-      var file = FileUtils.getFile("ProfD", ["proofs.log"]); //profile directory e.g. ~/.thunderbird/00abcdef.tryangotest/proofs.log
+          .getService(Components.interfaces.nsIPrefService)
+          .getBranch("extensions.tryango.");
+      var logfileName = pb.getCharPref("logfileName");
+      var file = FileUtils.getFile("ProfD", [logfileName]); //profile directory e.g. ~/.thunderbird/00abcdef.tryangotest/proofs.log
+      
       //declare before calls
       this.initClient = this.client.declare("initClient" //method name
           , ctypes.default_abi //binary interface type 
           , ctypes.void_t   //return type
           , ctypes.char.ptr);   //param 1
 
+      //create logfile
       Logger.dbg("Logfile path: " + file.path);
       var c_logfilePath = ctypes.char.array()(file.path);
       this.initClient(c_logfilePath);

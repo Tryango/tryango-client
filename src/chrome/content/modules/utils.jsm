@@ -6,7 +6,7 @@ Components.utils.import("resource://tryango_modules/logger.jsm");
 
 //standard modules
 Components.utils.import("resource:///modules/iteratorUtils.jsm"); //for fixIterator
-Components.utils.import("resource://gre/modules/FileUtils.jsm"); //for proofs.log file
+Components.utils.import("resource://gre/modules/FileUtils.jsm"); //file operations
 Components.utils.import("resource://gre/modules/NetUtil.jsm"); //reading file asynchonously
 
 //exports
@@ -66,6 +66,7 @@ var Utils = new function()
       }
 
       //remove keypurse
+      Logger.dbg("removing keypurse...");
       if(!CWrapper.removeKeyPurse(Prefs.getPref("keyPursePath"))){
         Logger.error("Could not remove keypurse: " +
                      Prefs.getPref("keyPursePath"));
@@ -118,29 +119,36 @@ var Utils = new function()
     return addresses;
   }
 
-  this.treeAppendRow = function (tree, keyRow, document, isOpen, lang){  
+  this.treeAppendRow = function (tree, keyRow, document, isOpen, lang){
+    //REMARK: setting css text-wrap/word-break/overflow/etc. does not work
+    //        for treecell.label! Apparently those cannot line-break!
+    
     //set open
     var item = document.createElement("treeitem");
     item.setAttribute("container", "true");
     if(isOpen){
       item.setAttribute("open", "true");
     }
-
+    
     //add sign key
+    //primary column
     var row = document.createElement("treerow");
     var cell = document.createElement("treecell");
     cell.setAttribute("label", "Sign key");
     row.appendChild(cell);
 
+    //email addresses
     cell = document.createElement("treecell");
     cell.setAttribute("label", keyRow.userIds);
     row.appendChild(cell);
 
+    //creation date
     cell = document.createElement("treecell");
     var date = new Date(keyRow.signCreate);
     cell.setAttribute("label", date.toDateString());
     row.appendChild(cell);
 
+    //expiry date
     cell = document.createElement("treecell");
     if(keyRow.signExpire == 0){
       cell.setAttribute("label", lang.getString("never"));
@@ -158,10 +166,12 @@ var Utils = new function()
     }
     row.appendChild(cell);
 
+    //fingerprint
     cell = document.createElement("treecell");
     cell.setAttribute("label", keyRow.signId);
     row.appendChild(cell);
-    
+
+    //encrypted/plain text
     cell = document.createElement("treecell");
     cell.setAttribute("label", lang.getString(keyRow.signEncrypted));
     row.appendChild(cell);
@@ -298,8 +308,13 @@ function fillAudit(languagepack){
 
     //read file
     //https://developer.mozilla.org/en-US/Add-ons/Code_snippets/File_I_O
-    var file = FileUtils.getFile("ProfD", ["proofs.log"]); //profile directory e.g. ~/.thunderbird/00abcdef.tryangotest/proofs.log
+    var logfileName = Prefs.getPref("logfileName");
+    var file = FileUtils.getFile("ProfD", [logfileName]); //profile directory e.g. ~/.thunderbird/00abcdef.tryangotest/proofs.log
 
+    //set label
+    document.getElementById("logfilePath").value = file.path;
+
+    //get content of file
     NetUtil.asyncFetch(file, function(inputStream, status) {
       trc = document.getElementById("tex_randomcheck");
       if (!Components.isSuccessCode(status)) {

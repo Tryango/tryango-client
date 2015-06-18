@@ -172,14 +172,21 @@
 
     <!-- tab 4: randomcheck/audit/proofs -->
     <groupbox flex="1">
-      <label class="header" value="&settings.desc_randomcheck;"/>
-      <textbox id="tex_randomcheck" multiline="true" rows="25" cols="20"/>
-      <!-- refresh button -->
-      <vbox align="left">
-        <button label="&settings.buttonrefresh;"
-                width="100"
-                oncommand="fillAudit(document.getElementById('lang_file'));">
-        </button>
+      <vbox>
+        <label class="header" value="&settings.desc_randomcheck;"/>
+        <hbox>
+          <spacer width="20"/>
+          <label id="logfilePath" value=""/>
+        </hbox>
+        <spacer height="5"/>
+        <textbox id="tex_randomcheck" multiline="true" rows="25" cols="20"/>
+        <!-- refresh button -->
+        <vbox align="left">
+          <button label="&settings.buttonrefresh;"
+                  width="100"
+                  oncommand="fillAudit(document.getElementById('lang_file'));">
+          </button>
+        </vbox>
       </vbox>
     </groupbox>
 
