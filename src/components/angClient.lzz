@@ -613,7 +613,9 @@ class ConfiClient
         return ANG_NO_ENTRIES;
       }
       std::cout<<"before type"<<std::endl;
-      type = entry.entries(entry.entries_size()-1).type();
+      if(entry.entries(entry.entries_size()-1).has_type()){
+        type = entry.entries(entry.entries_size()-1).type();
+      }
       std::cout<<"after type"<<std::endl;
     }
     return ANG_OK;

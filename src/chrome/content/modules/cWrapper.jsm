@@ -799,12 +799,16 @@ var CWrapper = {
       case 32:
       return "unknown_error";
       //signature errors
-      case 32:
-      return "no_sig";
       case 33:
-      return "wrong_sig";
+      return "no_sig";
       case 34:
+      return "wrong_sig";
+      case 35:
       return "nopubkey_sig";
+      case 36:
+      return "sig_expired";
+      case 37:
+      return "sigkey_expired";
       default:
       return "unknown_error";
     }
