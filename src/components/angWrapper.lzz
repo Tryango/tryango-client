@@ -382,7 +382,6 @@ extern "C"{
                           , PKT_CipherAlgo alg
                           , const char* recipients
                           , const char* sender){
-    std::cout<<"getPubkeys start"<<std::endl;
     PublicKeyDb* pubDb = client.getPubDb();
     std::set<std::string> users;
     std::string rec(recipients);
@@ -396,23 +395,19 @@ extern "C"{
       lastPos = pos;
     }
     while(pos != std::string::npos);
-    if(users.size() < 1) {
-      return ANG_NO_KEY_PRESENT;
-    }
-    std::cout<<"getPubkeys 0"<<std::endl;
     if(sender != NULL){
       users.insert(PktDo::stripId(sender)); //we encrypt for ourself
     }
-    std::cout<<"getPubkeys 1"<<std::endl;
+    if(users.size() < 1) {
+      return ANG_NO_KEY_PRESENT;
+    }
 
     alg = MessageHandler::chooseAlg(users, pubDb);
     if(alg == CIPHER_ALGO_NONE){
       return ANG_NO_KEY_PRESENT;
     }
-    std::cout<<"getPubkeys 2"<<std::endl;
 
     for(std::string uId:users){
-     std::cout<<"getPubkeys in:"<<uId<<std::endl;
       PublicKeyPair* key = pubDb->getKey(uId);
       if(key == NULL){
         return ANG_NO_KEY_PRESENT;
@@ -423,7 +418,6 @@ extern "C"{
       }
       keys.push_back(pkey);
     }
-    std::cout<<"getPubkeys size:"<<keys.size()<<std::endl;
     return ANG_OK;
   }
 
@@ -442,6 +436,7 @@ extern "C"{
     if( sk == NULL){
       (*result) = NULL;
       *resultSize = 0;
+      std::cout<<"encrypt falied 1"<<std::endl;
       return ANG_NO_KEY_PRESENT;
     }
 
@@ -451,6 +446,7 @@ extern "C"{
       std::vector<PKT_public_key*> keys;
       status = getPubKeys(keys, alg, recipients, sender);
       if (status != ANG_OK){
+        std::cout<<"encrypt falied 2 status:"<<status<<std::endl;
         return status;
       }
       std::string encrypted;
@@ -468,6 +464,7 @@ extern "C"{
                                              , std::string(password)
                                              , sign
                                              , true);
+        std::cout<<"encrypt 3 status:"<<status<<std::endl;
         if(status == ANG_OK && !encrypted.empty()){
           *resultSize = allocateAndCopy(result, encrypted);
         }
@@ -613,7 +610,7 @@ extern "C"{
     Confi_Status status = client.getKeyDb().checkPassword(strKeyId
                                                           , std::string(id)
                                                           , std::string(password));
-    if(strKeyId.size()>0){
+    if(strKeyId.size() > 0){
       *keyIdSize = allocateAndCopy(keyId, string_to_hex(strKeyId));
     }
     else{

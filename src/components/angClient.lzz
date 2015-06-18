@@ -250,8 +250,8 @@ class ConfiClient
     if(lHost == host && lPort == port && lcertificateFile == certificateFile){
       return true;
     }
-    lHost=host;
-    lPort=port;
+    lHost = host;
+    lPort = port;
     root.hash.clear();
     lcertificateFile = certificateFile;
     if(ssl.initCertificate(certificateFile.c_str())){
@@ -282,13 +282,12 @@ class ConfiClient
   }
 
 
-  Confi_Status selectRoot(
-                         ){
+  Confi_Status selectRoot(){
     tryango::Request req;
     tryango::Response res;
     req.mutable_select_root(); //equivalent to SetInParent for python
-    Confi_Status result = sendReceive(res, req);
-    if(result!=ANG_OK) return result;
+    Confi_Status result = sendReceive(res, req, false);
+    if(result != ANG_OK) return result;
     if(!res.has_select_root()) return ANG_WRONG_RESP;
     root.len = res.select_root().cur_len();
     root.hash = res.select_root().h_cur();
@@ -387,7 +386,7 @@ class ConfiClient
     req.mutable_submit()->mutable_entry()->set_hattachment(std::string(hashAttachment, HASH_SIZE));
     req.mutable_submit()->mutable_entry()->set_type(tryango::PUBLISH);
 
-    Confi_Status result = sendReceive(res, req, true);
+    Confi_Status result = sendReceive(res, req, false);
     if(result!=ANG_OK) return result;
     ap = updateAp(ap, random);
     return ANG_OK;
@@ -614,7 +613,9 @@ class ConfiClient
         return ANG_NO_ENTRIES;
       }
       std::cout<<"before type"<<std::endl;
-      type = entry.entries(entry.entries_size()-1).type();
+      if(entry.entries(entry.entries_size()-1).has_type()){
+        type = entry.entries(entry.entries_size()-1).type();
+      }
       std::cout<<"after type"<<std::endl;
     }
     return ANG_OK;
@@ -665,12 +666,16 @@ class ConfiClient
   }
 
 
-  Confi_Status sendToServer(const std::string& toSend){
+  Confi_Status sendToServer(const std::string& toSend, bool doselectRoot = false){
     if (lPort==0 || lHost.empty())
       return ANG_NO_HOST;
     long sent = ssl.send(toSend);
-    if(sent<=0) {
-      if(ssl.connect(lHost.c_str(),lPort)!=ANG_OK) return ANG_FAIL_CONNECT;
+    if(sent <= 0) {
+      if(ssl.connect(lHost.c_str(),lPort) != ANG_OK) return ANG_FAIL_CONNECT;
+      root.hash.clear();
+      if(doselectRoot){
+        selectRoot();
+      }
       sent = ssl.send(toSend);
       if (sent<=0) return ANG_FAIL_SEND;
       if (toSend.length()==((unsigned long)sent)) return ANG_OK;
@@ -723,21 +728,21 @@ class ConfiClient
 
     if (doSelectRoot && root.hash.empty()){
       result = selectRoot();
-      if (result!=ANG_OK) return result;
+      if (result != ANG_OK) return result;
     }
 
     result = encodeRequest(req, encodedReq)?ANG_OK:ANG_FAIL_ENCODE;
-    if(result!=ANG_OK) return result;
+    if(result != ANG_OK) return result;
 
-    result = sendToServer(encodedReq);
-    if(result!=ANG_OK) return result;
+    result = sendToServer(encodedReq, doSelectRoot);
+    if(result != ANG_OK) return result;
 
     tryango::Signed_Response res;
     result = receiveFromServer(res);
-    if(result!=ANG_OK) return result;
+    if(result != ANG_OK) return result;
 
     result = verifySignature(res)?ANG_OK:ANG_WRONG_SIG;
-    if(result!=ANG_OK) return result;
+    if(result != ANG_OK) return result;
 
     response=res.response();
     if (response.has_error()){

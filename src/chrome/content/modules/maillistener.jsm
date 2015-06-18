@@ -362,6 +362,7 @@ var MailListener = new function() {
         ciphertext = ciphertext.replace(/[^\S\r\n]+$/gm, "")
         var message = {str : ""};
         var status = CWrapper.verifySignature(message, ciphertext, sender);
+        Logger.dbg("veryfied signature for sender:"+sender + " with status:"+status);
         message= message.str;
         this.updateToolBar(status);
 
@@ -461,18 +462,42 @@ var MailListener = new function() {
       this.cmToolbar.setAttribute("style", "background-color: green;");
       this.cmToolbar.children[0].setAttribute("value", this.languagepack.getString("verifytoolbar_ok"));
       this.cmToolbar.children[0].setAttribute("style", "color: white;");
-    }else if(CWrapper.getErrorStr(status) == "no_sig"){
+    }
+    else if(CWrapper.getErrorStr(status) == "no_sig"){
       //no sig => grey
       this.cmToolbar.setAttribute("style", "background-color: transparent;");
-      this.cmToolbar.children[0].setAttribute("value", this.languagepack.getString("verifytoolbar"));
+      this.cmToolbar.children[0].setAttribute("value", this.languagepack.getString("verifytoolbar")+ ": " + this.languagepack.getString("no_sig"));
       this.cmToolbar.children[0].setAttribute("style", "color: black;");
-    }else if(CWrapper.getErrorStr(status) == "nopubkey_sig"){
+    }
+    else if(CWrapper.getErrorStr(status) == "nopubkey_sig"){
       //no key present => orange
       this.cmToolbar.setAttribute("style", "background-color: orange;");
       this.cmToolbar.children[0].setAttribute(
         "value", this.languagepack.getString("verifytoolbar") + ": " + this.languagepack.getString("nopubkey_sig"));
       this.cmToolbar.children[0].setAttribute("style", "color: black;");
-    }else{
+    }
+    else if(CWrapper.getErrorStr(status) == "sig_expired"){
+      //no sig => grey
+      this.cmToolbar.setAttribute("style", "background-color: orange;");
+      this.cmToolbar.children[0].setAttribute("value", this.languagepack.getString("verifytoolbar")+ ": " + this.languagepack.getString("sig_expired"));
+      this.cmToolbar.children[0].setAttribute("style", "color: black;");
+    }
+    else if(CWrapper.getErrorStr(status) == "sigkey_expired"){
+      //no sig => grey
+      this.cmToolbar.setAttribute("style", "background-color: orange;");
+      this.cmToolbar.children[0].setAttribute("value", this.languagepack.getString("verifytoolbar")+ ": " + this.languagepack.getString("sigkey_expired"));
+      this.cmToolbar.children[0].setAttribute("style", "color: black;");
+    }
+    else if(CWrapper.getErrorStr(status) == "wrong_sig"){
+      //no sig => grey
+      this.cmToolbar.setAttribute("style", "background-color: red;");
+      this.cmToolbar.children[0].setAttribute("value", this.languagepack.getString("verifytoolbar_fail") + ":" +
+                                             this.languagepack.getString("wrong_sig"));
+
+      this.cmToolbar.children[0].setAttribute("style", "color: black;");
+    }
+
+    else{
       //error => red
       this.cmToolbar.setAttribute("style", "background-color: red;");
       this.cmToolbar.children[0].setAttribute("value", this.languagepack.getString("verifytoolbar_fail"));
