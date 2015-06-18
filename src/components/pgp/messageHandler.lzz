@@ -140,6 +140,7 @@ class MessageHandler{
     for(i = 0; i < v.size() && (status == ANG_OK || status == ANG_WRONG_SIG); i++ ){
       switch(v.at(i).pkttype){
       case PKT_PLAINTEXT:
+        std::cout<<"case:PKT_PLAINTEXT"<<std::endl;
         result.append(v.at(i).pkt.plaintext->data);
         if(mdctx!=NULL){
           std::string* pdata = &(v.at(i).pkt.plaintext->data);
@@ -150,6 +151,7 @@ class MessageHandler{
         }
         break;
       case PKT_ONEPASS_SIG:
+        std::cout<<"case:PKT_ONEPASS_SIG"<<std::endl;
         if(mdctx != NULL){
           status =  ANG_PARSE_ERROR; //TODO no nested signatures at the moment
         }
@@ -162,6 +164,7 @@ class MessageHandler{
         }
         break;
       case PKT_SIGNATURE:
+        std::cout<<"case:PKT_SIGNATURE"<<std::endl;
         if(onePass == NULL){
           status =  ANG_PARSE_ERROR; //TODO no nested signatures at the moment
         }
@@ -176,7 +179,9 @@ class MessageHandler{
               status = ANG_PARSE_ERROR;
             }
             else{
+              std::cout<<"Verifying signature"<<std::endl;
               status = SignKey::verifySignature(mdctx, sig, sender, pubDb);
+              std::cout<<"Verifying signature status:"<<status<<std::endl;
             }
           }
           else{
@@ -401,9 +406,13 @@ class MessageHandler{
       PKT_encrypted* pkt = packets.at(i).pkt.encrypted;
       std::vector<PACKET> subpackets;
       status = SecretKeyPair::decryptData(decr, pkt->data, sessionKey, NULL, alg);
-      if(status==ANG_OK){
+      if(status == ANG_OK){
         unsigned int blSize = PktDo::blockSize(alg);
-        if(decr.at(blSize-1) != decr.at(blSize+1) ||decr.at(blSize-2) != decr.at(blSize)){
+/*         std::cout<<"status:"<<status<<std::endl<<"Decrypted data:"<<string_to_hex(decr.substr(blSize+2, pkt->data.size() - blSize- 2 - 2))<<std::endl; */
+        if(decr.size() <= (blSize + 1)){
+          status = ANG_PARSE_ERROR;
+        }
+        if(status == ANG_OK && (decr.at(blSize-1) != decr.at(blSize+1) ||decr.at(blSize-2) != decr.at(blSize))){
 /*           printf("1\n"); */
           status = ANG_PARSE_ERROR;
         }

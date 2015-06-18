@@ -510,6 +510,7 @@ class ConfiClient
                     ){
     tryango::Request req;
     tryango::Response res;
+    if(id == "") return ANG_NO_ENTRIES;
     char h_id[HASH_SIZE];
     ConfiVerifier::hash(id, h_id);
     req.mutable_find()->set_h_identity(std::string(h_id, HASH_SIZE));
@@ -579,32 +580,42 @@ class ConfiClient
                     ){
     tryango::Request req;
     tryango::Response res;
+    if(id == "") return ANG_NO_ENTRIES;
     char h_id[HASH_SIZE];
+    std::cout<<"before hash"<<std::endl;
     ConfiVerifier::hash(id, h_id);
+    std::cout<<"after hash"<<string_to_hex(std::string(h_id,HASH_SIZE))<<std::endl;
     req.mutable_find_last()->set_h_identity(std::string(h_id, HASH_SIZE));
     if(origin_wanted){
       req.mutable_find_last()->set_origin_wanted(origin_wanted);
     }
     selectRoot();
+    std::cout<<"after selectroot"<<std::endl;
 
     Confi_Status result = sendReceive(res, req, true);
 
-    if(result!=ANG_OK){
+    if(result != ANG_OK){
       return result;
     }
     if(res.find_last().has_entries()){
+      std::cout<<"after has entrie"<<std::endl;
+
       const tryango::Entry_Set entry = res.find_last().entries();
+      std::cout<<"after has entry"<<std::endl;
       if(entry.h_identity().compare(std::string(h_id, HASH_SIZE)) != 0){
         log("BAD h_id"+ string_to_hex(std::string(h_id)) + " got:"+string_to_hex(entry.h_identity()));
         return ANG_BAD_H_ID;
       }
+      std::cout<<"before has att"<<std::endl;
       if(res.find_last().has_attachment()){
         last = res.find_last().attachment();
       }
       else{
         return ANG_NO_ENTRIES;
       }
+      std::cout<<"before type"<<std::endl;
       type = entry.entries(entry.entries_size()-1).type();
+      std::cout<<"after type"<<std::endl;
     }
     return ANG_OK;
   }

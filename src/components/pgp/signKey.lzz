@@ -451,6 +451,10 @@ class SignKey{
     unsigned char mdValue[EVP_MAX_MD_SIZE];
     unsigned int mdLen;
 
+    if(sig == NULL || pubDb == NULL){
+      return ANG_PARSE_ERROR;
+    }
+
     PublicKeyPair* pkey = pubDb->getKey(sender);
     if(pkey == NULL){
       std::cout<<"Verify fail no 1"<<std::endl;
@@ -465,6 +469,7 @@ class SignKey{
       std::cout<<"Verify fail no 3"<<std::endl;
       return ANG_SIGKEY_EXPIRED;
     }
+    std::cout<<"verifySignature 3"<<std::endl;
     if(sig->sig_expirePeriod > 0){
       time_t now;
       time(&now);
