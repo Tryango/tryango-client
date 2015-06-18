@@ -194,7 +194,7 @@ function chooseEmailPageCreate(){
     //default option
     dropdownmenu.selectedIndex = 0;
     //adjust radio button
-    setRadioBtn(dropdownmenu);
+    setRadioBtn();
   }
   if(dropdownmenu.selectedItem.value != "empty"){
     wizard.canAdvance = true;
@@ -202,14 +202,16 @@ function chooseEmailPageCreate(){
 }
 
 
-function setRadioBtn(dropdownmenu){
+function setRadioBtn(){
   //check dropdown not empty
+  var dropdownmenu = document.getElementById("signup_email");
   if(dropdownmenu != null && dropdownmenu.selectedItem.value != "empty"){
     //set radio button "use previous key" active if there is a previous key...
     var radio = document.getElementById("chooseEmailPage_prev_key");
     if(CWrapper.hasSecretKey(dropdownmenu.selectedItem.value)){
       radio.removeAttribute("hidden");
-    }else{
+    }
+    else{
       //...otherwise hide it
       radio.setAttribute("hidden", "true");
       //and set other option as default
