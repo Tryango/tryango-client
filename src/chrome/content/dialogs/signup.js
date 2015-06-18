@@ -444,7 +444,8 @@ function onInfoFile(){
   var headerString;
   if(Prefs.getPref("advancedOptions")){
     headerString = "sel_secret_key_advanced";
-  }else{
+  }
+  else{
     headerString = "sel_secret_key_simple";
   }
   fp.init(window,languagepack.getString(headerString),
@@ -473,7 +474,8 @@ function onInfoFile(){
         //next page?
         if(gotoNextPage){
           getWizard().advance(null); //null for next page
-        }else{
+        }
+        else{
           //adjust label to show "loaded from file"
           var gpg = document.getElementById("ang_lbl_loadedGpg");
           var file = document.getElementById("ang_lbl_loadedFile");

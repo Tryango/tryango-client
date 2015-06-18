@@ -383,6 +383,7 @@ class MessageHandler{
         }
         i++;
       }
+      std::cout<<"decryptText:have session key" <<haveSessionKey<<std::endl;
 
       while((i<packets.size()) && packets.at(i).pkttype != PKT_ENCRYPTED_MDC){  //TODO add PKT_ENCRYPTED
         i++;
@@ -409,34 +410,43 @@ class MessageHandler{
       if(status == ANG_OK){
         unsigned int blSize = PktDo::blockSize(alg);
 /*         std::cout<<"status:"<<status<<std::endl<<"Decrypted data:"<<string_to_hex(decr.substr(blSize+2, pkt->data.size() - blSize- 2 - 2))<<std::endl; */
+        std::cout<<"decryptText:after decr status:" <<status<<std::endl;
         if(decr.size() <= (blSize + 1)){
+          std::cout<<"decryptText:blSize too small"<<std::endl;
           status = ANG_PARSE_ERROR;
         }
         if(status == ANG_OK && (decr.at(blSize-1) != decr.at(blSize+1) ||decr.at(blSize-2) != decr.at(blSize))){
+          std::cout<<"decryptText:blSize wrong size"<<std::endl;
 /*           printf("1\n"); */
           status = ANG_PARSE_ERROR;
         }
         //checkting MDC
         if(status == ANG_OK && ((unsigned char)decr.at(pkt->data.size() - 22) != 0xD3)){
+          std::cout<<"decryptText:message modified 1"<<std::endl;
           std::cout<<string_to_hex(decr)<<std::endl;
           status = ANG_MESSAGE_MODIFIED;
         }
         if(status == ANG_OK && ((unsigned char)decr.at(pkt->data.size() - 21) != 0x14)){
+          std::cout<<"decryptText:message modified 2"<<std::endl;
           status = ANG_MESSAGE_MODIFIED;
         }
+        std::cout<<"decryptText 1:status:"<<status<<std::endl;
         if(status == ANG_OK){
           std::string mdc = SignKey::hash(decr.substr(0, pkt->data.size() - 20), DIGEST_ALGO_SHA1);
           if(memcmp(mdc.c_str(), decr.c_str() + pkt->data.size() - 20, 20) != 0){
             status = ANG_MESSAGE_MODIFIED;
           }
         }
+        std::cout<<"decryptText 2:to decrypt:"<< string_to_hex(decr.substr(blSize+2, pkt->data.size() - blSize- 2 - 2)) <<std::endl;
         if(status == ANG_OK){
           status = PacketParser::parsePackets(subpackets,  decr.substr(blSize+2, pkt->data.size() - blSize- 2 - 2));
         }
+        std::cout<<"decryptText 3:status:"<<status<<std::endl;
       }
       free(pkt);
       if(status == ANG_OK){
         status = handlePlainPkt(decrypted, subpackets, sender, pubDb);//verifies signature
+        std::cout<<"decryptText 4:status:"<<status<<std::endl;
       }
     }
     return status;
@@ -991,22 +1001,26 @@ class MessageHandler{
     encrypted.append(body);
 /*     std::cout<<" encrypted:"<<string_to_hex(encrypted)<<std::endl; */
     if(armor){
-      std::string base64;
-      std::string crc = crc24b64(encrypted);
-      status = encBase64(base64, encrypted);
-/*       std::cout<<" base64:"<<string_to_hex(base64)<<std::endl; */
-      encrypted.clear();
-      encrypted.append( "-----BEGIN PGP MESSAGE-----\nVersion: Tryango 1.0\n\n");//TODO add real version number of tryango
-      for(unsigned int i=0; i<base64.size(); i+=64){
-        encrypted.append(base64.substr(i, 64));
-        encrypted.append("\n");
-      }
-      encrypted.append(crc);
-      encrypted.append("\n");
-      encrypted.append("-----END PGP MESSAGE-----\n");
+      encrypted = putArmor(encrypted);
     }
 /*     std::cout<<" encrypted armoured:"<<string_to_hex(encrypted)<<std::endl; */
     return ANG_OK;
+  }
+
+
+  static std::string putArmor(const std::string& input){
+    std::string crc = crc24b64(input);
+    std::string base64;
+    encBase64(base64, input);
+    std::string result = "-----BEGIN PGP MESSAGE-----\nVersion: Tryango 1.0\n\n";//TODO add real version number of tryango
+    for(unsigned int i=0; i<base64.size(); i+=64){
+      result.append(base64.substr(i, 64));
+      result.append("\n");
+    }
+    result.append(crc);
+    result.append("\n");
+    result.append("-----END PGP MESSAGE-----\n");
+    return result;
   }
 
 

@@ -118,7 +118,7 @@ var Utils = new function()
     return addresses;
   }
 
-  this.treeAppendRow = function (tree, keyRow, document, isOpen=false, lang){  
+  this.treeAppendRow = function (tree, keyRow, document, isOpen, lang){  
     //set open
     var item = document.createElement("treeitem");
     item.setAttribute("container", "true");
@@ -195,7 +195,8 @@ var Utils = new function()
     if(keyRow.encrExpire == 0){
       cell.setAttribute("label", lang.getString("never"));
       cell.setAttribute("properties", "greenCell");
-    }else{
+    }
+    else{
       var expire = new Date(keyRow.encrExpire);
       cell.setAttribute("label", expire.toDateString());
       //expired dates red
@@ -321,7 +322,7 @@ function fillAudit(languagepack){
 
 var treeView = {
     rowCount : 10000,
-    getCellText : function(row,column){
+    getCellText : function(row, column){
       if (column.id == "namecol") return "Row "+row;
       else return "February 18";
     },
