@@ -62,12 +62,12 @@ extern "C"{
     }
     PKT_public_key* pkey = pk->getPEKey();
     SecretKeyPair* skey = client.getKeyDb().getCurrentKey(id);
-    if(pkey != NULL && skey != NULL && skey->exportPair(keyStr, true) && keyStr.length() > 0){
+    if(pkey != NULL && skey != NULL && skey->exportPair(keyStr, true, true) && keyStr.length() > 0){
       std::vector<PKT_public_key*> keys;
       keys.push_back(pkey);
       std::string encrypted;
       c_status = MessageHandler::encryptData(encrypted, keyStr, keys, CIPHER_ALGO_AES256,
-                                             client.getKeyDb(), identity, true, "secretKey.gpg",
+                                             client.getKeyDb(), identity, false, "secretKey.gpg",
                                              password, true, true);
       if(c_status == ANG_OK && !encrypted.empty()){
         *encrKeySize = allocateAndCopy(encrKey, encrypted);

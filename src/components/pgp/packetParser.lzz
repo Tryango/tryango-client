@@ -297,9 +297,12 @@ class PacketParser{
     bool last = false;
 
     for (int i = 0; i < len; i++){
-      char c = bf.getC();
-      if(c == EOF){
+      uint8_t c = 0;
+      int cInt = bf.getC();
+      c = cInt & 0xFF;
+      if(cInt == EOF){
         //error happens with attachments
+        std::cout<<"parsePlaintxt rtn 1"<<std::endl;
         return ANG_PARSE_ERROR;
       }
       else if(result.mode == 'b'){
@@ -331,6 +334,7 @@ class PacketParser{
       result.data.push_back('\x0A');
     }
     if(bf.gotError){
+      std::cout<<"parsePlaintxt rtn 2"<<std::endl;
       return ANG_PARSE_ERROR;
     }
     else{
@@ -430,7 +434,6 @@ class PacketParser{
       result.keyid.push_back(bf.getC());
     }
     result.pubkey_algo = (PKT_PubkeyAlgo) bf.getC();
-    uint8_t c;
     int bits = bf.getC() * 256;
     bits += bf.getC();
     switch (result.pubkey_algo) {
@@ -439,8 +442,10 @@ class PacketParser{
     case PUBKEY_ALGO_RSA_S:
       result.data.clear();
       for(int i = 0; i < len - 12; i++){
-        c = bf.getC();
-        if(c==EOF){
+        uint8_t c = 0;
+        int cInt = bf.getC();
+        c = cInt & 0xFF;
+        if(cInt == EOF){
           return ANG_PARSE_ERROR;
         }
         result.data.push_back(c);
@@ -473,13 +478,12 @@ class PacketParser{
       if(result.version != 1) return ANG_PARSE_ERROR;
       len--;
     }
-    uint8_t c;
     for(int i = 0; i < len; i++){
-      c = bf.getC();
-      if(c==EOF){
+      int cInt = bf.getC();
+      if(cInt == EOF){
         return ANG_PARSE_ERROR;
       }
-      result.data.push_back(c);
+      result.data.push_back(cInt & 0xFF);
     }
     return ANG_OK;
   }
