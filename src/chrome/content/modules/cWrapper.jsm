@@ -15,7 +15,7 @@ var EXPORTED_SYMBOLS = ["CWrapper"]
 
 var CWrapper = {
 
-  initLibrary : function(languagepack){
+  initLibrary : function(languagepack, logfileName){
 // To be removed - for debug only
     var xulRuntime = Components.classes["@mozilla.org/xre/app-info;1"]
                  .getService(Components.interfaces.nsIXULRuntime);
@@ -50,6 +50,12 @@ var CWrapper = {
       Logger.dbg("Library OK loaded for directory:" + this.certificateFile.path );
       this.certificateFile.append("certificate.pem");
 
+      //TODO: put proofs.log into Prefs => attention: Prefs cyclic dependency on cWrapper! => utils.jsm also incldes a hard-coded "proofs.log"
+      /*
+      var pb = Components.classes["@mozilla.org/preferences-service;1"]//cannot use prefs.jsm because of cyclic dependancy
+                          .getService(Components.interfaces.nsIPrefService)
+                          .getBranch("extensions.tryango.");
+      */
       var file = FileUtils.getFile("ProfD", ["proofs.log"]); //profile directory e.g. ~/.thunderbird/00abcdef.tryangotest/proofs.log
       //declare before calls
       this.initClient = this.client.declare("initClient" //method name
@@ -383,7 +389,7 @@ var CWrapper = {
                                    , keyIdSize.address()
                                    , c_sender
                                    , c_password);
-    Logger.dbg("checkSignPasswrod status:" + status);
+    Logger.dbg("checkSignPassword status:" + status);
     if((ctypes.uint32_t(0)<keyIdSize)){
       keyIdStr.str = keyId.readString();
       this.freeString(keyId);
@@ -399,12 +405,12 @@ var CWrapper = {
     var pb = Components.classes["@mozilla.org/preferences-service;1"]//cannot use prefs.jsm because of cyclic dependancy
                           .getService(Components.interfaces.nsIPrefService)
                           .getBranch("extensions.tryango.");
-    Logger.dbg("getSignPasswrod start for sender"+ sender);
+    Logger.dbg("getSignPassword start for sender "+ sender);
     var keyIdStr = {str : ""};
     var check = {value: pb.getBoolPref("savePW")};
     passValue.value = "";
     var status = this.checkSignPassword(keyIdStr, sender, passValue.value) ;//to get keyId
-    Logger.dbg("getSignPasswrod status1 for pw"+ passValue.value);
+    Logger.dbg("getSignPassword status for pw "+ passValue.value);
     if(status != 0){
       if(keyIdStr.str != ""){
         passValue.value = Pwmgr.getPass(keyIdStr.str);
@@ -425,7 +431,7 @@ var CWrapper = {
         }
       }
       else{
-        Logger.dbg("getSignPasswrod noKeyid for sender" + sender);
+        Logger.dbg("getSignPassword noKeyid for sender " + sender);
         return false;
       }
     }
@@ -554,7 +560,7 @@ var CWrapper = {
         
       };
     }
-      //request
+    //request
     var ap = Pwmgr.getAp(identity);
     if(ap != undefined && ap.length > 1){
       var charAp = ctypes.char.array()(ap);

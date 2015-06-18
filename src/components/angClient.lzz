@@ -686,10 +686,19 @@ class ConfiClient
                                  ){
     uint32_t message_size;
     google::protobuf::io::CodedInputStream coded_input (&ssl_stream);
-    if (!coded_input.ReadVarint32(&message_size)) return ANG_FAIL_RECEIVE;
-    if (message_size > 4 * 1024 * 1024) return ANG_FAIL_RECEIVE; /* message is too long */
+    if (!coded_input.ReadVarint32(&message_size)){ //FIXME: weird bug, sometimes this fails
+      std::cerr << "receiveFromServer: error, message_size failed" << std::endl;
+      return ANG_FAIL_RECEIVE;
+    }
+    if (message_size > 4 * 1024 * 1024){
+      std::cerr << "receiveFromServer: error, message is too long" << std::endl;
+      return ANG_FAIL_RECEIVE; /* message is too long */
+    }
     coded_input.PushLimit(message_size);
-    if (!response_out.ParseFromCodedStream(&coded_input)) return ANG_FAIL_RECEIVE;
+    if (!response_out.ParseFromCodedStream(&coded_input)){
+      std::cerr << "receiveFromServer: error, parser failed" << std::endl;
+      return ANG_FAIL_RECEIVE;
+    }
     return ANG_OK;
   }
 
