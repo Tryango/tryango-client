@@ -325,6 +325,7 @@ var MailListener = new function() {
         var recipient = this.findAccountFromHeader(msgHdr);
 
         //decrypt
+        Logger.dbg("decrypting email for " + recipient + " from " + sender);
         var decryptedMail = {str : ""};
         var status = CWrapper.decryptMail(decryptedMail, ciphertext, sender, recipient);
         if(status > 0 && status <= CWrapper.getMaxErrNum()){
