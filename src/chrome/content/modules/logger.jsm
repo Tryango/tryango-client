@@ -39,7 +39,7 @@ var Logger = new function()
   //TO be made empty
   this.dbg = function(string){
     // create prefix for log output
-    s = new Error().stack.split("\n");
+    let s = new Error().stack.split("\n");
     if(s.length >= 2){
       s = s[1];
       s = s.substring(s.lastIndexOf("/")+1, s.length);

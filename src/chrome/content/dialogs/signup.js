@@ -376,7 +376,8 @@ function importKeyPageCreate(){
     document.getElementById("key_expiry").removeAttribute("hidden");
     document.getElementById("key_encrypted").removeAttribute("hidden");
     document.getElementById("info_key_tree").removeAttribute("hidecolumnpicker");
-  }else{
+  }
+  else{
     //simple setup
     //set labels
     document.getElementById("importKeyPage").setAttribute(
@@ -511,7 +512,8 @@ function fillInfoTable(email){
     none.setAttribute("hidden", "true");
     emptyfile.removeAttribute("hidden");
     return false;
-  }else{
+  }
+  else{
     Logger.dbg("getInfoKeys size: " + keys.length);
     
     //set appropriate text visibility
@@ -528,7 +530,7 @@ function fillInfoTable(email){
     for (var i = 0; i < keys.length; i++) {
       expire = new Date(keys[i].signExpire);
       //only display keys if they are not expired or advanced setup is on
-      if(advSetup || (expire.getTime() < Date.now()) ){
+      if(advSetup || (keys[i].signExpire == 0) || (expire.getTime() < Date.now()) ){
         Utils.treeAppendRow(treeList, keys[i], document, false, languagepack);
       }
     }
@@ -536,7 +538,8 @@ function fillInfoTable(email){
     //check length, if only 1 key & simple setup => proceed
     if(!advSetup && keys.length == 1 ){
       return true;
-    }else{
+    }
+    else{
       return false;
     }
   }
@@ -567,7 +570,8 @@ function onKeySelect(){
   var languagepack = document.getElementById("lang_file");
   if(expire == languagepack.getString("never")){
     wizard.canAdvance = true;
-  }else{
+  }
+  else{
     //XXX: Logger.dbg("expire"+expire+"time compare:"+(new Date(expire)).toLocaleDateString()+ " now:"+Date.now()+ " bool:"+( (new Date(expire)).getTime() < Date.now()));
 
     //check expiry of selected key
@@ -687,6 +691,7 @@ function importKey(){
   var email = document.getElementById("signup_email").selectedItem.value;
   var col = tree.columns.key_id;
   var index = tree.view.getParentIndex(tree.currentIndex);
+  Logger.dbg("Transfering of RSA keys");
   //-1 means no parent
   if(index == -1){
     index = tree.currentIndex;
@@ -709,7 +714,7 @@ function importKey(){
   }
   else{
     //error importing keys
-    Logger.error("Transfer of RSA keys failed with status:"+ status);
+    Logger.error("Transfer of RSA keys failed with status:" + status);
   }
   return false;
 }

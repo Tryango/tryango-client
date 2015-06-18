@@ -255,7 +255,7 @@ var Prefs = new function()
       //update server/port
       var server = this.getPref("server");
       var port = this.getPref("port");
-      result = CWrapper.setServer(server, port); //C will not update if server/port are the same
+      let result = CWrapper.setServer(server, port); //C will not update if server/port are the same
       //check errors
       if(!result){
         var errorStr = this.languagepack.getString("info_update_server_port");

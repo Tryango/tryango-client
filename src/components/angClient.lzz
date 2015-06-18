@@ -611,7 +611,7 @@ class ConfiClient
 
 
   void log(std::string msg){
-    if(logger!=NULL){
+    if(logger != NULL){
       (*logger)<<msg<<std::endl;
       logger->flush();
     }

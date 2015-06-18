@@ -145,7 +145,8 @@ var Utils = new function()
     if(keyRow.signExpire == 0){
       cell.setAttribute("label", lang.getString("never"));
       cell.setAttribute("properties", "greenCell");
-    }else{
+    }
+    else{
       var expire = new Date(keyRow.signExpire);
       cell.setAttribute("label", expire.toDateString());
       //expired dates red

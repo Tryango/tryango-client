@@ -672,6 +672,11 @@ TEST_F(PgpTest, EncryptedKeys){
       status = MessageHandler::decryptText(message, encrypted, email, &publicKeyDb,  keyDb, "password");
       ASSERT_TRUE(status == ANG_OK);
       ASSERT_TRUE(message == corrBody);
+      message.clear();
+      status = MessageHandler::decryptText(message, " "+encrypted, email, &publicKeyDb,  keyDb, "password");
+      ASSERT_TRUE(status == ANG_PARSE_ERROR);
+      ASSERT_TRUE(message != corrBody);
+      
       encrypted.clear();
       status = MessageHandler::encryptData(encrypted
                                            , mailBody

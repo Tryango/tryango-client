@@ -1,6 +1,9 @@
 <?xml version="1.0"?>
 <?xml-stylesheet href="chrome://communicator/skin/" type="text/css"?>
 
+<!-- Reference to CSS file (needed for tree) -->
+<?xml-stylesheet href="chrome://tryango/skin/overlay.css" type="text/css" ?>
+
 <!-- language file -->
 <!DOCTYPE tryango SYSTEM "chrome://tryango/locale/lang.dtd"
 [

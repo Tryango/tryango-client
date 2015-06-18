@@ -24,7 +24,7 @@ extern "C"{
   void initClient(const char* logfilePath
                   ){
     client.setLoggerPath(logfilePath);
-    infoKeyDb=NULL;
+    infoKeyDb = NULL;
   //  OPENSSL_Applink();
   }
 
@@ -103,13 +103,13 @@ extern "C"{
     std::string keyStr;
     SecretKeyPair* key = client.getKeyDb().getCurrentKey(identity);
     if(key != NULL && key->exportPair(keyStr, false) && keyStr.length() > 0){
-      client.log("Got public key to export: " + string_to_hex(keyStr));
+/*       client.log("Got public key to export: " + string_to_hex(keyStr)); */
       std::string serverKey;
       tryango::Entry_Type type;
-      client.log("Searching for id:"+ identity);
+/*       client.log("Searching for id:"+ identity); */
       c_status = client.find_last(serverKey, type, identity);
       if(keyStr.compare(serverKey) != 0 && c_status == ANG_OK){
-        client.log("Sumbitting new id:"+ identity + " device"+std::string(device));
+/*         client.log("Sumbitting new id:"+ identity + " device"+std::string(device)); */
         std::string ap = hex_to_string(std::string(hexAp, 2 * HASH_SIZE));
         c_status = client.submit(ap, identity, std::string(device), keyStr);
         if(c_status == ANG_OK){
@@ -128,7 +128,7 @@ extern "C"{
     }
     else{
       c_status = ANG_NO_KEY_PRESENT;//TODO - check if public key is empty */
-      client.log("Error: key is null or not created properly (angWrapper::submitKey)");
+/*       client.log("Error: key is null or not created properly (angWrapper::submitKey)"); */
     }
     return c_status;
   }
@@ -298,22 +298,28 @@ extern "C"{
   }
 
 
-  uint32_t transferKeysFromInfo(const char* fingerprint
+  uint32_t transferKeysFromInfo(const char* hexFingerprint
                                 ){
+    std::string fingerprint = hex_to_string(std::string(hexFingerprint));
     if(infoKeyDb == NULL){
       return ANG_NO_ENTRIES;
     }
-    KeyList kl = infoKeyDb->getKeysById(hex_to_string(std::string(fingerprint)).substr(12, 8));
+    KeyList kl = infoKeyDb->getKeysById(fingerprint.substr(12, 8));
     if(kl.size()<1){
       return ANG_NO_ENTRIES;
     }
     std::string pair;
     Confi_Status status = ANG_OK;
-    for(unsigned int i = 0; i < kl.size() && status == ANG_OK; i++){
+    bool transfered = false;
+    for(unsigned int i = 0; i < kl.size() && status == ANG_OK && !transfered; i++){
       if((kl.at(i)->getFingerprint() == fingerprint) || (kl.at(i)->getSubFingerprint() == fingerprint)){
         kl.at(i)->exportPair(pair, true);
         status = client.getKeyDb().readFromStr(pair, false, "");
+        transfered = true;
       }
+    }
+    if (status == ANG_OK && !transfered){
+      status = ANG_NO_ENTRIES;
     }
     clearInfo();
     return status;

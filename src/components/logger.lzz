@@ -122,18 +122,11 @@ public:
   }
 
   void putTimeStamp(){
-#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
     time_t t;
     struct tm *timeinfo;
     time(&t);
     timeinfo = localtime(&t);
-    (*lout) << asctime(timeinfo)<< std::endl << std::endl;
-#else
-    time_t now = time(0);
-    char buf[sizeof "2014-12-01T21:49:00Z"];
-    strftime(buf, sizeof buf, "%FT%TZ", gmtime(&now));
-    (*lout) << buf << std::endl << std::endl;
-#endif
+    (*lout) << asctime(timeinfo)<< std::endl;
 
   }
 
