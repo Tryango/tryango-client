@@ -110,7 +110,7 @@ var MailListener = new function() {
     }
     else{
       if(!this.searchNewKey(header, identity)){
-        this.searchNewKey(header, identity);
+        this.searchOldKey(header, identity);
       }
     }
   };
@@ -496,7 +496,6 @@ var MailListener = new function() {
 
       this.cmToolbar.children[0].setAttribute("style", "color: black;");
     }
-
     else{
       //error => red
       this.cmToolbar.setAttribute("style", "background-color: red;");

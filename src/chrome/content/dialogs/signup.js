@@ -173,7 +173,8 @@ function chooseEmailPageCreate(){
     document.getElementById("chooseEmailPage_import_key").setAttribute(
       "label",
       document.getElementById("lang_file").getString("wizard_chooseEmailPage_importKey_advanced"));
-  }else{
+  }
+  else{
     document.getElementById("chooseEmailPage_import_key").setAttribute(
       "label",
       document.getElementById("lang_file").getString("wizard_chooseEmailPage_importKey_simple"));
