@@ -478,7 +478,7 @@ extern "C"{
                                             , std::string(mailBody)
                                             , client.getKeyDb()
                                             , PktDo::stripId(sender)
-                                            , ""
+                                             , std::string(password)
                                             );
         if(status == ANG_OK){
           *resultSize = allocateAndCopy(result, encrypted);
