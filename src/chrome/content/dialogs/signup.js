@@ -209,7 +209,7 @@ function setRadioBtn(){
   if(dropdownmenu != null && dropdownmenu.selectedItem.value != "empty"){
     //set radio button "use previous key" active if there is a previous key...
     var radio = document.getElementById("chooseEmailPage_prev_key");
-    if(CWrapper.hasSecretKeyId(dropdownmenu.selectedItem.value)){
+    if(CWrapper.hasSecretKey(dropdownmenu.selectedItem.value)){
       radio.removeAttribute("hidden");
     }
     else{
