@@ -462,6 +462,8 @@ var MailWindow = new function(){
       }
       enc_signed_mail = enc_signed_mail.str;
 
+	  Logger.dbg("sending enc/signed email:\n" + enc_signed_mail);
+
       //change body to enc_signed_mail
       editor.selectAll();
       try{
