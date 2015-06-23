@@ -239,16 +239,20 @@ class PacketParser{
       default:
         printf("Unknown packet type %d length %d", tag, len);
         bf.skip(len);
-        break;
+        return ANG_PARSE_ERROR;
       }
       if(tag != PKT_COMPRESSED){
         while (partial) {
+          if(packets.size() < 1) return ANG_PARSE_ERROR;
           pkt = packets.back();
           if(pkt.pkttype != PKT_PLAINTEXT &&
              pkt.pkttype != PKT_ENCRYPTED_MDC){
             return ANG_PARSE_ERROR;
           }
-          c = bf.getC(); //TODO: endless loop when EOF here?
+          c = bf.getC();
+          if(bf.gotError){
+            return ANG_PARSE_ERROR;
+          }
           len = parseLength(c, bf);
           partial = isPartial(c);
           if (tag == PKT_ENCRYPTED_MDC){//encrypted

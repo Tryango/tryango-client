@@ -489,6 +489,56 @@ const std::string threeKeys = std::string (
 );
 
 
+const std::string badSignature = std::string (
+"-----BEGIN PGP SIGNED MESSAGE-----\n"
+"\n"
+"Hash: SHA256\n"
+"\n"
+"\n"
+"\n"
+"pure text ROXX!!\n"
+"\n"
+"\n"
+"\n"
+"fdas]\n"
+"\n"
+"-----BEGIN PGP SIGNATURE-----\n"
+"\n"
+"Version: Tryango 1.0\n"
+"\n"
+"\n"
+"\n"
+"iQIcBAEBCAAGBQJViYHDAAoJEC9DxeqUks8kWp4QAMXCLllU3fevgVdywcsB72cr\n"
+"\n"
+"hU897ejkqdNAmgdULQBGSW1a+jpV/vAydRIJahzbhVrHtZZdIcaDMYd9ll/3oxYi\n"
+"\n"
+"3Uqit5kBt/JhlOGQRtkm8vBTj/LNYvQFJfpqIaubP4n/VguLzvgEDyUwunDwD3Ax\n"
+"\n"
+"1/L821GUsTht4HSQcI88UnXVYx3nyWqaYfMzag8zSs9051wsXMRUscWOIWoNe+5Q\n"
+"\n"
+"MpTnsQI0YSMG4flY/zyQ645O6PyyF5+wIyYoGkWopxJmaXiFhbDEkF9XA+CiqkOJ\n"
+"\n"
+"oco9prvtfpVr2EJDmNsA249Km4x8ziAsZwquq/oMwebT4rvs9UoASRYb9KP4Sa9H\n"
+"\n"
+"skoof2l21NUbcq6mCiTki/hKumH5Y81EiTyJkK+zYe+M0fexBwauiBSB6ZpVFOEH\n"
+"\n"
+"4rqXmAw/IJtXg9NkLzhXjudLsstqte9I+tdWQJEGSsqaxX2nhWjnxLT1eV2334DB\n"
+"\n"
+"n33a3krl5ikXpAX4D3DrAgzE4InoVp7t8sbeg0qL+kGWNc9QEdUX8ih2vYSwrrHt\n"
+"\n"
+"3aMbwxyXUblOQQnc5+Tk5ojgaQmyb3iLIZ6GeE7EgZ53zAs9j91SU2GtIGVUuhRa\n"
+"\n"
+"agFPl99QSOfhtoH6XsbckC8ef3OMQGzd+Tqe7uqsyfV+wmiyGipiw0p63c1KnoCY\n"
+"\n"
+"x11fzk3C6aKAHUSd/x+X\n"
+"\n"
+"=f5G8\n"
+"\n"
+"-----END PGP SIGNATURE-----\n"
+"\n"
+);
+
+
 class PPacketTest : public ::testing::Test {
  protected:
 
@@ -501,6 +551,12 @@ class PPacketTest : public ::testing::Test {
 };
 
 TEST_F(PPacketTest, ClearSignTest){
+  std::vector<PACKET> packets;
+  Confi_Status ret = PacketParser::parsePackets(packets, badSignature);
+  std::cout<<"status:"<<ret<<std::endl;
+  for(PACKET p:packets){
+    std::cout<<"type:"<<p.pkttype<<std::endl;
+  }
   const std::string userId = "PPPPP <pkordy@gmail.com>";
   Confi_Status status;
   KeyDb keyDb;
