@@ -4,6 +4,7 @@
 Components.utils.import("resource://tryango_modules/logger.jsm");
 Components.utils.import("resource://tryango_modules/cWrapper.jsm");
 Components.utils.import("resource://gre/modules/FileUtils.jsm"); //for keypurse default location
+Components.utils.import("resource://gre/modules/Services.jsm");  //load resource
 
 //exports
 var EXPORTED_SYMBOLS = ["Prefs"]
@@ -58,24 +59,22 @@ var Prefs = new function()
   }
 
   this.reloadPrefs = function(){
-	//TODO: this.prefBranch.resetBranch(""); is not implemented yet!!! => do it manually
+	//TODO: this.prefBranch.resetBranch(""); is not implemented  IN THUNDERBIRD yet!!! => do it manually
 
 	//create path
-	var prefsFile = FileUtils.getFile("resource://defaultPrefs", ["tryango_prefs.js"]);
-	//("resource://prefs", ["tryango_prefs.js"]);
-//	prefsFile.append("tryango_prefs.js");
+	const ioService = Components
+	      .classes["@mozilla.org/network/io-service;1"]
+	      .getService(Components.interfaces.nsIIOService);
+	var prefsFile = ioService.newURI("resource://defaultPrefs", null, null)
+		.QueryInterface(Components.interfaces.nsIFileURL).file;
 
 	//debug
 	Logger.dbg("Reloading prefs from: " + prefsFile.path);
 
 	//reload
-	/*
 	Components.classes["@mozilla.org/preferences-service;1"]
       .getService(Components.interfaces.nsIPrefService)
 	  .readUserPrefs(prefsFile);
-	*/
-
-	//TODO: how to check?
   }
 
   this.getDefaultPref = function(prefName) {

@@ -188,7 +188,7 @@ Tryango.handleEvent = function(id){
 		//reload default prefs
 		Prefs.reloadPrefs();
 		//init again
-		//TODO: Prefs.init(this.languagepack);
+		Prefs.init(this.languagepack);
 	  }
     }
     else{

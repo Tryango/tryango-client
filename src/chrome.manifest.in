@@ -17,7 +17,7 @@ resource  	libclient 					components/@TRYANGO_FILE@ abi=@ABI@
 @PROTOBUF_LINE@
 #resource  	libclient 					components/libtryango-client.dylib abi=Darwin_x86_64-gcc3
 
-resource    defaultPrefs				defaults/preferences/
+resource    defaultPrefs				defaults/preferences/tryango_prefs.js
 
 #skins
 skin		tryango	tryangoskin			chrome/skin/
