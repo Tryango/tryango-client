@@ -162,7 +162,7 @@ var Utils = new function()
         if(ap != undefined && ap.length > 1){
           let status = CWrapper.synchronizeSK(identity);
           if(status != 0){
-            Logger.err(languagepack.getString("no_corresponding_key") +": " + identity);
+            Logger.error(languagepack.getString("no_corresponding_key") +": " + identity);
           }
           else{
             Logger.dbg("Keypurse synchronised successfully for id "+ identity);
@@ -537,7 +537,7 @@ var devicesView = {
 
 function fillDevices(languagepack){
   //fill devices
-  this.syncKeypurse(languagepack);
+  Utils.syncKeypurse(languagepack);
   //set date for last update
   Logger.dbg("filling devices");
   document.getElementById("tree_devices_updated").value = new Date().toISOString();
