@@ -178,18 +178,9 @@ Tryango.handleEvent = function(id){
     break;
 
   case "menu-reset":
-    //reset will revoke all keys
-
     //warn user
     if(Logger.promptService.confirm(null, "Tryango", this.languagepack.getString("tryango_reset"))){
-      if(this.removeEverything()){
-		Logger.dbg("Reloading Prefs...");
-
-		//reload default prefs
-		Prefs.reloadPrefs();
-		//init again
-		Prefs.init(this.languagepack);
-	  }
+      this.reset();
     }
     else{
       //user abort
@@ -256,27 +247,39 @@ Tryango.handleEvent = function(id){
   }
 }
 
-Tryango.removeEverything = function(){
-  Logger.dbg("Removing everything");
+Tryango.reset = function(removeEverything = false){
+  Logger.dbg("Reset");
 
   //remove devices and keys from server as well as locally
   //this also asks if the user wants to backup the keypurse
   if(!Utils.removeAllDevicesAndRevokeKeys(window, this.languagepack)){
-	Logger.log("removeEverything: user abort");
+	Logger.log("removeEverything: abort");
 	return false;
   }
 
   //clear XHEADERS
   MailListener.removeAllTryangoXHEADERS();
 
-  //clear passwordmanager/preferences
-  Prefs.removeAllTryangoPrefs();
+  //clear passwords
   Pwmgr.removeAllTryangoPWs();
 
-  //ATTENTION: no Tryango.cleanup() here yet! we are still running!
+  if(removeEverything){
+	//clear preferences
+	Prefs.removeAllTryangoPrefs();
 
-  //log
-  Logger.dbg("removeEverything done");
+	//log
+	Logger.dbg("reset(removeEverything) done");
+  }else{
+	//only reset preferences (rest can stay)
+	Prefs.reset();
+	Prefs.init();
+	Prefs.setPref("firstStartup", false);
+
+	//log
+	Logger.dbg("reset done");
+  }
+
+  //ATTENTION: no Tryango.cleanup() here yet! we are still running!
 
   return true;
 }
@@ -335,7 +338,7 @@ var TryangoCleaner = {
       if(this.uninstall){
         //remove the extension
         Logger.log("TryangoCleaner: uninstalling...");
-        Tryango.removeEverything();
+        Tryango.reset(true); //removeEverything = true
       }
 
       //clean up

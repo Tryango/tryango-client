@@ -27,7 +27,7 @@ var CWrapper = {
 //        getService(Components.interfaces.nsIProperties).
 //        get("CurProcD", Components.interfaces.nsIFile);
 //     Logger.dbg("Current dir"+file.path);
-    
+
     const ioService = Components
             .classes["@mozilla.org/network/io-service;1"]
             .getService(Components.interfaces.nsIIOService);
@@ -39,7 +39,7 @@ var CWrapper = {
       }
     }
     catch(e){
-        
+
     }
     this.languagepack = languagepack;
     var uri = ioService.newURI( "resource://libclient", null, null);
@@ -56,10 +56,10 @@ var CWrapper = {
           .getBranch("extensions.tryango.");
       var logfileName = pb.getCharPref("logfileName");
       var file = FileUtils.getFile("ProfD", [logfileName]); //profile directory e.g. ~/.thunderbird/00abcdef.tryangotest/proofs.log
-      
+
       //declare before calls
       this.initClient = this.client.declare("initClient" //method name
-          , ctypes.default_abi //binary interface type 
+          , ctypes.default_abi //binary interface type
           , ctypes.void_t   //return type
           , ctypes.char.ptr);   //param 1
 
@@ -68,22 +68,22 @@ var CWrapper = {
       var c_logfilePath = ctypes.char.array()(file.path);
       this.initClient(c_logfilePath);
 
-      this.signup = this.client.declare("signup"// method name 
-          , ctypes.default_abi //binary interface type 
+      this.signup = this.client.declare("signup"// method name
+          , ctypes.default_abi //binary interface type
           , ctypes.uint32_t   //return type
           , ctypes.char.ptr   //param 1
           , ctypes.char.ptr   //param 2
           , ctypes.char.ptr); //param 3
 
-      this.c_submitKey = this.client.declare("submitKey"// method name 
-          , ctypes.default_abi //binary interface type 
+      this.c_submitKey = this.client.declare("submitKey"// method name
+          , ctypes.default_abi //binary interface type
           , ctypes.uint32_t   //return type
           , ctypes.char.ptr   //param 1 hexAp
           , ctypes.char.ptr   //param 2 identity
           , ctypes.char.ptr); //param 3 device
 
-      this.c_revokeKey = this.client.declare("revokeKey"// method name 
-          , ctypes.default_abi //binary interface type 
+      this.c_revokeKey = this.client.declare("revokeKey"// method name
+          , ctypes.default_abi //binary interface type
           , ctypes.uint32_t   //return type
           , ctypes.char.ptr   //param 1 hexAp
           , ctypes.char.ptr   //param 2 identity
@@ -98,8 +98,8 @@ var CWrapper = {
           , ctypes.char.ptr //param 3 - char* signed message
           , ctypes.char.ptr); //param 4 - char* sender
 
-      this.freeString = this.client.declare("freeString"// method name 
-          , ctypes.default_abi //binary interface type 
+      this.freeString = this.client.declare("freeString"// method name
+          , ctypes.default_abi //binary interface type
           , ctypes.void_t   //return type
           , ctypes.char.ptr); //param 1
 
@@ -108,90 +108,90 @@ var CWrapper = {
           , ctypes.uint32_t //return type
           , ctypes.char.ptr); //param1
 
-      this.c_setServer = this.client.declare("setServer"// method name 
-          , ctypes.default_abi //binary interface type 
+      this.c_setServer = this.client.declare("setServer"// method name
+          , ctypes.default_abi //binary interface type
           , ctypes.bool       //return type
           , ctypes.char.ptr   //param 1
           , ctypes.uint32_t   //param 2
           , ctypes.char.ptr); //param 3
 
-      this.c_getHostName = this.client.declare("getHostName"// method name 
-          , ctypes.default_abi //binary interface type 
+      this.c_getHostName = this.client.declare("getHostName"// method name
+          , ctypes.default_abi //binary interface type
           , ctypes.void_t   //return type
-          , ctypes.char.ptr  
+          , ctypes.char.ptr
           , ctypes.uint32_t ); //param 2
 
-      this.generateRsaKeys = this.client.declare("generateRsaKeys"// method name 
-          , ctypes.default_abi //binary interface type 
+      this.generateRsaKeys = this.client.declare("generateRsaKeys"// method name
+          , ctypes.default_abi //binary interface type
           , ctypes.bool     //return type
           , ctypes.char.ptr // param 1 userId
-          , ctypes.char.ptr // param 2 - password 
+          , ctypes.char.ptr // param 2 - password
           , ctypes.uint32_t ); //param 3 - size of the keys
 
-      this.c_getDevices= this.client.declare("getDevices"// method name 
-          , ctypes.default_abi //binary interface type 
+      this.c_getDevices= this.client.declare("getDevices"// method name
+          , ctypes.default_abi //binary interface type
           , ctypes.uint32_t   //return type
           , ctypes.char.ptr.ptr.ptr//pointer to array of strings - to be freed
-          , ctypes.uint32_t.ptr   //param 2 - pointer to size of the array 
+          , ctypes.uint32_t.ptr   //param 2 - pointer to size of the array
           , ctypes.char.ptr   //param 3 - hexAp to be updated
           , ctypes.char.ptr   //param 4 - identity
           , ctypes.char.ptr); //param 5 - device
 
-      this.c_removeDevices = this.client.declare("removeDevices"// method name 
-          , ctypes.default_abi  //binary interface type 
+      this.c_removeDevices = this.client.declare("removeDevices"// method name
+          , ctypes.default_abi  //binary interface type
           , ctypes.uint32_t     //return type
           , ctypes.char.ptr     //param 1 - hexAp to be updated
           , ctypes.char.ptr     //param 2 - identity
-          , ctypes.char.ptr     // param 3 -device 
-          , ctypes.char.ptr.ptr // param 4 -devices to be removed-  pointer to array of strings 
+          , ctypes.char.ptr     // param 3 -device
+          , ctypes.char.ptr.ptr // param 4 -devices to be removed-  pointer to array of strings
           , ctypes.uint32_t     // param 5 \ devices size
           );
 
-      this.loadInfoKeysFromFile = this.client.declare("loadInfoKeysFromFile"// method name 
-          , ctypes.default_abi //binary interface type 
+      this.loadInfoKeysFromFile = this.client.declare("loadInfoKeysFromFile"// method name
+          , ctypes.default_abi //binary interface type
           , ctypes.uint32_t   //return type
           , ctypes.char.ptr     //param 1 - identity/email
           , ctypes.char.ptr     //param 2 - file name
           );
 
-      this.loadInfoKeysFromGpg = this.client.declare("loadInfoKeysFromGpg"// method name 
-          , ctypes.default_abi //binary interface type 
+      this.loadInfoKeysFromGpg = this.client.declare("loadInfoKeysFromGpg"// method name
+          , ctypes.default_abi //binary interface type
           , ctypes.uint32_t   //return type
           , ctypes.char.ptr     //param 1 - identity
           );
 
-      this.clearInfo = this.client.declare("clearInfo"// method name 
-          , ctypes.default_abi //binary interface type 
+      this.clearInfo = this.client.declare("clearInfo"// method name
+          , ctypes.default_abi //binary interface type
           , ctypes.void_t);   //return type
 
-      this.c_getInfoKeys = this.client.declare("getInfoKeys"// method name 
-          , ctypes.default_abi //binary interface type 
+      this.c_getInfoKeys = this.client.declare("getInfoKeys"// method name
+          , ctypes.default_abi //binary interface type
           , ctypes.uint32_t   //return type
           , ctypes.char.ptr.ptr.ptr//pointer to array of strings - to be freed
-          , ctypes.uint32_t.ptr   //param 2 - pointer to size of the array 
+          , ctypes.uint32_t.ptr   //param 2 - pointer to size of the array
           , ctypes.char.ptr     //param 3 - identity
           , ctypes.bool);  //param 4 - if import from keypurse (otherwise structure must have been precomputed
 
-      this.transferKeysFromInfo = this.client.declare("transferKeysFromInfo"// method name 
-          , ctypes.default_abi //binary interface type 
+      this.transferKeysFromInfo = this.client.declare("transferKeysFromInfo"// method name
+          , ctypes.default_abi //binary interface type
           , ctypes.uint32_t   //return type
           , ctypes.char.ptr     //param 1 - keyId
           );
 
-      this.exportKeyPurse = this.client.declare("exportKeyPurse"// method name 
-          , ctypes.default_abi //binary interface type 
+      this.exportKeyPurse = this.client.declare("exportKeyPurse"// method name
+          , ctypes.default_abi //binary interface type
           , ctypes.bool  //return type
           , ctypes.char.ptr     //param 1 - path
           , ctypes.char.ptr);   //param 2 - password
 
-      this.importKeyPurse = this.client.declare("importKeyPurse"// method name 
-          , ctypes.default_abi //binary interface type 
+      this.importKeyPurse = this.client.declare("importKeyPurse"// method name
+          , ctypes.default_abi //binary interface type
           , ctypes.bool  //return type
           , ctypes.char.ptr   //param 1 - path
           , ctypes.bool); //param 2 - if to clear keypurse before import
-      
-      this.removeKeyPurse = this.client.declare("removeKeyPurse"// method name 
-          , ctypes.default_abi //binary interface type 
+
+      this.removeKeyPurse = this.client.declare("removeKeyPurse"// method name
+          , ctypes.default_abi //binary interface type
           , ctypes.bool  //return type
           , ctypes.char.ptr);   //param 1 - path
 
@@ -200,7 +200,7 @@ var CWrapper = {
           , ctypes.uint32_t //return type
           , ctypes.char.ptr //param 1
           , ctypes.uint32_t); //param 2
-            
+
       this.c_encryptSignMail = this.client.declare("encryptSignMail"
           , ctypes.default_abi //binary interface type
           , ctypes.uint32_t //return type
@@ -240,13 +240,13 @@ var CWrapper = {
       this.getPort = this.client.declare("getPort"
           , ctypes.default_abi //binary interface type
           , ctypes.uint32_t //return type
-          );   
+          );
 
       this.clearTempKey = this.client.declare("clearTempKey"
           , ctypes.default_abi //binary interface type
           , ctypes.void_t //return type
-          );   
-      
+          );
+
       this.c_decryptMail = this.client.declare("decryptMail"
           , ctypes.default_abi //binary interface type
           , ctypes.uint32_t //return type - Confi_Status
@@ -263,25 +263,25 @@ var CWrapper = {
           , ctypes.uint8_t.ptr //param 1 - char* data
           , ctypes.uint32_t //param 2 - length of data
           , ctypes.char.ptr //param 3 - char* filepath
-          , ctypes.char.ptr //param 4 - char* sender 
+          , ctypes.char.ptr //param 4 - char* sender
           , ctypes.char.ptr //param 5 - char* password
           );
 
-      this.hasSecretKey = this.client.declare("hasSecretKey"// method name 
-          , ctypes.default_abi //binary interface type 
+      this.hasSecretKey = this.client.declare("hasSecretKey"// method name
+          , ctypes.default_abi //binary interface type
           , ctypes.bool     //return type
           , ctypes.char.ptr); //param 1
 
-      this.checkPassword = this.client.declare("checkPassword"// method name 
-          , ctypes.default_abi //binary interface type 
+      this.checkPassword = this.client.declare("checkPassword"// method name
+          , ctypes.default_abi //binary interface type
           , ctypes.uint32_t      //return type
           , ctypes.char.ptr.ptr //param 1 - returned array
           , ctypes.uint32_t.ptr //param 2  - result size
           , ctypes.char.ptr    // param 1 id/email
           , ctypes.char.ptr); //param 2 password
 
-      this.c_checkDecrPassword = this.client.declare("checkDecrPassword"// method name 
-          , ctypes.default_abi //binary interface type 
+      this.c_checkDecrPassword = this.client.declare("checkDecrPassword"// method name
+          , ctypes.default_abi //binary interface type
           , ctypes.uint32_t      //return type
           , ctypes.char.ptr.ptr //param 1 - returned array
           , ctypes.uint32_t.ptr //param 2  - result size
@@ -289,12 +289,12 @@ var CWrapper = {
           , ctypes.uint32_t      //param 4 - encrypted data size
           , ctypes.char.ptr); //param 5  - password
 
-      this.hasGpg = this.client.declare("hasGpg"// method name 
-          , ctypes.default_abi //binary interface type 
+      this.hasGpg = this.client.declare("hasGpg"// method name
+          , ctypes.default_abi //binary interface type
           , ctypes.bool);   //return type
 
       this.c_getEncryptedSK = this.client.declare("getEncryptedSK"
-          , ctypes.default_abi //binary interface type 
+          , ctypes.default_abi //binary interface type
           , ctypes.uint32_t      //return type
           , ctypes.char.ptr.ptr //param 1 - returned array
           , ctypes.uint32_t.ptr //param 2  - result size
@@ -302,7 +302,7 @@ var CWrapper = {
           , ctypes.char.ptr); //param 4 password
 
       this.synchronizeSK = this.client.declare("synchronizeSK"
-          , ctypes.default_abi //binary interface type 
+          , ctypes.default_abi //binary interface type
           , ctypes.uint32_t      //return type
           , ctypes.char.ptr //param 1 - user id
           );
@@ -335,7 +335,7 @@ var CWrapper = {
                                          , c_data_size
                                          , c_password);
     Logger.dbg("checkDecrPassword status:" + status);
-    
+
     if((ctypes.uint32_t(0)<keyIdSize)){
       keyIdStr.str = keyId.readString();
       this.freeString(keyId);
@@ -362,7 +362,7 @@ var CWrapper = {
         var result;
         while(this.checkDecrPassword(keyIdStr, c_data, c_data_size, passValue.value) != 0){
           Logger.dbg("Prompting for password");
-          result = Logger.promptService.promptPassword(null, this.languagepack.getString("prompt_password_title") 
+          result = Logger.promptService.promptPassword(null, this.languagepack.getString("prompt_password_title")
                                        , this.languagepack.getString("prompt_password") + keyIdStr.str
                                        , passValue, this.languagepack.getString("save_password"), check);
           if(!result) return false;
@@ -387,7 +387,7 @@ var CWrapper = {
     }
   },
 
-//helper function for getSignPassword 
+//helper function for getSignPassword
   checkSignPassword: function(keyIdStr, sender, password){
     var keyId = new ctypes.char.ptr;
     var keyIdSize = new ctypes.uint32_t;
@@ -424,10 +424,10 @@ var CWrapper = {
         passValue.value = Pwmgr.getPass(keyIdStr.str);
         status = this.checkSignPassword(keyIdStr, sender, passValue.value);
         while(status != 0){
-          result = Logger.promptService.promptPassword(null, this.languagepack.getString("prompt_password_title") 
+          result = Logger.promptService.promptPassword(null, this.languagepack.getString("prompt_password_title")
                                        , this.languagepack.getString("prompt_password") + keyIdStr.str
                                        , passValue, this.languagepack.getString("save_password"), check);
-          if(!result) return false; 
+          if(!result) return false;
           pb.setBoolPref("savePW", check.value);
           status = this.checkSignPassword(keyIdStr, sender, passValue.value);
         }
@@ -491,7 +491,7 @@ var CWrapper = {
       return true;
     }
   },
-              
+
   getServerInfo: function(){
     let charArray = ctypes.ArrayType(ctypes.char);
     let myArray = new charArray(QUERY_ARRAYSIZE);
@@ -565,7 +565,7 @@ var CWrapper = {
         else{
           Logger.dbg("Could not revoke key - err no:"+status);
         }
-        
+
       };
     }
     //request
@@ -597,7 +597,7 @@ var CWrapper = {
 
     return status;
   },
-                 
+
   getInfoKeys: function(identity, fromKeypurse){
     var output = [];
     var result = new ctypes.char.ptr.ptr;
@@ -853,7 +853,7 @@ var CWrapper = {
     //types
     var result = new ctypes.char.ptr;
     var resultSize = new ctypes.uint32_t;
-    
+
     //TODO: remove spam output
     Logger.dbg(mailBody);
     Logger.dbg("Recipients:" + recipients + " sender:"+sender);
@@ -941,7 +941,7 @@ var CWrapper = {
     }
     var c_sender = ctypes.char.array()(sender);
     var c_recipient = ctypes.char.array()(recipient);
-    
+
     //TODO: remove spam output
     Logger.dbg(mailBody);
 
@@ -1014,4 +1014,3 @@ CWrapper.QuestionEnum = {
   YES : 1,
   ASK : 2
 }
-

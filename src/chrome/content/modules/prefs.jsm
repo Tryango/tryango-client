@@ -58,23 +58,16 @@ var Prefs = new function()
     }
   }
 
-  this.reloadPrefs = function(){
-	//TODO: this.prefBranch.resetBranch(""); is not implemented  IN THUNDERBIRD yet!!! => do it manually
+  this.reset = function(){
+	//get all prefs in the prefBranch
+	var obj = new Object();
+	var array = this.prefBranch.getChildList("", obj)
 
-	//create path
-	const ioService = Components
-	      .classes["@mozilla.org/network/io-service;1"]
-	      .getService(Components.interfaces.nsIIOService);
-	var prefsFile = ioService.newURI("resource://defaultPrefs", null, null)
-		.QueryInterface(Components.interfaces.nsIFileURL).file;
-
-	//debug
-	Logger.dbg("Reloading prefs from: " + prefsFile.path);
-
-	//reload
-	Components.classes["@mozilla.org/preferences-service;1"]
-      .getService(Components.interfaces.nsIPrefService)
-	  .readUserPrefs(prefsFile);
+	//iterate over the prefs and clear them (=reset)
+	for(var i = 0; i < obj.value; i++){
+	  Logger.dbg("clearUserPref " + array[i]);
+	  this.prefBranch.clearUserPref(array[i]);
+	}
   }
 
   this.getDefaultPref = function(prefName) {
