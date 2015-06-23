@@ -865,9 +865,11 @@ var CWrapper = {
     var pass = {value : ""};
     if(sign){
       if(this.synchronizeSK(sender) != 0){
+        Logger.dbg("Failed to synchronize with the public key for sender sender:" + sender);
         return 21; //ANG_NO_KEY_PRESENT
       }
       if(!this.getSignPassword(pass, sender)){
+        Logger.dbg("Failed to get password for private key of:" + sender);
         return 21; //ANG_NO_KEY_PRESENT
       }
     }
