@@ -654,7 +654,11 @@ ConfiComposeStateListener = {
 
     //TODO: FIXME: we drop the header and the bgcolor in <body ...> here!
     //strip body out of email
-    plaintext = plaintext.match(/<body[^>]*>([\s\S]*)<\/body>/i)[1];
+	Logger.dbg("plaintext: " + plaintext);
+	var match = plaintext.match(/<body[^>]*>([\s\S]*)<\/body>/i)
+	if(match && match.length == 2){ // 2 cause "match" is an array: ["<body...> email </body>", "email"]
+      plaintext = match[1];
+	}
 
     //insert decrypted text as quotation
     //nsIEditorMailSupport: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsIEditorMailSupport#insertTextWithQuotations%28%29

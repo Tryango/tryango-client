@@ -71,14 +71,14 @@ var MailListener = new function() {
 
     Logger.dbg("MailListener init done: " + Services.prefs.getCharPref("mailnews.customDBHeaders").trim());
   };
-  
-  
+
+
   /**
    * function to be called when Tryango is uninstalled
    */
   this.removeAllTryangoXHEADERS = function(){
     Logger.dbg("Removing XHEADERS");
-    
+
     //remove all x-headers again
     removeHeader(this.XHEADER);
     removeHeader(this.XHEADER_REQID);
@@ -188,7 +188,7 @@ var MailListener = new function() {
     return false;
   };
 
-  
+
   this.submitKey = function(identity){
     //submit our key
     let device = Prefs.getPref("machineID");
@@ -230,7 +230,7 @@ var MailListener = new function() {
         }
       }
       if(CWrapper.synchronizeSK(identity) != 0){
-        Logger.err(this.languagepack.getString("no_corresponding_key") +": " + identity);
+        Logger.error(this.languagepack.getString("no_corresponding_key") +": " + identity);
       }
       Logger.infoPopup(this.languagepack.getString("signup_done") + " (" + identity + ")");
     }
@@ -242,12 +242,12 @@ var MailListener = new function() {
   //and decrypt/verify if necessary
   this.onMsgDisplay = function(event){
     //explanation: hooked messagepane and overload "onpageshow" function (see tryango.js)
-    
+
     //reset
     this.cmToolbar.children[0].setAttribute("value", this.languagepack.getString("verifytoolbar"));
     this.cmToolbar.setAttribute("style", "background-color: transparent;");
     this.cmToolbar.children[0].setAttribute("style", "color: black;");
-    
+
     //search for signed/encrypted (BEGIN PGP MESSAGE/BEGIN PGP SIGNED MESSAGE?)
     if(event.currentTarget.contentDocument.body != null)
     {
@@ -267,9 +267,9 @@ var MailListener = new function() {
         return;
       }
       Logger.dbg("Found body email:\""+body+"\"");
-      
+
       var indent = body.substring(body.substr(0, PGPstart).lastIndexOf("\n") + 1, PGPstart);
-      
+
       var beginIndexObj = new Object();
       var endIndexObj = new Object();
       var indentStrObj = new Object();
@@ -277,13 +277,13 @@ var MailListener = new function() {
                                                beginIndexObj, endIndexObj,
                                                indentStrObj);
       Logger.dbg("block type \"" + blockType + "\"");
-      
+
       if ((blockType != "MESSAGE") && (blockType != "SIGNED MESSAGE"))
         return;
-      
+
       var beginIndex = beginIndexObj.value;
       var endIndex   = endIndexObj.value;
-      
+
       var head = body.substr(0, beginIndex);
       var tail = body.substr(endIndex + 1);
       var ciphertext = body.substr(beginIndex, endIndex - beginIndex + 1);
@@ -291,7 +291,7 @@ var MailListener = new function() {
       if (indent) {
         // MULTILINE MATCHING ON
         RegExp.multiline = true;
-        
+
         if (indent == "> ") {
           // replace ">> " with "> > " to allow correct quoting
           ciphertext = ciphertext.replace(/^>>/g, "> >");
@@ -398,7 +398,7 @@ var MailListener = new function() {
 
   //helper function to insert email into documentBody
   this.insertEmail = function(document, email, bool_html){
-    //EXPLANATION: 
+    //EXPLANATION:
     // event.currentTarget.contentDocument.documentElement.innerHTML holds the
     // "original" (encrypted) email document. This document already includes
     // some info (e.g. title = email-subject...).
@@ -409,7 +409,7 @@ var MailListener = new function() {
     //    element in that body.
     //    ATTENTION: if attachments are displayed there are multiple DIV elements and PRE holds the attachment, not the email!
 
-    Logger.dbg(email); //XXX: remove
+    Logger.dbg("Inserting email:\n" + email); //XXX: remove
 
     //get elements
     var pre = document.body.getElementsByTagName("pre");
@@ -442,17 +442,24 @@ var MailListener = new function() {
       //create new
       div = document.createElement("div");
       //check html vs text
-      if(Prefs.getPrefByString("html_as", "mailnews.display.") == 1){
+	  //if message not html or View->Message Body As->Plain Text => text
+      if(!bool_html || Prefs.getPrefByString("html_as", "mailnews.display.") == 1){
+		Logger.dbg("Recreating <PRE>");
         //display email as text
-        div.textContent = email;
+		//add pre tag to achieve pure text...
+		div.textContent = "";
+		pre = document.createElement("pre");
+		pre.textContent = email;
+		div.appendChild(pre);
       }else{
+		Logger.dbg("display email as html");
         //display email as HTML
         div.innerHTML = email;
       }
       document.body.appendChild(div);
       return;
     }
-    
+
     //could not find PGP message
     //write decrypted content as pure-text... (at least)
     document.body.textContent = email;
@@ -563,5 +570,5 @@ var MailListener = new function() {
     //didn't find anything
     return null;
   };
-  
+
 } //end of MailListener
