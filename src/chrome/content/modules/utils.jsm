@@ -149,7 +149,7 @@ var Utils = new function()
       }
     }
 
-    return ret; //explicit end of method
+    return ret;
   }
 
   this.syncKeypurse = function(languagepack){
@@ -717,6 +717,8 @@ function removeSelectedDevices(){
         elements[0] = devicesView.getCellText(j, col);
       }
 
+	  //TODO: FIXME: this removes all devices not just the selected ones!
+
       //remove the devices
       if(devicesView.emails[parent] > 0){
         removeDevices(parent, elements, lang, false); //doNotPrompt = false => DO prompt
@@ -796,4 +798,3 @@ function removeSelectedKeys(){
     fillKeys(document.getElementById('lang_file'));
   }
 }
-
