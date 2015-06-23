@@ -478,7 +478,7 @@ var devicesView = {
 
 function fillDevices(languagepack){
   //fill devices
-
+  this.syncKeypurse(languagepack);
   //set date for last update
   Logger.dbg("filling devices");
   document.getElementById("tree_devices_updated").value = new Date().toISOString();
