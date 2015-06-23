@@ -457,29 +457,29 @@ class SignKey{
 
     PublicKeyPair* pkey = pubDb->getKey(sender);
     if(pkey == NULL){
-      std::cout<<"Verify fail no 1"<<std::endl;
+/*       std::cout<<"Verify fail no 1"<<std::endl; */
       return ANG_NOPUBKEY_SIG;
     }
     PKT_public_key* signPk = pkey->getPSKey();
     if(signPk == NULL){
-      std::cout<<"Verify fail no 2"<<std::endl;
+/*       std::cout<<"Verify fail no 2"<<std::endl; */
       return ANG_NOPUBKEY_SIG;
     }
     if(PublicKeyDb::hasExpired(signPk, sig->timestamp)){
-      std::cout<<"Verify fail no 3"<<std::endl;
+/*       std::cout<<"Verify fail no 3"<<std::endl; */
       return ANG_SIGKEY_EXPIRED;
     }
-    std::cout<<"verifySignature 3"<<std::endl;
+/*     std::cout<<"verifySignature 3"<<std::endl; */
     if(sig->sig_expirePeriod > 0){
       time_t now;
       time(&now);
       if(now < sig->sig_expirePeriod + sig->timestamp){
-        std::cout<<"Verify fail no 4"<<std::endl;
+/*         std::cout<<"Verify fail no 4"<<std::endl; */
         return ANG_SIG_EXPIRED;
       }
     }
     if(signPk->fingerprint.substr(12, 8) != sig->keyid){
-      std::cout<<"Verify fail no 5"<<std::endl;
+/*       std::cout<<"Verify fail no 5"<<std::endl; */
       return ANG_NOPUBKEY_SIG;
     }
     RSA *rsa = SecretKeyPair::newRSA();
@@ -526,12 +526,13 @@ class SignKey{
   static Confi_Status signData(PKT_signature *sig
                                , const std::string& toSign //assumed to have correct line endings etc
                                , const std::string& signer
-                               , KeyDb& keyDb
+                               , KeyDb* keyDb
                                , const std::string& password
                                , const bool binary = false
                                   ){
     sig->version = 4;
-    SecretKeyPair* skPair = keyDb.getCurrentKey(signer);
+    SecretKeyPair* skPair = keyDb->getCurrentKey(signer);
+    std::cout<<"signData signer="<<signer<<" password:"<<password<<std::endl;
     if(skPair == NULL) {
       return ANG_NO_KEY_PRESENT;
     }
@@ -573,6 +574,7 @@ class SignKey{
     std::string prefix = getHashPrefix(sig->digest_algo);
     RSA *skRsa = SecretKeyPair::newRSA();
     Confi_Status status = SecretKeyPair::getRsaSecretKey(skRsa, sk, password);
+
     if(status == ANG_OK){
 #if defined(_MSC_VER)
       char *sigBuff = new char[RSA_size(skRsa)];

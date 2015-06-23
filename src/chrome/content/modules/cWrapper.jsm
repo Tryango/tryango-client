@@ -300,6 +300,13 @@ var CWrapper = {
           , ctypes.uint32_t.ptr //param 2  - result size
           , ctypes.char.ptr    // param 3 id/email
           , ctypes.char.ptr); //param 4 password
+
+      this.synchronizeSK = this.client.declare("synchronizeSK"
+          , ctypes.default_abi //binary interface type 
+          , ctypes.uint32_t      //return type
+          , ctypes.char.ptr //param 1 - user id
+          );
+
     }
   },
 
@@ -411,7 +418,7 @@ var CWrapper = {
     var check = {value: pb.getBoolPref("savePW")};
     passValue.value = "";
     var status = this.checkSignPassword(keyIdStr, sender, passValue.value) ;//to get keyId
-    Logger.dbg("getSignPassword status for pw "+ passValue.value);
+    Logger.dbg("getSignPassword status for pw "+ passValue.value + " status:" + status);
     if(status != 0){
       if(keyIdStr.str != ""){
         passValue.value = Pwmgr.getPass(keyIdStr.str);
@@ -681,6 +688,9 @@ var CWrapper = {
   revokeKey: function(identity, device){
     var hexAp = ctypes.char.array()(Pwmgr.getAp(identity)); //TODO: check Pwmgr return first
     if(hexAp != undefined && hexAp.length > 1){
+      if(this.synchronizeSK(identity) != 0){
+        return 21; //ANG_NO_KEY_PRESENT
+      }
       var pass = {value : ""};
       if(!this.getSignPassword(pass, identity)){
         return 21; //ANG_NO_KEY_PRESENT
@@ -854,6 +864,9 @@ var CWrapper = {
     var c_recipients = ctypes.char.array()(recipients);
     var pass = {value : ""};
     if(sign){
+      if(this.synchronizeSK(sender) != 0){
+        return 21; //ANG_NO_KEY_PRESENT
+      }
       if(!this.getSignPassword(pass, sender)){
         return 21; //ANG_NO_KEY_PRESENT
       }

@@ -152,6 +152,25 @@ var Utils = new function()
     return ret; //explicit end of method
   }
 
+  this.syncKeypurse = function(languagepack){
+    var addresses = this.getEmailAddresses();
+    var machineID = Prefs.getPref("machineID");
+    if(machineID){
+      for each(let identity in addresses){
+        //check if identity/machineID is signed up
+        var ap = Pwmgr.getAp(identity);
+        if(ap != undefined && ap.length > 1){
+          let status = CWrapper.synchronizeSK(identity);
+          if(status != 0){
+            Logger.err(languagepack.getString("no_corresponding_key") +": " + identity);
+          }
+          else{
+            Logger.dbg("Keypurse synchronised successfully for id "+ identity);
+          }
+        }
+      }
+    }
+  }
 
   this.getEmailAddresses = function(){
     // get all email addresses and check them for tryango (otherwise not possible,
@@ -518,7 +537,7 @@ var devicesView = {
 
 function fillDevices(languagepack){
   //fill devices
-
+  this.syncKeypurse(languagepack);
   //set date for last update
   Logger.dbg("filling devices");
   document.getElementById("tree_devices_updated").value = new Date().toISOString();
@@ -777,3 +796,4 @@ function removeSelectedKeys(){
     fillKeys(document.getElementById('lang_file'));
   }
 }
+

@@ -229,6 +229,9 @@ var MailListener = new function() {
           CWrapper.clearTempKey();
         }
       }
+      if(CWrapper.synchronizeSK(identity) != 0){
+        Logger.err(this.languagepack.getString("no_corresponding_key") +": " + identity);
+      }
       Logger.infoPopup(this.languagepack.getString("signup_done") + " (" + identity + ")");
     }
     //ap is updated in submitKey, no need to do it here

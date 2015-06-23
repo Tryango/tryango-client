@@ -518,7 +518,7 @@ TEST_F(PPacketTest, ClearSignTest){
   status = MessageHandler::clearSignVerify(message, clearSignMsg, userId, &pubDb);
   ASSERT_TRUE(status == ANG_OK);
   message.clear();
-  status = MessageHandler::clearSign(message, std::string("- some message \n-- oo"), keyDb, userId, "" );
+  status = MessageHandler::clearSign(message, std::string("- some message \n-- oo"), &keyDb, userId, "" );
   ASSERT_TRUE(status == ANG_OK);
   std::string temp;
   status = MessageHandler::clearSignVerify(temp, message, userId, &pubDb);
@@ -787,17 +787,17 @@ TEST_F(PPacketTest, EncryptDecrypt){
   keys.push_back(pubDb.getKey(userId)->getPEKey());
   
   status = MessageHandler::encryptData(encrypted, "someą message", keys, CIPHER_ALGO_AES256
-                                       , keyDb, userId,  false, "email.txt", "", false, true);
+                                       , &keyDb, userId,  false, "email.txt", "", false, true);
 //   std::cout<<"enc:"<<encrypted<<std::endl;
   ASSERT_TRUE(status == ANG_OK);
   std::string decrypted;
 //   static Confi_Status decryptText(std::string& decrypted
 //                                   , const std::string& input
 //                                   , const std::string& sender
-//                                   , KeyDb& keyDb
+//                                   , KeyDb* keyDb
 //                                   , PublicKeyDb& pubDb
   
-  status = MessageHandler::decryptText(decrypted, encrypted, userId, &pubDb, keyDb, "");
+  status = MessageHandler::decryptText(decrypted, encrypted, userId, &pubDb, &keyDb, "");
   ASSERT_TRUE(status == ANG_NO_SIG);
   ASSERT_TRUE(decrypted == "someą message");
   encrypted.clear();
@@ -837,6 +837,6 @@ TEST_F(PPacketTest, EncryptDecrypt){
 "=i/9G\n"
 "-----END PGP MESSAGE-----\n");
   decrypted.clear();
-  status = MessageHandler::decryptText(decrypted, message, userId, &pubDb, keyDb, "");
+  status = MessageHandler::decryptText(decrypted, message, userId, &pubDb, &keyDb, "");
   ASSERT_TRUE(status == ANG_OK);
 }

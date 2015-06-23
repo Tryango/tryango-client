@@ -32,10 +32,10 @@ class MessageHandler{
   static Confi_Status getDecrKey(std::string& result
                                  , PKT_CipherAlgo& alg
                                  , PKT_pubkey_enc& pkt
-                                 , KeyDb& keyDb
+                                 , KeyDb* keyDb
                                  , const std::string& password
                           ){
-    KeyList keys = keyDb.getKeysById(pkt.keyid);
+    KeyList keys = keyDb->getKeysById(pkt.keyid);
     uint16_t csum = 0;
     if(keys.size() < 1){
       return ANG_NO_KEY_PRESENT;
@@ -223,7 +223,7 @@ class MessageHandler{
 
   static Confi_Status clearSign(std::string& result
                                 , const std::string& input
-                                , KeyDb& keyDb
+                                , KeyDb* keyDb
                                 , const std::string& sender
                                 , const std::string& password
                                 ){
@@ -338,7 +338,7 @@ class MessageHandler{
                                   , const std::string& inputData
                                   , const std::string& sender
                                   , PublicKeyDb* pubDb
-                                  , KeyDb& keyDb
+                                  , KeyDb* keyDb
                                   , const std::string& password
     ){
     Confi_Status status = ANG_UNKNOWN_ERROR;
@@ -364,7 +364,7 @@ class MessageHandler{
                                   , const std::string& input
                                   , const std::string& sender
                                   , PublicKeyDb* pubDb
-                                  , KeyDb& keyDb
+                                  , KeyDb* keyDb
                                   , const std::string& password
                                   ){//TODO: binary data is not properly encrypted/decrypted (check e.g. email attached pdf)
 
@@ -591,7 +591,7 @@ class MessageHandler{
 
 
   static Confi_Status data2SignStr(std::string& result
-                                   , KeyDb& keyDb
+                                   , KeyDb* keyDb
                                    , const std::string& sender
                                    , const std::string& input
                                    , bool binary
@@ -601,6 +601,7 @@ class MessageHandler{
                                    ){
     std::string ltr;
     Confi_Status status = data2LitrStr(ltr, input, binary, fileName, timestamp);
+
     //TODO "-" escape
     PKT_signature* sig = new PKT_signature;
     if(status == ANG_OK){
@@ -811,16 +812,25 @@ class MessageHandler{
     while(count.size() == 0 && isMore){
       isMore = false;
       for(auto& id:users){
-        std::cout<<"checking key id:"<<id<<std::endl;
         PublicKeyPair* key = db->getKey(id);
-        if(key == NULL){std::cout<<"1\n"; return CIPHER_ALGO_NONE;}
+        if(key == NULL){
+          return CIPHER_ALGO_NONE;
+        }
         PKT_public_key* pkey = key->getPSKey();
-        if(pkey == NULL){std::cout<<"2\n"; return CIPHER_ALGO_NONE;}
+        if(pkey == NULL){
+          return CIPHER_ALGO_NONE;
+        }
         PKT_user_id* uId = key->getUserId(id);
-        if(uId == NULL){std::cout<<"3\n"; return CIPHER_ALGO_NONE;}
-        if(uId->signature == NULL){std::cout<<"4\n"; return CIPHER_ALGO_NONE;}
+        if(uId == NULL){
+          return CIPHER_ALGO_NONE;
+        }
+        if(uId->signature == NULL){
+          return CIPHER_ALGO_NONE;
+        }
         int size = uId->signature->best_cipher_algo.size();
-        if(size == 0){std::cout<<"5\n"; return CIPHER_ALGO_NONE;}
+        if(size == 0){
+          return CIPHER_ALGO_NONE;
+        }
         if(size > step){
           isMore = true;
           PKT_CipherAlgo alg = uId->signature->best_cipher_algo.at(step);
@@ -964,7 +974,7 @@ class MessageHandler{
                                   , const std::string& input
                                   , std::vector<PKT_public_key*>& keys
                                   , PKT_CipherAlgo alg
-                                  , KeyDb& keyDb
+                                  , KeyDb* keyDb
                                   , const std::string& sender
                                   , bool binary
                                   , const std::string& fileName
@@ -976,7 +986,6 @@ class MessageHandler{
     std::string body;
     std::string sessionKey = getRandomString(PktDo::keySize(alg));
     status = encryptSession(body, sessionKey, keys, alg);
-    std::cout<<"encryptData after ses status="<<status<<std::endl;
     if (status != ANG_OK){
       return status;
     }
@@ -1028,7 +1037,7 @@ class MessageHandler{
                                   , const std::string& inputFile
                                   , std::vector<PKT_public_key*>& keys
                                   , PKT_CipherAlgo alg
-                                  , KeyDb& keyDb
+                                  , KeyDb* keyDb
                                   , const std::string& sender
                                   , const std::string& password = ""
                                   , bool sign = true
@@ -1072,7 +1081,7 @@ class MessageHandler{
 
   static Confi_Status checkDecrPassword(std::string& fingerprint
                                         , const std::string& input //message
-                                        , KeyDb& keyDb
+                                        , KeyDb* keyDb
                                         , const std::string& password //password
                                         ){
     std::vector<PACKET> packets;
@@ -1083,7 +1092,7 @@ class MessageHandler{
       unsigned int i = 0;
       while(!haveSessionKey && (i<packets.size()) && packets.at(i).pkttype == PKT_PUBKEY_ENC){
         PKT_pubkey_enc& pkt = *(packets.at(i).pkt.pubkey_enc);
-        KeyList keys = keyDb.getKeysById(pkt.keyid);
+        KeyList keys = keyDb->getKeysById(pkt.keyid);
         if(keys.size() > 0){
           uint16_t csum = 0;
           status = ANG_WRONG_PASSWORD;

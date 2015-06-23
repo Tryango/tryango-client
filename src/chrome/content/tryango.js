@@ -76,6 +76,7 @@ Tryango.init = function(){
   Pwmgr.init();
   Logger.log("Password manager initialised");
   if(!CWrapper.importKeyPurse(Prefs.getPref("keyPursePath"), true)){
+    Utils.syncKeypurse(this.languagepack);
     Logger.log("Keypurse loaded succesfully");
   }
   else{

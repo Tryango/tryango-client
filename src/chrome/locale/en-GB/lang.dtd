@@ -24,6 +24,7 @@
 <!ENTITY  wizard.welcomePage.btnAdvanced "Advanced">
 
 <!ENTITY  wizard.chooseEmailPage.title     "Signup to Tryango server.">
+<!ENTITY  wizard.chooseEmailPage.email_label "Please select email address with which you want to sign up with Tryango:">
 <!ENTITY  wizard.chooseEmailPage.key_label "Sign-up options:">
 <!ENTITY  wizard.chooseEmailPage.prev_key  "Use previous Tryango setup stored on this machine.">
 <!ENTITY  wizard.chooseEmailPage.new_key   "Create new Tryango credentials.">

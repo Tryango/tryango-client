@@ -502,7 +502,7 @@ TEST_F(PgpTest, KeyGeneration){
     ASSERT_TRUE(RSA_check_key(skRsa) == 1);
     SecretKeyPair::freeRSA(skRsa);
     message.clear();
-    status = MessageHandler::decryptText(message, encryptedMessage, std::string("pkordy@gmail.com"), client.getPubDb(),  keyDb, "");
+    status = MessageHandler::decryptText(message, encryptedMessage, std::string("pkordy@gmail.com"), client.getPubDb(),  &keyDb, "");
     ASSERT_TRUE(status == ANG_NO_SIG);
     ASSERT_TRUE(message == "message\n");
     std::cout<<".";
@@ -628,7 +628,7 @@ TEST_F(PgpTest, EncryptedKeys){
                                            , mailBody
                                            , keys
                                            , CIPHER_ALGO_AES256
-                                           , keyDb
+                                           , &keyDb
                                            , email
                                            , false //binary
                                            , "email.txt" //filename
@@ -638,15 +638,15 @@ TEST_F(PgpTest, EncryptedKeys){
                                            );
       ASSERT_TRUE(status == ANG_OK);
       std::string fingerprint;
-      status = MessageHandler::checkDecrPassword(fingerprint, encrypted, keyDb, "");
+      status = MessageHandler::checkDecrPassword(fingerprint, encrypted, &keyDb, "");
       ASSERT_TRUE(status == ANG_WRONG_PASSWORD);
-      status = MessageHandler::checkDecrPassword(fingerprint, encrypted, keyDb, "pass");
+      status = MessageHandler::checkDecrPassword(fingerprint, encrypted, &keyDb, "pass");
       ASSERT_TRUE(status == ANG_WRONG_PASSWORD);
       std::string message;
-      status = MessageHandler::checkDecrPassword(fingerprint, encrypted, keyDb, "password");
+      status = MessageHandler::checkDecrPassword(fingerprint, encrypted, &keyDb, "password");
       ASSERT_TRUE(fingerprint == publicKeyDb.getKey(email)->getPEKey()->fingerprint);
       ASSERT_TRUE(status == ANG_OK);
-      status = MessageHandler::decryptText(message, encrypted, email, &publicKeyDb,  keyDb, "password");
+      status = MessageHandler::decryptText(message, encrypted, email, &publicKeyDb,  &keyDb, "password");
       ASSERT_TRUE(status == ANG_NO_SIG);
       ASSERT_TRUE(message == corrBody);
       encrypted.clear();
@@ -654,7 +654,7 @@ TEST_F(PgpTest, EncryptedKeys){
                                            , mailBody
                                            , keys
                                            , CIPHER_ALGO_AES256
-                                           , keyDb
+                                           , &keyDb
                                            , email
                                            , false //binary
                                            , "email.txt" //filename
@@ -668,7 +668,7 @@ TEST_F(PgpTest, EncryptedKeys){
                                            , mailBody
                                            , keys
                                            , CIPHER_ALGO_AES256
-                                           , keyDb
+                                           , &keyDb
                                            , email
                                            , false //binary
                                            , "email.txt" //filename
@@ -677,15 +677,15 @@ TEST_F(PgpTest, EncryptedKeys){
                                            , false  //armor
                                            ); //decrypt self
       ASSERT_TRUE(status == ANG_OK);
-      status = MessageHandler::checkDecrPassword(fingerprint, encrypted, keyDb, "password");
+      status = MessageHandler::checkDecrPassword(fingerprint, encrypted, &keyDb, "password");
       ASSERT_TRUE(fingerprint == publicKeyDb.getKey(email)->getPEKey()->fingerprint);
       ASSERT_TRUE(status == ANG_OK);
       message.clear();
-      status = MessageHandler::decryptText(message, encrypted, email, &publicKeyDb,  keyDb, "password");
+      status = MessageHandler::decryptText(message, encrypted, email, &publicKeyDb,  &keyDb, "password");
       ASSERT_TRUE(status == ANG_OK);
       ASSERT_TRUE(message == corrBody);
       message.clear();
-      status = MessageHandler::decryptText(message, " "+encrypted, email, &publicKeyDb,  keyDb, "password");
+      status = MessageHandler::decryptText(message, " "+encrypted, email, &publicKeyDb,  &keyDb, "password");
       ASSERT_TRUE(status == ANG_PARSE_ERROR);
       ASSERT_TRUE(message != corrBody);
       
@@ -694,7 +694,7 @@ TEST_F(PgpTest, EncryptedKeys){
                                            , mailBody
                                            , keys
                                            , CIPHER_ALGO_AES256
-                                           , keyDb
+                                           , &keyDb
                                            , email
                                            , true //binary
                                            , "email.txt" //filename
@@ -703,21 +703,21 @@ TEST_F(PgpTest, EncryptedKeys){
                                            , true  //armor
                                            );
       ASSERT_TRUE(status == ANG_OK);
-      status = MessageHandler::checkDecrPassword(fingerprint, encrypted, keyDb, "password");
+      status = MessageHandler::checkDecrPassword(fingerprint, encrypted, &keyDb, "password");
       ASSERT_TRUE(fingerprint == publicKeyDb.getKey(email)->getPEKey()->fingerprint);
       ASSERT_TRUE(status == ANG_OK);
       message.clear();
-      status = MessageHandler::decryptText(message, encrypted, email, &publicKeyDb,  keyDb, "password");
+      status = MessageHandler::decryptText(message, encrypted, email, &publicKeyDb,  &keyDb, "password");
       ASSERT_TRUE(status == ANG_OK);
       ASSERT_TRUE(message == mailBody);
       
       encrypted.clear();
-      status = MessageHandler::clearSign(encrypted, mailBody, keyDb, email, "");
+      status = MessageHandler::clearSign(encrypted, mailBody, &keyDb, email, "");
       ASSERT_TRUE(status == ANG_WRONG_PASSWORD);
-      status = MessageHandler::clearSign(encrypted, mailBody, keyDb, email, "pass");
+      status = MessageHandler::clearSign(encrypted, mailBody, &keyDb, email, "pass");
       ASSERT_TRUE(status == ANG_WRONG_PASSWORD);
       encrypted.clear();
-      status = MessageHandler::clearSign(encrypted, mailBody, keyDb, email, "password");
+      status = MessageHandler::clearSign(encrypted, mailBody, &keyDb, email, "password");
       ASSERT_TRUE(status == ANG_OK);
       message.clear();
       status = MessageHandler::clearSignVerify(message, encrypted, email, &publicKeyDb);
