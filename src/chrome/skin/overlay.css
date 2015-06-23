@@ -12,7 +12,7 @@
 
 /* gpg key tree (all treechildren with parent id="info_key_tree") */
 #info_key_tree > treechildren::-moz-tree-row{
-  height: 75px !important;
+/*   height: 75px !important; */
 }
 /* properties to colour date-fields of keys */
 treechildren::-moz-tree-cell-text(greenCell){

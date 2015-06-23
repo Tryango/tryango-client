@@ -302,6 +302,7 @@ class MessageHandler{
                                   , const std::string& sender
                                   , PublicKeyDb* pubDb
                                   ){
+    std::cout<<"input to clearsign:"<<std::endl<<string_to_hex(std::string(input))<<std::endl;
     std::vector<PACKET> packets;
     EVP_MD_CTX *mdctx = NULL;
     Confi_Status status = PacketParser::parsePackets(packets, input, &msg);

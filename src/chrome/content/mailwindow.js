@@ -461,7 +461,9 @@ var MailWindow = new function(){
         }
       }
       enc_signed_mail = enc_signed_mail.str;
-
+      //Thunderbird kills line-endings, so we need to revert back to "native" line endings
+      //TODO: test on windows && mac
+      enc_signed_mail = enc_signed_mail.replace(/(\r\n|\r|\n)/g, '\n');
       //change body to enc_signed_mail
       editor.selectAll();
       try{

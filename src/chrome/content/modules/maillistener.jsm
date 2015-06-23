@@ -364,8 +364,9 @@ var MailListener = new function() {
         //"SIGNED MESSAGE"
         ciphertext = ciphertext.replace(/[^\S\r\n]+$/gm, "")
         var message = {str : ""};
+//         Logger.dbg("veryfing signature for msg"+ciphertext);
         var status = CWrapper.verifySignature(message, ciphertext, sender);
-        Logger.dbg("veryfied signature for sender:"+sender + " with status:"+status);
+        Logger.dbg("verifyed signature for sender:"+sender + " with status:"+status);
         message= message.str;
         this.updateToolBar(status);
 

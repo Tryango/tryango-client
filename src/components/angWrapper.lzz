@@ -432,6 +432,7 @@ extern "C"{
                           , bool encrypt //if set, encrypt email
                            ){
     Confi_Status status = ANG_UNKNOWN_ERROR;
+    std::cout<<"encrypting with body:"<<std::endl<<string_to_hex(std::string(mailBody))<<std::endl;
     SecretKeyPair* sk = client.getKeyDb()->getCurrentKey(PktDo::stripId(sender));
     if( sign && sk == NULL ){
       (*result) = NULL;
