@@ -601,6 +601,7 @@ class MessageHandler{
                                    ){
     std::string ltr;
     Confi_Status status = data2LitrStr(ltr, input, binary, fileName, timestamp);
+
     //TODO "-" escape
     PKT_signature* sig = new PKT_signature;
     if(status == ANG_OK){
@@ -811,16 +812,25 @@ class MessageHandler{
     while(count.size() == 0 && isMore){
       isMore = false;
       for(auto& id:users){
-        std::cout<<"checking key id:"<<id<<std::endl;
         PublicKeyPair* key = db->getKey(id);
-        if(key == NULL){std::cout<<"1\n"; return CIPHER_ALGO_NONE;}
+        if(key == NULL){
+          return CIPHER_ALGO_NONE;
+        }
         PKT_public_key* pkey = key->getPSKey();
-        if(pkey == NULL){std::cout<<"2\n"; return CIPHER_ALGO_NONE;}
+        if(pkey == NULL){
+          return CIPHER_ALGO_NONE;
+        }
         PKT_user_id* uId = key->getUserId(id);
-        if(uId == NULL){std::cout<<"3\n"; return CIPHER_ALGO_NONE;}
-        if(uId->signature == NULL){std::cout<<"4\n"; return CIPHER_ALGO_NONE;}
+        if(uId == NULL){
+          return CIPHER_ALGO_NONE;
+        }
+        if(uId->signature == NULL){
+          return CIPHER_ALGO_NONE;
+        }
         int size = uId->signature->best_cipher_algo.size();
-        if(size == 0){std::cout<<"5\n"; return CIPHER_ALGO_NONE;}
+        if(size == 0){
+          return CIPHER_ALGO_NONE;
+        }
         if(size > step){
           isMore = true;
           PKT_CipherAlgo alg = uId->signature->best_cipher_algo.at(step);
@@ -976,7 +986,6 @@ class MessageHandler{
     std::string body;
     std::string sessionKey = getRandomString(PktDo::keySize(alg));
     status = encryptSession(body, sessionKey, keys, alg);
-    std::cout<<"encryptData after ses status="<<status<<std::endl;
     if (status != ANG_OK){
       return status;
     }

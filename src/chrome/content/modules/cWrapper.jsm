@@ -418,7 +418,7 @@ var CWrapper = {
     var check = {value: pb.getBoolPref("savePW")};
     passValue.value = "";
     var status = this.checkSignPassword(keyIdStr, sender, passValue.value) ;//to get keyId
-    Logger.dbg("getSignPassword status for pw "+ passValue.value);
+    Logger.dbg("getSignPassword status for pw "+ passValue.value + " status:" + status);
     if(status != 0){
       if(keyIdStr.str != ""){
         passValue.value = Pwmgr.getPass(keyIdStr.str);

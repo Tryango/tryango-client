@@ -326,7 +326,7 @@ class KeyDb{
     std::string uId = PktDo::stripId(userId);
     if(hasSecretKey(uId)){
       if(userIdDb[uId].size() > 0){
-        SecretKeyPair* skp = userIdDb[uId].at(0);
+        SecretKeyPair* skp = getCurrentKey(uId);
         if (skp == NULL){
           return ANG_NO_KEY_PRESENT;
         }
