@@ -433,10 +433,9 @@ extern "C"{
                            ){
     Confi_Status status = ANG_UNKNOWN_ERROR;
     SecretKeyPair* sk = client.getKeyDb()->getCurrentKey(PktDo::stripId(sender));
-    if( sk == NULL){
+    if( sign && sk == NULL ){
       (*result) = NULL;
       *resultSize = 0;
-      std::cout<<"encrypt falied 1"<<std::endl;
       return ANG_NO_KEY_PRESENT;
     }
 
@@ -446,7 +445,6 @@ extern "C"{
       std::vector<PKT_public_key*> keys;
       status = getPubKeys(keys, alg, recipients, sender);
       if (status != ANG_OK){
-        std::cout<<"encrypt falied 2 status:"<<status<<std::endl;
         return status;
       }
       std::string encrypted;
@@ -464,7 +462,6 @@ extern "C"{
                                              , std::string(password)
                                              , sign
                                              , true);
-        std::cout<<"encrypt 3 status:"<<status<<std::endl;
         if(status == ANG_OK && !encrypted.empty()){
           *resultSize = allocateAndCopy(result, encrypted);
         }
