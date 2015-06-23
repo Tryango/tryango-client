@@ -14,14 +14,15 @@ var EXPORTED_SYMBOLS = ["Utils"]; //only export Utils, not the rest
 
 
 var Utils = new function()
-{  
+{
   this.exportKeyPurse = function(window, languagepack){
     if(!(new FileUtils.File(Prefs.getPref("keyPursePath"))).exists()){
-      //no keypurse => no export
+      //no keypurse => no export (this should never happen and be avoided by the
+	  //function calling exportKeyPurse)
       Logger.infoPopup(languagepack.getString("exp_keypurse_fail"));
-      return;
+      return false;
     }
-    
+
     //pick file to save to
     var fp = Components.classes["@mozilla.org/filepicker;1"].createInstance(
       Components.interfaces.nsIFilePicker);
@@ -42,15 +43,23 @@ var Utils = new function()
         //error
         Logger.error("exportKeyPurse failed");
         Logger.infoPopup(languagepack.getString("bak_keypurese_fail"));
+		return false;
       }
       //else: everything ok
-    }
+
+	  //backup done
+	  return true;
+    }else{
+	  //cancel
+	  return false;
+	}
   }
 
   this.removeAllDevicesAndRevokeKeys = function(window, languagepack){
     //function is called when plugin is deinstalled or user presses "reset"
     //a lot of pop-ups are ok, we have to make sure the user is aware what he/she
     //is doing
+	var ret;
 
     //(local) remove keypurse (if it exists) => backup first
     if(Prefs.getPref("keyPursePath") !=  undefined &&
@@ -58,12 +67,59 @@ var Utils = new function()
 
       //log
       Logger.dbg("keypurse exists => remove it");
-      
+
       //BACKUP: export keypurse if user wants to
-      if(Logger.promptService.confirm(null, "Tryango", languagepack.getString("exp_keypurse"))){
+	  //all three buttons: yes/cancel/no buttons
+	  //ATTENTION: cancel button has to be "button 1" since closing the window with
+	  //           the close button in the titlebar always returns 1
+	  var buttonFlags = (Components.interfaces.nsIPromptService.BUTTON_POS_0) *
+		  (Components.interfaces.nsIPromptService.BUTTON_TITLE_YES) +
+		  (Components.interfaces.nsIPromptService.BUTTON_POS_1) *
+		  (Components.interfaces.nsIPromptService.BUTTON_TITLE_CANCEL) + //cancel needs to be 1!!!
+		  (Components.interfaces.nsIPromptService.BUTTON_POS_2) *
+		  (Components.interfaces.nsIPromptService.BUTTON_TITLE_NO);
+	  var buttonResult = Logger.promptService.confirmEx(
+		null, "Tryango", languagepack.getString("exp_keypurse"),
+		buttonFlags,
+		null, null, null, //button labels set above already
+		null, new Object() //no checkbox
+	  );
+	  //0 = YES
+      if(buttonResult == 0){
+		Logger.dbg("Backup prompt: YES");
+
         Logger.dbg("Export keypurse");
-        this.exportKeyPurse(window, languagepack);
+        if(this.exportKeyPurse(window, languagepack)){
+		  Logger.dbg("exportKeyPurse done");
+
+		  //backup ok
+		  ret = true;
+		}else{
+		  Logger.dbg("User abort exportKeyPurse");
+
+		  //backup user cancelled or error
+		  return false;
+		}
       }
+	  //1 = CANCEL
+	  else if(buttonResult == 1){
+		Logger.dbg("Backup prompt: CANCEL");
+
+		//continue = false
+		return false;
+	  }
+	  //2 = NO
+	  else if(buttonResult == 2){
+		Logger.dbg("Backup prompt: NO");
+
+		//continue = true
+		ret = true;
+	  }else{
+		//error => just warn and abort
+		Logger.error("Backup keypurse prompt returned unexpected result: " + buttonResult);
+		//continue = false
+		return false;
+	  }
 
       //remove keypurse
       Logger.dbg("removing keypurse...");
@@ -72,7 +128,10 @@ var Utils = new function()
                      Prefs.getPref("keyPursePath"));
         Logger.infoPopup(languagepack.getString("rm_keypurse_fail"));
       }
-    }
+    }else{
+	  //no keypurse => everything good
+	  ret = true;
+	}
 
     //clear data on tryango server
     //(server) remove devices (will revoke keys if no device is signed up for it any more)
@@ -89,11 +148,11 @@ var Utils = new function()
         }
       }
     }
-        
-    return; //explicit end of method
+
+    return ret; //explicit end of method
   }
 
-  
+
   this.getEmailAddresses = function(){
     // get all email addresses and check them for tryango (otherwise not possible,
     // we cannot store all tryango-email-addresses on this device since they
@@ -104,7 +163,7 @@ var Utils = new function()
     var accounts = acctMgr.accounts;
 
     //iterate over accounts
-    for each (let account in fixIterator(accounts, 
+    for each (let account in fixIterator(accounts,
                                          Components.interfaces.nsIMsgAccount)) {
       //get pretty names as "mail for foo@test.com" or "news on news.mozilla.org"
       var mailaddrs = account.incomingServer.constructedPrettyName;
@@ -122,14 +181,14 @@ var Utils = new function()
   this.treeAppendRow = function (tree, keyRow, document, isOpen, lang){
     //REMARK: setting css text-wrap/word-break/overflow/etc. does not work
     //        for treecell.label! Apparently those cannot line-break!
-    
+
     //set open
     var item = document.createElement("treeitem");
     item.setAttribute("container", "true");
     if(isOpen){
       item.setAttribute("open", "true");
     }
-    
+
     //add sign key
     //primary column
     var row = document.createElement("treerow");
@@ -221,7 +280,7 @@ var Utils = new function()
     cell = document.createElement("treecell");
     cell.setAttribute("label", keyRow.encrId);
     row.appendChild(cell);
-    
+
     cell = document.createElement("treecell");
     cell.setAttribute("label", lang.getString(keyRow.encrEncrypted));
     row.appendChild(cell);
@@ -231,7 +290,7 @@ var Utils = new function()
     item.appendChild(subtree);
     tree.appendChild(item);
   }
-  
+
 }//end of "Utils"
 
 
@@ -380,13 +439,13 @@ var devicesView = {
     if(this.parent[this.rowTranslate(row)] == -1) return 0;
     return 1;
   },
-    
+
   setTree: function(treeBox){ this.treeBox = treeBox; },
-    
+
   isContainer: function(row){
     return this.parent[this.rowTranslate(row)] == -1;
   },
-    
+
   isContainerEmpty: function(row){
     row = this.rowTranslate(row);
     if(row == this.rowRealCount - 1) return true;
@@ -396,7 +455,7 @@ var devicesView = {
     row = this.rowTranslate(row);
     return this.isopen[row];
   },
-    
+
   hasNextSibling: function(row){
     row = this.rowTranslate(row);
     if(row == this.rowRealCount - 1) return false;
@@ -408,7 +467,7 @@ var devicesView = {
     row = this.rowTranslate(row);
     return this.parent[row];
   },
-  
+
   toggleOpenState: function(row){
     var realRow = this.rowTranslate(row);
     var rowNo = 1;
@@ -439,7 +498,7 @@ var devicesView = {
     this.isopen[realRow] = !this.isopen[realRow];
     this.treeBox.invalidateRow(row);
   },
-  
+
   incI: function(text, lastParent, i){
     this.rows[i] = text;
     this.parent[i] = lastParent;
@@ -489,7 +548,7 @@ function fillDevices(languagepack){
           //for getDevices this is not a critical error => catch it
           Logger.error("CWrapper exception (" + identity + "," + device + "):\n" +
                        err + "\n\nreturn: " + ret);
-          
+
           var errMsg = languagepack.getString("info_unavailable");
           i = devicesView.incI(errMsg, lastParent, i);
           continue;
@@ -543,12 +602,12 @@ function fillKeys(languagepack){
   var addresses = Utils.getEmailAddresses();
 
   //check all identities
-  for each(let identity in addresses){    
+  for each(let identity in addresses){
     var keys = CWrapper.getInfoKeys(identity, true);
     if(keys == null || keys.length <= 0){
       //just a warning, might be correct if there is no keypurse etc.
       Logger.log("Error: Keypurse for " + identity + " is empty/length <= 0: " + keys);
-      
+
       //leave identity/key-row empty
     }
     else{
@@ -598,17 +657,19 @@ function treeAppend(tree, id, string, container, op=false){
 
 function removeSelectedDevices(){
   var lang = document.getElementById('lang_file');
-
-  //ask user if they really want to remove the devices
-  if(!Logger.promptService.confirm(null, "Trango", lang.getString("prompt_remove_device"))){
-    return;
-  }
-  
   //nsITreeSelection: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsITreeSelection
   //nsITreeView: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsITreeView#getCellText%28%29
   var start = new Object();
   var end = new Object();
   var selected = document.getElementById("tree_devices").view.selection;
+  if(selected.getRangeCount() <= 0){
+	//no devices selected
+	return;
+  }
+  //ask user if they really want to remove the devices
+  if(!Logger.promptService.confirm(null, "Trango", lang.getString("prompt_remove_device"))){
+    return;
+  }
 
   //iterate over all selections
   var num = selected.getRangeCount();
@@ -660,7 +721,7 @@ function removeDevices(identity, devices, lang, doNotPrompt){
       lang.getString("remove_device_failed") +
         "\n(" + identity + ": " + devices + ")\n" +
         lang.getString(CWrapper.getErrorStr(status))
-    );               
+    );
   }
 
   //DONE in CWrapper: (remDev) remove ap from Pwmgr too if this device was deleted too.
@@ -674,6 +735,14 @@ function removeSelectedKeys(){
   //nsITreeSelection: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsITreeSelection
   //nsITreeView: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsITreeView#getCellText%28%29
   var selected = document.getElementById("tree_keys").view.selection;
+  if(selected.getRangeCount() <= 0){
+	//no keys selected
+	return;
+  }
+  //ask user if they really want to remove the devices
+  if(!Logger.promptService.confirm(null, "Trango", lang.getString("prompt_remove_key"))){
+    return;
+  }
 
   //iterate over all selections
   var elements = [];
@@ -708,4 +777,3 @@ function removeSelectedKeys(){
     fillKeys(document.getElementById('lang_file'));
   }
 }
-

@@ -268,14 +268,17 @@ var MailWindow = new function(){
        msg_type == nsIMsgCompDeliverMode.Later){
       //normal send => continue
     }
-    //TODO: encrypt/decrypt drafts
     else if(msg_type == nsIMsgCompDeliverMode.SaveAsDraft ||
             msg_type == nsIMsgCompDeliverMode.AutoSaveAsDraft ||
             msg_type == nsIMsgCompDeliverMode.SaveAs ||
             msg_type == nsIMsgCompDeliverMode.Save
            ){
+      //TODO: encrypt/decrypt drafts
+	  return 0;
+
+	  //TODO: original code
       //draft => continue
-      draft = true;
+      //draft = true;
     }else{
       //other options => stop here
       return 0;
@@ -291,7 +294,7 @@ var MailWindow = new function(){
 
     //only encrypt if checkbox is set...
     if(this.encrypt || this.sign){
-      
+
       /****************************
        * get sending email address
        */
@@ -439,7 +442,7 @@ var MailWindow = new function(){
        */
       Logger.log("calling C: encryptSignMail(...)");
       var enc_signed_mail = {str : ""};
-      var status = CWrapper.encryptSignMail(enc_signed_mail, mailBody, recipients, sender, 
+      var status = CWrapper.encryptSignMail(enc_signed_mail, mailBody, recipients, sender,
                                             this.sign, this.encrypt);
       //check errors
       if(status > 0 && status <= CWrapper.getMaxErrNum()){
@@ -517,7 +520,7 @@ ConfiComposeStateListener = {
     //called after email body is loaded (with quotations in the beginning!)
     //nsIEditor: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/NsIEditor
     //get message body
-    var editor = GetCurrentEditor();  
+    var editor = GetCurrentEditor();
     editor.beginTransaction();
     var body = editor.outputToString('text/plain', 4);
     editor.endTransaction();
@@ -542,15 +545,15 @@ ConfiComposeStateListener = {
                                              beginIndexObj, endIndexObj,
                                              indentStrObj);
     Logger.dbg("block type \"" + blockType + "\"");
-    
+
     if ((blockType != "MESSAGE") && (blockType != "SIGNED MESSAGE")){
       Logger.error("block type not a valid PGP block");
       return;
     }
-    
+
     var beginIndex = beginIndexObj.value;
     var endIndex   = endIndexObj.value;
-    
+
     var head = body.substr(0, beginIndex);
     var tail = body.substr(endIndex + 1);
 
@@ -560,33 +563,33 @@ ConfiComposeStateListener = {
     if (indent) {
       // MULTILINE MATCHING ON
       RegExp.multiline = true;
-        
+
       if (indent == "> ") {
         // replace ">> " with "> > " to allow correct quoting
         ciphertext = ciphertext.replace(/^>>/g, "> >");
       }
-      
+
       // Delete indentation
       indentRegexp = new RegExp("^"+indent, "g");
-      
+
       ciphertext = ciphertext.replace(indentRegexp, "");
       //tail     =     tail.replace(indentRegexp, "");
-        
+
       if (indent.match(/[ \t]*$/)) {
         indent = indent.replace(/[ \t]*$/g, "");
         indentRegexp = new RegExp("^"+indent+"$", "g");
-        
+
         ciphertext = ciphertext.replace(indentRegexp, "");
       }
-        
-        
+
+
       // Handle blank indented lines
       ciphertext = ciphertext.replace(/^[ \t]*>[ \t]*$/g, "");
       //tail     =     tail.replace(/^[ \t]*>[ \t]*$/g, "");
-      
+
       // Trim leading space in tail
       tail = tail.replace(/^\s*\n/, "\n");
-      
+
       // MULTILINE MATCHING OFF
       RegExp.multiline = false;
     }
@@ -648,7 +651,7 @@ ConfiComposeStateListener = {
         editor.insertText(head);
       }
     }
-    
+
     //TODO: FIXME: we drop the header and the bgcolor in <body ...> here!
     //strip body out of email
     plaintext = plaintext.match(/<body[^>]*>([\s\S]*)<\/body>/i)[1];
@@ -677,7 +680,7 @@ ConfiComposeStateListener = {
     //not needed
   },
 
-  SaveInFolderDone: function(folderURI){    
+  SaveInFolderDone: function(folderURI){
     //not needed
   },
 }

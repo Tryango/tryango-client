@@ -53,8 +53,29 @@ var Prefs = new function()
       Logger.error("Could not initialize library");
     }
     else{
-      Logger.dbg("Library initialised with server="+this.getPref("server")+" and port"+ this.getPref("port"));  
+      Logger.dbg("Library initialised with server="+this.getPref("server")+" and port"+ this.getPref("port"));
     }
+  }
+
+  this.reloadPrefs = function(){
+	//TODO: this.prefBranch.resetBranch(""); is not implemented yet!!! => do it manually
+
+	//create path
+	var prefsFile = FileUtils.getFile("resource://defaultPrefs", ["tryango_prefs.js"]);
+	//("resource://prefs", ["tryango_prefs.js"]);
+//	prefsFile.append("tryango_prefs.js");
+
+	//debug
+	Logger.dbg("Reloading prefs from: " + prefsFile.path);
+
+	//reload
+	/*
+	Components.classes["@mozilla.org/preferences-service;1"]
+      .getService(Components.interfaces.nsIPrefService)
+	  .readUserPrefs(prefsFile);
+	*/
+
+	//TODO: how to check?
   }
 
   this.getDefaultPref = function(prefName) {
@@ -87,7 +108,7 @@ var Prefs = new function()
       return false;
     }
   }
-  
+
   /**
    * Get a preference from the storage
    *  @param String  prefName    the name of the variable to get
@@ -282,7 +303,7 @@ var Prefs = new function()
   }
 
 
-  /* 
+  /*
    * Locates offsets bracketing PGP armored block in text,
    * starting from given offset, and returns block type string.
    * beginIndex = offset of first character of block
@@ -306,24 +327,24 @@ var Prefs = new function()
         beginIndex = this.IndexOfArmorDelimiter(text, indentStr+"-----BEGIN PGP ", offset);
       }
     }
-    
+
     if (beginIndex < 0)
       return "";
 
     // Locate newline at end of armor header
     offset = text.indexOf("\n", beginIndex);
-    
+
     if (offset == -1)
       return "";
 
-    
+
     var endIndex = this.IndexOfArmorDelimiter(text, indentStr+"-----END PGP ", offset);
     if(endIndex < 0){
       //buggy: sometimes "...BEGIN PGP" is prefixed with a space but the rest of
       //the email is NOT! => try again without prefix
       endIndex = this.IndexOfArmorDelimiter(text, "-----END PGP ", offset);
     }
-    
+
     if (endIndex < 0)
       return "";
 
@@ -359,4 +380,3 @@ var Prefs = new function()
     return blockType;
   }
 }
-

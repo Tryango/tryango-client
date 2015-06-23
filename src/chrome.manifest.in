@@ -17,6 +17,8 @@ resource  	libclient 					components/@TRYANGO_FILE@ abi=@ABI@
 @PROTOBUF_LINE@
 #resource  	libclient 					components/libtryango-client.dylib abi=Darwin_x86_64-gcc3
 
+resource    defaultPrefs				defaults/preferences/
+
 #skins
 skin		tryango	tryangoskin			chrome/skin/
 
@@ -39,4 +41,3 @@ locale		tryango	en-US				chrome/locale/en-US/
 # ru             -  Russian
 # nl             -  Dutch
 # pt-BR          -  Brazilian Portuguese
-

@@ -37,10 +37,10 @@
               onpageshow="welcomePageCreate()"
               next="chooseEmailPage"
               >
-                
+
     <vbox flex="1" id="welcome_vbox">
       <spacer type="block" flex="1"/>
-      
+
       <hbox flex="3">
         <spacer type="block" flex="1"/>
         <!-- simple -->
@@ -56,7 +56,7 @@
           <spacer type="block" flex="1"/>
         </vbox>
         <spacer type="block" flex="1"/>
-        
+
         <!-- line in middle -->
         <separator orient="vertical" style="background-color: black; width: 1px;" height="100%"/>
 
@@ -77,10 +77,10 @@
           </description>
           <spacer type="block" flex="1"/>
         </vbox>
-        
+
         <spacer type="block" flex="1"/>
       </hbox>
-      
+
       <!-- footer -->
       <spacer type="block" flex="1"/>
       <hbox>
@@ -89,17 +89,18 @@
         <spacer type="block" flex="1"/>
       </hbox>
     </vbox>
-              
+
   </wizardpage>
 
 
-  
+
   <wizardpage id="chooseEmailPage" pageid="chooseEmailPage"
               label="&wizard.chooseEmailPage.title;"
               onpageshow="chooseEmailPageCreate()"
               next="createKeyPage"
   >
     <vbox flex="1">
+	  <label value="&wizard.chooseEmailPage.chooseEmail_label;" class="header"/>
       <!-- email address to sign up -->
       <hbox>
         <menulist id="signup_email" oncommand="setRadioBtn()">
@@ -176,9 +177,9 @@
                  label="1024 btis"/>
         </radiogroup>
       </hbox>
-      
+
     </vbox>
-      
+
   </wizardpage>
 
 
@@ -197,13 +198,13 @@
                 oncommand="onInfoGpg();"
                 hidden="true"/>
       </hbox>
-      
+
       <spacer type="block" height="10"/>
-      <label id="ang_lbl_loadedGpg" 
+      <label id="ang_lbl_loadedGpg"
              value="&wizard.importKeyPage.loadedGpg;" hidden="true"/>
-      <label id="ang_lbl_loadedFile" 
+      <label id="ang_lbl_loadedFile"
              value="" hidden="true"/> <!-- filled by javascript -->
-      <label id="ang_lbl_noKeys" 
+      <label id="ang_lbl_noKeys"
              value="&wizard.importKeyPage.noKeys;"/>
       <label id="ang_lbl_emptyFile"
              value="&wizard.importKeyPage.emptyFile;" hidden="true"/>

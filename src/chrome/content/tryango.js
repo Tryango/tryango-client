@@ -63,15 +63,15 @@ Tryango.init = function(){
     return;
   }
 
-  // load preference system 
+  // load preference system
   Prefs.init(this.languagepack);
   Logger.log("Preferences initialised");
-  
+
   //check offline status
   if(this.checkOfflineStatus()){
     Logger.infoPopup(this.languagepack.getString("warn_offline"));
   }
-  
+
   //load password manager
   Pwmgr.init();
   Logger.log("Password manager initialised");
@@ -161,12 +161,12 @@ Tryango.handleEvent = function(id){
     // by a callback function (see signup.xul / signup.js)
     Dialogs.signup(window);
     break;
-    
+
   case "menu-settings":
     //display the settings window (see settings.xul)
     Dialogs.settings(window);
     break;
-      
+
   case "menu-about":
     //displays the about window (see about.xul)
     Dialogs.about(window);
@@ -181,7 +181,14 @@ Tryango.handleEvent = function(id){
 
     //warn user
     if(Logger.promptService.confirm(null, "Tryango", this.languagepack.getString("tryango_reset"))){
-      this.removeEverything();
+      if(this.removeEverything()){
+		Logger.dbg("Reloading Prefs...");
+
+		//reload default prefs
+		Prefs.reloadPrefs();
+		//init again
+		//TODO: Prefs.init(this.languagepack);
+	  }
     }
     else{
       //user abort
@@ -216,7 +223,7 @@ Tryango.handleEvent = function(id){
   case "menu-export":
     Utils.exportKeyPurse(window, this.languagepack);
     break;
-      
+
   case "button-cm-decrypt":
     //XXX: debug
     Logger.log("decrypt attachments");
@@ -250,14 +257,17 @@ Tryango.handleEvent = function(id){
 
 Tryango.removeEverything = function(){
   Logger.dbg("Removing everything");
-  
+
   //remove devices and keys from server as well as locally
   //this also asks if the user wants to backup the keypurse
-  Utils.removeAllDevicesAndRevokeKeys(window, this.languagepack);
+  if(!Utils.removeAllDevicesAndRevokeKeys(window, this.languagepack)){
+	Logger.log("removeEverything: user abort");
+	return false;
+  }
 
   //clear XHEADERS
   MailListener.removeAllTryangoXHEADERS();
-  
+
   //clear passwordmanager/preferences
   Prefs.removeAllTryangoPrefs();
   Pwmgr.removeAllTryangoPWs();
@@ -266,6 +276,8 @@ Tryango.removeEverything = function(){
 
   //log
   Logger.dbg("removeEverything done");
+
+  return true;
 }
 
 
@@ -374,4 +386,3 @@ else{
     },
     false);
 }
-
