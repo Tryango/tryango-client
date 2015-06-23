@@ -688,6 +688,9 @@ var CWrapper = {
   revokeKey: function(identity, device){
     var hexAp = ctypes.char.array()(Pwmgr.getAp(identity)); //TODO: check Pwmgr return first
     if(hexAp != undefined && hexAp.length > 1){
+      if(this.synchronizeSK(identity) != 0){
+        return 21; //ANG_NO_KEY_PRESENT
+      }
       var pass = {value : ""};
       if(!this.getSignPassword(pass, identity)){
         return 21; //ANG_NO_KEY_PRESENT
@@ -861,6 +864,9 @@ var CWrapper = {
     var c_recipients = ctypes.char.array()(recipients);
     var pass = {value : ""};
     if(sign){
+      if(this.synchronizeSK(sender) != 0){
+        return 21; //ANG_NO_KEY_PRESENT
+      }
       if(!this.getSignPassword(pass, sender)){
         return 21; //ANG_NO_KEY_PRESENT
       }

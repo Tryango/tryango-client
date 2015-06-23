@@ -285,9 +285,9 @@ class KeyDb{
     }
     *noKeys = kl.size();
     *keysInfo = (char**) malloc((*noKeys)*sizeof(char*));
-    for (uint32_t i=0;i<(*noKeys); i++){
-      std::string info = getKeyInfo(kl.at(i));
-      (*keysInfo)[i] = (char*) malloc((info.size()+1)*sizeof(char));
+    for (uint32_t i = 0; i < (*noKeys); i++){
+      std::string info = getKeyInfo(kl.at((*noKeys) - (i + 1)));
+      (*keysInfo)[i] = (char*) malloc((info.size() + 1)*sizeof(char));
       memcpy((*keysInfo)[i], info.c_str(), info.size()*sizeof(char));
       //watch out! info.size()+1 is one character after the last character!
       (*keysInfo)[i][info.size()]='\0';

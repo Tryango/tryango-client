@@ -101,9 +101,12 @@ var Utils = new function()
         //check if identity/machineID is signed up
         var ap = Pwmgr.getAp(identity);
         if(ap != undefined && ap.length > 1){
-          status = CWrapper.synchronizeSK(identity);
+          let status = CWrapper.synchronizeSK(identity);
           if(status != 0){
-            Logger.err(languagepack.getString("rm_keypurse_fail") +": " + identity);
+            Logger.err(languagepack.getString("no_corresponding_key") +": " + identity);
+          }
+          else{
+            Logger.dbg("Keypurse synchronised successfully for id "+ identity);
           }
         }
       }
