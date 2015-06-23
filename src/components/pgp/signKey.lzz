@@ -526,12 +526,12 @@ class SignKey{
   static Confi_Status signData(PKT_signature *sig
                                , const std::string& toSign //assumed to have correct line endings etc
                                , const std::string& signer
-                               , KeyDb& keyDb
+                               , KeyDb* keyDb
                                , const std::string& password
                                , const bool binary = false
                                   ){
     sig->version = 4;
-    SecretKeyPair* skPair = keyDb.getCurrentKey(signer);
+    SecretKeyPair* skPair = keyDb->getCurrentKey(signer);
     if(skPair == NULL) {
       return ANG_NO_KEY_PRESENT;
     }

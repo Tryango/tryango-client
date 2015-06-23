@@ -15,13 +15,40 @@
 class SecretKeyPair;
 
 #end
-
+#src
+#include "publicKeyDb.h"
+#end
 class KeyDb{
  private:
 /*   const static uint32_t magicNumber = 39486; */
-  DbType userIdDb;  //contain secret keys of the users - lookup by user id - list of keys for each id sorted by timestamp
+  DbType userIdDb;  //contain secret keys of the users - lookup by user id - list of keys for each id - last one is the current one
   DbType sIdDb;  //contain secret keys of the users - lookup by siginng key  id
   DbType eIdDb;  //contain secret keys of the users - lookup by encryption key id
+
+
+  bool addId(SecretKeyPair* key
+             , const std::string& id){
+    KeyList list = (userIdDb[id]);
+    if(list.size() < 1){
+      list.push_back(key);
+    }
+    else{
+      bool alreadyAdded = false;
+      for (auto it = list.begin(); it < list.end(); it++){
+/*       for (auto it:list){ */
+        if((*it)->getFingerprint() == key->getFingerprint()){
+          alreadyAdded = true;
+          break;
+        }
+      }
+      if(alreadyAdded == false){
+        list.push_back(key);
+      }
+    }
+    userIdDb[id] = list;
+    return true;
+  }
+
 
   bool addKey(SecretKeyPair* key)
   {
@@ -108,37 +135,6 @@ class KeyDb{
       result<<"\x1F"<<uid->id;
     }
     return result.str();
-  }
-
-
-  bool addId(SecretKeyPair* key, std::string id){
-    KeyList list = (userIdDb[id]);
-    //List is sorted by date
-    if(list.size() < 1){//no need to sort
-      list.push_back(key);
-    }
-    else{
-      bool inserted = false;
-      for (auto it = list.begin(); it < list.end(); it++){
-/*       for (auto it:list){ */
-        if((*it)->getTimestamp() <= key->getTimestamp()){
-          if(((*it)->getKeyId() != key->getKeyId()) &&
-             (key->getTimestamp() != (*it)->getTimestamp())){
-            list.insert(it, key);
-            inserted = true;
-            break;
-          }
-          else{
-            return false;
-          }
-        }
-      }
-      if(inserted == false){
-        list.insert(list.end(), key);
-      }
-    }
-    userIdDb[id] = list;
-    return true;
   }
 
 
@@ -259,6 +255,22 @@ class KeyDb{
     userIdDb.clear();
   }
 
+
+  Confi_Status makeCurrent(const std::string& id, PublicKeyPair* key){
+    KeyList list = (userIdDb[id]);
+    for (KeyList::iterator it = list.begin(); it < list.end(); it++){
+      if((*it)->isCorrestondingKey(key)){
+        SecretKeyPair* tk = *it;
+        list.erase(it);
+        list.push_back(tk);
+        userIdDb[id] = list;
+        return ANG_OK;
+      }
+    }
+    return ANG_NO_KEY_PRESENT;
+  }
+
+
   Confi_Status getKeysInfo(char*** keysInfo
                            , uint32_t* noKeys
                            , const std::string id
@@ -332,8 +344,9 @@ class KeyDb{
   {
     std::string uId = PktDo::stripId(userId);
     if(hasSecretKey(uId)){
-      if(userIdDb[uId].size()>0){
-        return userIdDb[uId].at(0);
+      unsigned int size  = userIdDb[uId].size();
+      if(size > 0){
+        return userIdDb[uId].at(size - 1);
       }
     }
     return NULL;

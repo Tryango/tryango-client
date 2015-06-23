@@ -300,6 +300,13 @@ var CWrapper = {
           , ctypes.uint32_t.ptr //param 2  - result size
           , ctypes.char.ptr    // param 3 id/email
           , ctypes.char.ptr); //param 4 password
+
+      this.synchronizeSK = this.client.declare("synchronizeSK"
+          , ctypes.default_abi //binary interface type 
+          , ctypes.uint32_t      //return type
+          , ctypes.char.ptr //param 1 - user id
+          );
+
     }
   },
 

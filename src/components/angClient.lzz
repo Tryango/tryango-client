@@ -168,9 +168,9 @@ class ConfiClient
   }
 
 
-  KeyDb& getKeyDb(
+  KeyDb* getKeyDb(
                   ){
-    return keyDb;
+    return &keyDb;
   }
 
   bool checkMailAddr(const std::string& id

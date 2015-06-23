@@ -93,7 +93,23 @@ var Utils = new function()
     return; //explicit end of method
   }
 
-  
+  this.syncKeypurse = function(languagepack){
+    var addresses = this.getEmailAddresses();
+    var machineID = Prefs.getPref("machineID");
+    if(machineID){
+      for each(let identity in addresses){
+        //check if identity/machineID is signed up
+        var ap = Pwmgr.getAp(identity);
+        if(ap != undefined && ap.length > 1){
+          status = CWrapper.synchronizeSK(identity);
+          if(status != 0){
+            Logger.err(languagepack.getString("rm_keypurse_fail") +": " + identity);
+          }
+        }
+      }
+    }
+  }
+
   this.getEmailAddresses = function(){
     // get all email addresses and check them for tryango (otherwise not possible,
     // we cannot store all tryango-email-addresses on this device since they

@@ -61,7 +61,7 @@ extern "C"{
       return ANG_NO_KEY_PRESENT;
     }
     PKT_public_key* pkey = pk->getPEKey();
-    SecretKeyPair* skey = client.getKeyDb().getCurrentKey(id);
+    SecretKeyPair* skey = client.getKeyDb()->getCurrentKey(id);
     if(pkey != NULL && skey != NULL && skey->exportPair(keyStr, true, true) && keyStr.length() > 0){
       std::vector<PKT_public_key*> keys;
       keys.push_back(pkey);
@@ -101,7 +101,7 @@ extern "C"{
     }
     Confi_Status c_status = ANG_UNKNOWN_ERROR;
     std::string keyStr;
-    SecretKeyPair* key = client.getKeyDb().getCurrentKey(identity);
+    SecretKeyPair* key = client.getKeyDb()->getCurrentKey(identity);
     if(key != NULL && key->exportPair(keyStr, false) && keyStr.length() > 0){
 /*       client.log("Got public key to export: " + string_to_hex(keyStr)); */
       std::string serverKey;
@@ -237,7 +237,7 @@ extern "C"{
 
   void removeKey(char* fingerprint
                  ){
-    client.getKeyDb().removeKey(hex_to_string(std::string(fingerprint)));
+    client.getKeyDb()->removeKey(hex_to_string(std::string(fingerprint)));
   }
 
 
@@ -284,7 +284,7 @@ extern "C"{
                        ){
     std::string identity = PktDo::stripId(std::string(id));
     if(fromKeypurse){
-      return client.getKeyDb().getKeysInfo(keysInfo, noKeys, identity);
+      return client.getKeyDb()->getKeysInfo(keysInfo, noKeys, identity);
     }
     else{
       if(infoKeyDb != NULL){
@@ -314,7 +314,7 @@ extern "C"{
     for(unsigned int i = 0; i < kl.size() && status == ANG_OK && !transfered; i++){
       if((kl.at(i)->getFingerprint() == fingerprint) || (kl.at(i)->getSubFingerprint() == fingerprint)){
         kl.at(i)->exportPair(pair, true);
-        status = client.getKeyDb().readFromStr(pair, false, "");
+        status = client.getKeyDb()->readFromStr(pair, false, "");
         transfered = true;
       }
     }
@@ -329,14 +329,14 @@ extern "C"{
   bool exportKeyPurse(const char* path
                       , const char* password
                       ){
-    return client.getKeyDb().writeToFile(std::string(path));
+    return client.getKeyDb()->writeToFile(std::string(path));
   }
 
 
   bool importKeyPurse(const char* path
                       , bool clearOld
                       ){
-    return client.getKeyDb().readFromFile(std::string(path), clearOld, "");
+    return client.getKeyDb()->readFromFile(std::string(path), clearOld, "");
   }
 
 
@@ -432,7 +432,7 @@ extern "C"{
                           , bool encrypt //if set, encrypt email
                            ){
     Confi_Status status = ANG_UNKNOWN_ERROR;
-    SecretKeyPair* sk = client.getKeyDb().getCurrentKey(PktDo::stripId(sender));
+    SecretKeyPair* sk = client.getKeyDb()->getCurrentKey(PktDo::stripId(sender));
     if( sk == NULL){
       (*result) = NULL;
       *resultSize = 0;
@@ -525,7 +525,7 @@ extern "C"{
     Confi_Status status = ANG_UNKNOWN_ERROR;
 
     //get key
-    SecretKeyPair* sk = client.getKeyDb().getCurrentKey(PktDo::stripId(sender));
+    SecretKeyPair* sk = client.getKeyDb()->getCurrentKey(PktDo::stripId(sender));
     if( sk == NULL){
       return ANG_NO_KEY_PRESENT;
     }
@@ -607,8 +607,8 @@ extern "C"{
                          , char* password
                          ){
     std::string strKeyId;
-    Confi_Status status = client.getKeyDb().checkPassword(strKeyId
-                                                          , std::string(id)
+    Confi_Status status = client.getKeyDb()->checkPassword(strKeyId
+                                                          , PktDo::stripId(std::string(id))
                                                           , std::string(password));
     if(strKeyId.size() > 0){
       *keyIdSize = allocateAndCopy(keyId, string_to_hex(strKeyId));
@@ -657,10 +657,22 @@ extern "C"{
   }
 
 
-  bool hasGpg(){
+  bool hasGpg()
+  {
     return CmdPiper::hasGpg();
   }
 
+
+  //check and synchronizes with server the private keys in keypurse making appropriate keys current
+  uint32_t synchronizeSK(const char* userId)
+  {
+    std::string id = PktDo::stripId(std::string(userId));
+    PublicKeyPair* pk = client.getPubDb()->getKey(id);
+    if(pk == NULL) {
+      return ANG_NO_KEY_PRESENT;
+    }
+    return client.getKeyDb()->makeCurrent(id, pk);
+  }
 
 #ifdef __cplusplus
 }
