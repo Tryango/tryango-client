@@ -405,6 +405,8 @@ function onInfoGpg(){
   var languagepack = document.getElementById("lang_file");
   var email = document.getElementById("signup_email").selectedItem.value;
 
+  Logger.dbg("loading keys from gpg...");
+
   //load keys from gpg
   var status = CWrapper.loadInfoKeysFromGpg(email);
   if(status != 0 && status !=15){ //15 = ANG_NO_ENTRIES
@@ -429,8 +431,14 @@ function onInfoGpg(){
       var tree = document.getElementById("info_key_tree");
       tree.view.selection.select(0);
     }
+  }else{
+	//else: no entries
+	Logger.dbg("GPG: no entries (status: " + status + ")");
+	var none = document.getElementById("ang_lbl_noKeys");
+	none.setAttribute("hidden", "true");
+	var emptyfile = document.getElementById("ang_lbl_emptyFile");
+	emptyfile.removeAttribute("hidden");
   }
-  //else: no entries - nothing to do?
 }
 
 function onInfoFile(){
@@ -492,6 +500,8 @@ function onInfoFile(){
 }
 
 function fillInfoTable(email){
+  Logger.dbg("fillInfoTable " + email);
+
   //set appropriate text visibility
   var none = document.getElementById("ang_lbl_noKeys");
   none.removeAttribute("hidden");
