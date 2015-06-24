@@ -246,26 +246,21 @@ class MessageHandler{
       body.append(line);
     }
     PKT_signature* sig = new PKT_signature;
+    std::cout<<"clearSign hash:\n"<<string_to_hex(body)<<std::endl;
     Confi_Status status = SignKey::signData(sig, body, sender, keyDb, password, false);
 /*       //dash escaping */
     replaceAll(body, "\x0D\x0A-", "\x0D\x0A- -");
-    replaceAll(body, "\x0D\x0AFrom", "\x0D\x0A- From");
+    replaceAll(body, "\x0D\x0A\x46\x72\x6F\x6D\x20", "\x0D\x0A- From ");
     if(("From " == body.substr(0, 5)) || ("-" == body.substr(0, 1))){
       body = "- " +  body;
     }
+    replaceAll(body, "\x0D\x0A", "\n");
     if(status == ANG_OK){
-      result.append("-----BEGIN PGP SIGNED MESSAGE-----");
-      result.push_back('\x0D');
-      result.push_back('\x0A');
+      result.append("-----BEGIN PGP SIGNED MESSAGE-----\n");
       result.append("Hash: ");
       result.append(SignKey::hash2Str(sig->digest_algo));
-      result.push_back('\x0D');
-      result.push_back('\x0A');
-      result.push_back('\x0D');
-      result.push_back('\x0A');
-      result.append(body);
-      result.push_back('\x0D');
-      result.push_back('\x0A');
+      result.append("\n\n");
+      result.append(body+"\n");
 
       body = PktDo::signature2Str(sig);
 
@@ -273,25 +268,14 @@ class MessageHandler{
       std::string crc = crc24b64(body);
       status = encBase64(base64, body);
       body.clear();
-      result.append( "-----BEGIN PGP SIGNATURE-----");
-      result.push_back('\x0D');
-      result.push_back('\x0A');
-      result.append("Version: Tryango 1.0");//TODO add real version number of tryango
-      result.push_back('\x0D');
-      result.push_back('\x0A');
-      result.push_back('\x0D');
-      result.push_back('\x0A');
+      result.append( "-----BEGIN PGP SIGNATURE-----\n");
+      result.append("Version: Tryango 1.0\n\n");//TODO add real version number of tryango
       for(unsigned int i=0; i<base64.size(); i+=64){
         result.append(base64.substr(i, 64));
-        result.push_back('\x0D');
-        result.push_back('\x0A');
+        result.append("\n");
       }
-      result.append(crc);
-      result.push_back('\x0D');
-      result.push_back('\x0A');
-      result.append("-----END PGP SIGNATURE-----");
-      result.push_back('\x0D');
-      result.push_back('\x0A');
+      result.append(crc + "\n");
+      result.append("-----END PGP SIGNATURE-----\n");
     }
     free(sig);
     return status;
@@ -302,11 +286,11 @@ class MessageHandler{
                                   , const std::string& sender
                                   , PublicKeyDb* pubDb
                                   ){
-    std::cout<<"input to clearsign:"<<std::endl<<string_to_hex(std::string(input))<<std::endl;
+    std::cout<<"input to clearsign Verify:"<<std::endl<<string_to_hex(std::string(input))<<std::endl;
     std::vector<PACKET> packets;
     EVP_MD_CTX *mdctx = NULL;
     Confi_Status status = PacketParser::parsePackets(packets, input, &msg);
-    if(status==ANG_OK){
+    if(status == ANG_OK){
       if(packets.size() != 1 || (packets.at(0).pkttype != PKT_SIGNATURE)){
         status =  ANG_PARSE_ERROR;
       }
@@ -317,6 +301,7 @@ class MessageHandler{
           status = ANG_PARSE_ERROR;
         }
         else{
+          std::cout<<"clearSign Verify - input to hash:"<<std::endl<<string_to_hex(msg)<<std::endl;
           if(!EVP_DigestUpdate(mdctx, (unsigned char*)msg.c_str(), msg.size())){
             status = ANG_PARSE_ERROR;
           }

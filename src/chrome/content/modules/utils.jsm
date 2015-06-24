@@ -15,6 +15,56 @@ var EXPORTED_SYMBOLS = ["Utils"]; //only export Utils, not the rest
 
 var Utils = new function()
 {
+
+
+  this.convertFromUnicode = function(text, charset) {
+    Logger.dbg("convertFromUnicode: " + charset + "\n");
+
+    if(!text){
+      return "";
+    }
+    
+    if(!charset){
+      charset = "utf-8";
+    }
+    
+    // Encode plaintext
+    try{
+      var unicodeConv = Components.classes["@mozilla.org/intl/scriptableunicodeconverter"].getService(Components.interfaces.nsIScriptableUnicodeConverter);
+      
+      unicodeConv.charset = charset;
+      return unicodeConv.ConvertFromUnicode(text);
+      
+    }
+    catch(ex) {
+      Logger.dbg("convertFromUnicode: caught an exception\n");
+      return text;
+    }
+  }
+
+
+  this.convertToUnicode = function (text, charset) {
+    Logger.dbg("converToUnicode: "+ charset + "\n");
+
+    if (!text || !charset /*|| (charset.toLowerCase() == "iso-8859-1")*/)
+      return text;
+    
+  // Encode plaintext
+    try {
+      var unicodeConv = Components.classes["@mozilla.org/intl/scriptableunicodeconverter"].getService(Components.interfaces.nsIScriptableUnicodeConverter);
+      
+      unicodeConv.charset = charset;
+      return unicodeConv.ConvertToUnicode(text);
+      
+    }
+    catch (ex) {
+      
+      Logger.dbg("convertToUnicode: caught an exception while converting'"+text+"' to "+charset+"\n");
+      return text;
+    }
+  }
+
+
   this.exportKeyPurse = function(window, languagepack){
     if(!(new FileUtils.File(Prefs.getPref("keyPursePath"))).exists()){
       //no keypurse => no export (this should never happen and be avoided by the

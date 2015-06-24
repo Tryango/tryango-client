@@ -12,6 +12,7 @@ Components.utils.import("resource://tryango_modules/cWrapper.jsm");
 Components.utils.import("resource://tryango_modules/prefs.jsm");
 Components.utils.import("resource://tryango_modules/pwmanager.jsm");
 Components.utils.import("resource://tryango_modules/send.jsm");
+Components.utils.import("resource://tryango_modules/utils.jsm");
 
 //exports
 var EXPORTED_SYMBOLS = ["MailListener"]
@@ -47,9 +48,9 @@ var MailListener = new function() {
   this.XHEADER_REQID = "X-TRYANGO-REQID";
   this.XHEADER_NEWKEY = "X-TRYANGO-NEWKEY";
   this.XHEADER_OLDKEY = "X-TRYANGO-OLDKEY";
-  this.gFolderDisplay;
-  this.languagepack;
-  this.cmToolbar;
+  this.gFolderDisplay = null;
+  this.languagepack = null;
+  this.cmToolbar = null;
 
   this.init = function(gFolderDisplay, languagepack, cmToolbar){
     addHeader(this.XHEADER);
@@ -238,6 +239,69 @@ var MailListener = new function() {
   };
 
 
+  this.getPgpMessage = function(body){
+    var PGPstart = body.indexOf("-----BEGIN PGP ");
+    if(PGPstart < 0){
+      Logger.dbg("Unencrypted email");
+      return {ciphertext:"", blockType:""};
+    }
+
+    var indent = body.substring(body.substr(0, PGPstart).lastIndexOf("\n") + 1, PGPstart);
+    var beginIndexObj = new Object();
+    var endIndexObj = new Object();
+    var indentStrObj = new Object();
+    var blockType = Prefs.locateArmoredBlock(body, 0, indent,
+        beginIndexObj, endIndexObj,
+        indentStrObj);
+    Logger.dbg("block type \"" + blockType + "\"");
+
+        if ((blockType != "MESSAGE") && (blockType != "SIGNED MESSAGE"))
+          return {ciphertext:"", blockType:blockType};
+
+    var beginIndex = beginIndexObj.value;
+    var endIndex   = endIndexObj.value;
+
+    var head = body.substr(0, beginIndex);
+    var tail = body.substr(endIndex + 1);
+    var ciphertext = body.substr(beginIndex, endIndex - beginIndex + 1);
+    var indentRegexp;
+    if (indent) {
+      // MULTILINE MATCHING ON
+      RegExp.multiline = true;
+
+      if (indent == "> ") {
+        // replace ">> " with "> > " to allow correct quoting
+        ciphertext = ciphertext.replace(/^>>/g, "> >");
+      }
+
+      // Delete indentation
+      indentRegexp = new RegExp("^"+indent, "g");
+
+      ciphertext = ciphertext.replace(indentRegexp, "");
+      //tail     =     tail.replace(indentRegexp, "");
+
+      if (indent.match(/[ \t]*$/)) {
+        indent = indent.replace(/[ \t]*$/g, "");
+        indentRegexp = new RegExp("^"+indent+"$", "g"); ciphertext = ciphertext.replace(indentRegexp, "");}
+
+
+      // Handle blank indented lines
+      ciphertext = ciphertext.replace(/^[ \t]*>[ \t]*$/g, "");
+      //tail     =     tail.replace(/^[ \t]*>[ \t]*$/g, "");
+
+      // Trim leading space in tail
+      tail = tail.replace(/^\s*\n/, "\n");
+
+      // MULTILINE MATCHING OFF
+      RegExp.multiline = false;
+    }
+
+    return{
+      ciphertext:ciphertext,
+      blockType:blockType
+    }
+  };
+
   //messaged to be called when a mail is displayed => check for PGP header
   //and decrypt/verify if necessary
   this.onMsgDisplay = function(event){
@@ -253,6 +317,9 @@ var MailListener = new function() {
     {
       //get mailbody
       var body = event.currentTarget.contentDocument.body.textContent;
+      body = Utils.convertFromUnicode(body, "UTF-8");
+
+
       //get sender
       var msgHdr = this.gFolderDisplay.selectedMessage;
       if(msgHdr == null){
@@ -261,66 +328,14 @@ var MailListener = new function() {
       }
       var sender = msgHdr.author.substring(msgHdr.author.indexOf("<") + 1,
                                            msgHdr.author.indexOf(">"));
-      var PGPstart = body.indexOf("-----BEGIN PGP ");
-      if(PGPstart < 0){
-        Logger.dbg("Unencrypted email");
-        return;
-      }
       Logger.dbg("Found body email:\""+body+"\"");
-
-      var indent = body.substring(body.substr(0, PGPstart).lastIndexOf("\n") + 1, PGPstart);
-
-      var beginIndexObj = new Object();
-      var endIndexObj = new Object();
-      var indentStrObj = new Object();
-      var blockType = Prefs.locateArmoredBlock(body, 0, indent,
-                                               beginIndexObj, endIndexObj,
-                                               indentStrObj);
-      Logger.dbg("block type \"" + blockType + "\"");
-
-      if ((blockType != "MESSAGE") && (blockType != "SIGNED MESSAGE"))
+      var msgObj = this.getPgpMessage(body);
+      if(msgObj.ciphertext == ""){
         return;
-
-      var beginIndex = beginIndexObj.value;
-      var endIndex   = endIndexObj.value;
-
-      var head = body.substr(0, beginIndex);
-      var tail = body.substr(endIndex + 1);
-      var ciphertext = body.substr(beginIndex, endIndex - beginIndex + 1);
-      var indentRegexp;
-      if (indent) {
-        // MULTILINE MATCHING ON
-        RegExp.multiline = true;
-
-        if (indent == "> ") {
-          // replace ">> " with "> > " to allow correct quoting
-          ciphertext = ciphertext.replace(/^>>/g, "> >");
-        }
-
-        // Delete indentation
-        indentRegexp = new RegExp("^"+indent, "g");
-
-        ciphertext = ciphertext.replace(indentRegexp, "");
-        //tail     =     tail.replace(indentRegexp, "");
-
-        if (indent.match(/[ \t]*$/)) {
-          indent = indent.replace(/[ \t]*$/g, "");
-          indentRegexp = new RegExp("^"+indent+"$", "g"); ciphertext = ciphertext.replace(indentRegexp, "");}
-
-
-        // Handle blank indented lines
-        ciphertext = ciphertext.replace(/^[ \t]*>[ \t]*$/g, "");
-        //tail     =     tail.replace(/^[ \t]*>[ \t]*$/g, "");
-
-        // Trim leading space in tail
-        tail = tail.replace(/^\s*\n/, "\n");
-
-        // MULTILINE MATCHING OFF
-        RegExp.multiline = false;
       }
 
       //check mail for PGP headers
-      if(blockType=="MESSAGE"){
+      if(msgObj.blockType=="MESSAGE"){
         //encrypted email
         //         Logger.dbg("Found encrypted email:\n" + ciphertext);
 
@@ -330,7 +345,7 @@ var MailListener = new function() {
         //decrypt
         Logger.dbg("decrypting email for " + recipient + " from " + sender);
         var decryptedMail = {str : ""};
-        var status = CWrapper.decryptMail(decryptedMail, ciphertext, sender, recipient);
+        var status = CWrapper.decryptMail(decryptedMail, msgObj.ciphertext, sender, recipient);
         if(status > 0 && status <= CWrapper.getMaxErrNum()){
           Logger.error("Decrypt failed with error: " + this.languagepack.getString(CWrapper.getErrorStr(status)));
           //tell user
@@ -351,24 +366,25 @@ var MailListener = new function() {
 
             //write decrypted content as text... (at least)
             this.insertEmail(event.currentTarget.contentDocument, decryptedMail.str, true);
-          }else{
+          }
+          else{
             decryptedMailPureText = decryptedMailPureText[1]; //get only the email = regex part "(.*)"
             this.insertEmail(event.currentTarget.contentDocument, decryptedMailPureText, true);
           }
-        }else{
+        }
+        else{
           //no html content, write decrypted content as pure-text output only (no pre-processing needed)
           this.insertEmail(event.currentTarget.contentDocument, decryptedMail.str, false);
         }
       }
       else {
         //"SIGNED MESSAGE"
-        ciphertext = ciphertext.replace(/[^\S\r\n]+$/gm, "")
+        msgObj.ciphertext = msgObj.ciphertext.replace(/[^\S\r\n]+$/gm, "")
         var message = {str : ""};
 //         Logger.dbg("veryfing signature for msg"+ciphertext);
-        var status = CWrapper.verifySignature(message, ciphertext, sender);
+        var status = CWrapper.verifySignature(message, msgObj.ciphertext, sender);
         Logger.dbg("verifyed signature for sender:"+sender + " with status:"+status);
-        message= message.str;
-        this.updateToolBar(status);
+        message = message.str;
 
         //signature failed if NOT (status is 0 or no_sig)
         //user has to be notified if any non-signature errors happen
@@ -382,9 +398,32 @@ var MailListener = new function() {
           if(status > 0 && status <= CWrapper.getMaxErrNum()){
             Logger.infoPopup(this.languagepack.getString(CWrapper.getErrorStr(status)));
             //critical error
-            message = ciphertext;
+            message = msgObj.ciphertext;
+          }
+          else{//try to get message direcly to verify signature
+            let currDoc= event.currentTarget.contentDocument;
+            MsgHdrToMimeMessage(msgHdr, null, function (aMsgHdr, aMimeMessage) {
+              // do something with aMimeMessage:
+              let keyStr = aMimeMessage.coerceBodyToPlaintext();
+              Logger.dbg("Get new key\""+keyStr+ "\"");
+              let msgObj = MailListener.getPgpMessage(keyStr);
+              if(msgObj.ciphertext == ""){
+                return;
+              }
+              var message = {str : ""};
+//         Logger.dbg("veryfing signature for msg"+ciphertext);
+              let sender = msgHdr.author.substring(msgHdr.author.indexOf("<") + 1,
+                                           msgHdr.author.indexOf(">"));
+              let status = CWrapper.verifySignature(message, msgObj.ciphertext, sender);
+              message = message.str;
+              MailListener.updateToolBar(status);
+              var isHtml = message.search("<html>") != -1;
+              MailListener.insertEmail(currDoc, message, isHtml);
+            }, true);
+            return;
           }
         }
+        this.updateToolBar(status);
 
         //update message
         var isHtml = message.search("<html>") != -1;

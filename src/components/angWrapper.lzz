@@ -432,7 +432,6 @@ extern "C"{
                           , bool encrypt //if set, encrypt email
                            ){
     Confi_Status status = ANG_UNKNOWN_ERROR;
-    std::cout<<"encrypting with body:"<<std::endl<<string_to_hex(std::string(mailBody))<<std::endl;
     SecretKeyPair* sk = client.getKeyDb()->getCurrentKey(PktDo::stripId(sender));
     if( sign && sk == NULL ){
       (*result) = NULL;
@@ -472,6 +471,7 @@ extern "C"{
         }
       }
       else if(sign){
+        std::cout<<"signing with body:"<<std::endl<<string_to_hex(std::string(mailBody))<<std::endl;
         status =  MessageHandler::clearSign(encrypted
                                             , std::string(mailBody)
                                             , client.getKeyDb()
@@ -479,6 +479,7 @@ extern "C"{
                                              , std::string(password)
                                             );
         if(status == ANG_OK){
+          std::cout<<"signed with body:"<<std::endl<<string_to_hex(encrypted)<<std::endl;
           *resultSize = allocateAndCopy(result, encrypted);
         }
         else{
