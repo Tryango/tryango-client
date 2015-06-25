@@ -239,6 +239,19 @@ var MailListener = new function() {
   };
 
 
+  this.recoverHtml = function(body){
+    var htmlStart = body.indexOf("<html>");
+    if(htmlStart < 0){
+      return body;
+    }
+    var htmlEnd = body.indexOf("</html>");
+    if(htmlEnd < 0 || htmlEnd < htmlStart){
+      return body;
+    }
+    return body.substr(htmlStart,  htmlEnd + 7 - htmlStart);
+  }
+
+
   this.getPgpMessage = function(body){
     var PGPstart = body.indexOf("-----BEGIN PGP ");
     if(PGPstart < 0){
@@ -316,8 +329,9 @@ var MailListener = new function() {
     this.cmToolbar.setAttribute("style", "background-color: transparent;");
     this.cmToolbar.children[0].setAttribute("style", "color: black;");
     var msgHdr = this.gFolderDisplay.selectedMessage;
-    if(msgHdr == null){
+    if(!msgHdr){
       //no message selected
+      Logger.dbg("no message header");
       return;
     }
 
@@ -326,10 +340,23 @@ var MailListener = new function() {
       //get sender
       var sender = msgHdr.author.substring(msgHdr.author.indexOf("<") + 1,
                                            msgHdr.author.indexOf(">"));
+
       this.currDoc = event.currentTarget.contentDocument;
       MsgHdrToMimeMessage(msgHdr, null, function (aMsgHdr, aMimeMessage) {
+        let keyStr;
+        try{
+          keyStr = aMimeMessage.coerceBodyToPlaintext();
+        }
+        catch(e){
+          keyStr = MailListener.currDoc.body.textContent;
+          Logger.log("Could not get text content of the email:" + e + " - trying to recover html");
+          keyStr = MailListener.recoverHtml(keyStr);
+          var isHtml = keyStr.search("<html") != -1;
+          MailListener.insertEmail(MailListener.currDoc, keyStr, isHtml);
+          return;
+        }
+
         // do something with aMimeMessage:
-        let keyStr = aMimeMessage.coerceBodyToPlaintext();
 //         Logger.dbg("Get new key\""+keyStr+ "\"");
         var msgObj = MailListener.getPgpMessage(keyStr);
 
@@ -345,33 +372,19 @@ var MailListener = new function() {
               Logger.infoPopup(MailListener.languagepack.getString("mail_dec_failed") + "\nError: " + MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
               return;
             }
+            MailListener.updateToolBar(status);
             //searching for <html> works since in the body it becomes &lt;html&gt;
             //so if finding a <html> tag, it is a "real" one and not text of the email
-            if(decryptedMail.str.search("<html") != -1){
-              //cut body out of email
-              var re = new RegExp("<body [^>]*>(.*)</body>");
-              var decryptedMailPureText = decryptedMail.str.match(re);
-              if(decryptedMailPureText == null || decryptedMailPureText.length != 2){ // 2 cause decryptedMailPureText is an array: ["<body...> email </body>", "email"]
-                Logger.error("Could not find body in email!");
-
-                //write decrypted content as text... (at least)
-                MailListener.insertEmail(MailListener.currDoc, decryptedMail.str, true);
-              }
-              else{
-                decryptedMailPureText = decryptedMailPureText[1]; //get only the email = regex part "(.*)"
-                MailListener.insertEmail(MailListener.currDoc, decryptedMailPureText, true);
-              }
-            }
-            else{
-              //no html content, write decrypted content as pure-text output only (no pre-processing needed)
-              MailListener.insertEmail(MailListener.currDoc, decryptedMail.str, false);
-            }
+            var isHtml = decryptedMail.str.search("<html") != -1;
+            MailListener.insertEmail(MailListener.currDoc, decryptedMail.str, isHtml);
           }
           else{
           //"SIGNED MESSAGE"
+            Logger.dbg("display dbg 11");
             Logger.dbg("veryfing signature for msg" + msgObj.ciphertext);
             var status = CWrapper.verifySignature(decryptedMail, msgObj.ciphertext, sender);
             Logger.dbg("verified signature for sender:"+sender + " with status:"+status);
+            Logger.dbg("display dbg 12");
             let message = decryptedMail.str;
             
             //signature failed if NOT (status is 0 or no_sig)
@@ -389,12 +402,12 @@ var MailListener = new function() {
                 message = msgObj.ciphertext;
               }
             }
+            MailListener.updateToolBar(status);
             
             //update message
             var isHtml = message.search("<html") != -1;
             MailListener.insertEmail(MailListener.currDoc, message, isHtml);
           }
-          MailListener.updateToolBar(status);
 
         }
         else{
@@ -422,6 +435,17 @@ var MailListener = new function() {
     // => watch out, the "body" holds info too, so we need to alter the "pre" or "div"
     //    element in that body.
     //    ATTENTION: if attachments are displayed there are multiple DIV elements and PRE holds the attachment, not the email!
+    if(email.search("<html") != -1){
+      //cut body out of email
+      var re = new RegExp("<body [^>]*>(.*)</body>");
+      let emailBody = email.match(re);
+      if(emailBody == null || emailBody.length != 2){ // 2 cause decryptedMailPureText is an array: ["<body...> email </body>", "email"]
+        Logger.error("Could not find body in email!");
+      }
+      else{
+        email = emailBody[1]; //get only the email = regex part "(.*)"
+      }
+    }
 
     Logger.dbg("Inserting email:\n" + email); //XXX: remove
 
@@ -531,31 +555,37 @@ var MailListener = new function() {
 
   //helper function to find account from a message header
   this.findAccountFromHeader = function(msgHdr){
-    if(msgHdr.accountKey){
-      //message has been moved and the original account is specified by accountKey
-      //=> search for accountKey in accounts and get the email-address
-      var accMgr = Components.classes["@mozilla.org/messenger/account-manager;1"]
-          .getService(Components.interfaces.nsIMsgAccountManager);
-      var accounts = accMgr.accounts;
-      //iterate over accounts and search for the right key
-      for(var i = 0; i < accounts.length; i++){
-	      var account = accounts.queryElementAt(i, Components.interfaces.nsIMsgAccount);
-	      if(account.key == msgHdr.accountKey){
-	        return account.email;
-	      }
-      }
-      return "";
-    }
-    else{
-      //message has NOT been moved and (ATTENTION!) accountKey is empty
-      //=> get account via the folder the email is in
-      var ret = this.findAccountFromFolder(msgHdr.folder);
-      if(ret != null){
-	    return ret.defaultIdentity.email;
+    if(msgHdr){
+      if(msgHdr.accountKey){
+        //message has been moved and the original account is specified by accountKey
+        //=> search for accountKey in accounts and get the email-address
+        var accMgr = Components.classes["@mozilla.org/messenger/account-manager;1"]
+         .getService(Components.interfaces.nsIMsgAccountManager);
+        var accounts = accMgr.accounts;
+        //iterate over accounts and search for the right key
+        for(var i = 0; i < accounts.length; i++){
+	        var account = accounts.queryElementAt(i, Components.interfaces.nsIMsgAccount);
+	        if(account.key == msgHdr.accountKey){
+	          return account.email;
+	        }
+        }
+        return "";
       }
       else{
-	    return "";
+        //message has NOT been moved and (ATTENTION!) accountKey is empty
+        //=> get account via the folder the email is in
+        var ret = this.findAccountFromFolder(msgHdr.folder);
+        if(ret != null){
+	        return ret.defaultIdentity.email;
+        }
+        else{
+          Logger.error("Find account account from header did not find email addres");
+	        return "";
+        }
       }
+    }
+    else{
+        Logger.error("Find account account from header did not find email addres - mshHeader is null");
     }
   };
 
