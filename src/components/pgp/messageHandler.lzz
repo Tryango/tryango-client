@@ -213,10 +213,11 @@ class MessageHandler{
 
 
   static void replaceAll(std::string& str, const std::string& from, const std::string& to) {
-    size_t start_pos = 0;
-    while((start_pos = str.find(from, start_pos)) != std::string::npos) {
+    size_t start_pos = str.find(from, 0);
+    while(start_pos != std::string::npos) {
       str.replace(start_pos, from.length(), to);
       start_pos += to.length(); // Handles case where 'to' is a substring of 'from'
+      start_pos = str.find(from, start_pos);
     }
   }
 
@@ -239,9 +240,9 @@ class MessageHandler{
       }
       pendingLf = true;
       // trim trailing spaces
-      size_t endpos = line.find_last_not_of(" \t\r\n");
+      size_t endpos = ("A"+line).find_last_not_of(" \t\r\n");
       if( std::string::npos != endpos ){
-        line = line.substr(0, endpos + 1);
+        line = line.substr(0, endpos);
       }
       body.append(line);
     }
@@ -255,6 +256,8 @@ class MessageHandler{
       body = "- " +  body;
     }
     replaceAll(body, "\x0D\x0A", "\n");
+    std::cout<<"clearSign body hash:\n"<<string_to_hex(body)<<std::endl;
+
     if(status == ANG_OK){
       result.append("-----BEGIN PGP SIGNED MESSAGE-----\n");
       result.append("Hash: ");

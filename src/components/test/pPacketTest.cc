@@ -551,9 +551,9 @@ class PPacketTest : public ::testing::Test {
 };
 
 TEST_F(PPacketTest, ClearSignTest){
-  std::string s = "From \x0D\x0AFrom me\x0D\x0A";
-  MessageHandler::replaceAll(s, "\x0D\x0AFrom ", "\x0D\x0A- From ");
-  ASSERT_TRUE(s == "From \x0D\x0A- From me\x0D\x0A");
+  std::string s = "a\x0D\x0A\x0D\x0A  ";
+  MessageHandler::replaceAll(s, "\x0D\x0A", "\n");
+  ASSERT_TRUE(s == "a\n\n  ");
   
   std::vector<PACKET> packets;
   Confi_Status ret = PacketParser::parsePackets(packets, badSignature);

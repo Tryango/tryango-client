@@ -422,89 +422,105 @@ var MailWindow = new function(){
        */
       var mailBody;
       var editor;
-      var editor_type;
       try{
+        var sendFlowed = Prefs.getPrefByString("mailnews.send_plaintext_flowed", null);
+        if(sendFlowed == undefined){
+          sendFlowed = true;
+        }
         //get editor
         editor = GetCurrentEditor();
-        editor_type = GetCurrentEditorType();
         let dce = Components.interfaces.nsIDocumentEncoder;
         var flags = dce.OutputFormatted | dce.OutputLFLineBreak;
 //         var flags = Components.interfaces.nsIDocumentEncoder.OutputRaw;
-        if(editor_type == "textmail" || editor_type == "text"){
+        if(sendFlowed){
+          flags = flags | dce.OutputFormatFlowed;
+        }
+        if(!gMsgCompose.composeHTML){
           //plaintext
           mailBody = editor.outputToString("text/plain", flags);
         }
         else{
           //html email
+//           flags = dce.OutputRaw;
           mailBody = editor.outputToString("text/html", flags);
           mailBody = mailBody.replace(/[^\S\r\n]+$/gm, "")
         }
+//         mailBody = Utils.convertFromUnicode(mailBody, "UTF-16");
       }
       catch(ex){
         Logger.error("Could not get message body:\n" + ex);
         return -1;
       }
-      var charset = editor.documentCharacterSet;
-      mailBody = Utils.convertFromUnicode(mailBody, charset);
-
       Logger.dbg("mailBody:\n" + mailBody);
 
-      var sendFlowed = Prefs.getPrefByString("mailnews.send_plaintext_flowed", null);
-      if(sendFlowed == undefined){
-        sendFlowed = true;
-      }
-
-      if(sendFlowed && this.sign && !this.encrypt){
-        RegExp.multiline = true;
-
-        mailBody = mailBody.replace(/^ /g, "~ ");
-        mailBody = mailBody.replace(/^>/g, "|");
-        mailBody = mailBody.replace(/^[ \t]+$/g, "");
-        mailBody = mailBody.replace(/^From /g, "~From ");
-        RegExp.multiline = false;
-      }
+      
+//       if(sendFlowed && this.sign && !this.encrypt && !gMsgCompose.composeHTML){
+//         RegExp.multiline = true;
+// 
+//         mailBody = mailBody.replace(/^ /g, "~ ");
+//         mailBody = mailBody.replace(/^>/g, "|");
+//         mailBody = mailBody.replace(/^[ \t]+$/g, "");
+//         mailBody = mailBody.replace(/^From /g, "~From ");
+//         RegExp.multiline = false;
+//       }
       /****************
-       * encrypt/sign
+       * encrypt/sign  - inserting tags for later processing
        */
-      Logger.dbg("calling C: encryptSignMail(...)");
-      var enc_signed_mail = {str : ""};
-      var status = CWrapper.encryptSignMail(enc_signed_mail, mailBody, recipients, sender,
-                                            this.sign, this.encrypt);
-      //check errors
-      if(status > 0 && status <= CWrapper.getMaxErrNum()){
-        Logger.error("Encrypt/Sign falied with error: " + CWrapper.getErrorStr(status));
-        //ask user if mail should be sent unencrypted
-        var usermsg = this.languagepack.getString("mail_enc_sign_failed") + "\n" +
-          this.languagepack.getString("mail_send_unencrypted");
-        if(Logger.promptService.confirm(null, "Tryango", usermsg)){
-          //unencrypted mail
-          Logger.dbg("Mail sent unencrypted");
-          return 0;
+      if(this.encrypt){ //we proceed in case of encryption
+        Logger.dbg("calling C: encryptSignMail(...)");
+        var enc_signed_mail = {str : ""};
+        var status = CWrapper.encryptSignMail(enc_signed_mail, mailBody, recipients, sender,
+                                              this.sign, this.encrypt);
+//         check errors
+        if(status > 0 && status <= CWrapper.getMaxErrNum()){
+          Logger.error("Encrypt/Sign falied with error: " + CWrapper.getErrorStr(status));
+          //ask user if mail should be sent unencrypted
+          var usermsg = this.languagepack.getString("mail_enc_sign_failed") + "\n" +
+            this.languagepack.getString("mail_send_unencrypted");
+          if(Logger.promptService.confirm(null, "Tryango", usermsg)){
+            //unencrypted mail
+            Logger.dbg("Mail sent unencrypted");
+            return 0;
+          }
+          else{
+            //user abort
+            return 1;
+          }
+        }
+        else if(enc_signed_mail.str.length > 0){
+          mailBody = enc_signed_mail.str;
+          if (gMsgCompose.composeHTML) {
+            // workaround for Thunderbird bug (TB adds an extra space in front of the text)
+            mailBody = "\n" + mailBody;
+          }
+          else{
+            //Thunderbird kills line-endings, so we need to revert back to "native" line endings
+            //TODO: test on windows && mac
+            mailBody = mailBody.replace(/(\r\n|\r|\n)/g, '\n');
+          }
         }
         else{
-          //user abort
-          return 1;
+          Logger.dbg("got empty message from encrypt");
         }
       }
-      enc_signed_mail = enc_signed_mail.str;
-      if (gMsgCompose.composeHTML) {
-        // workaround for Thunderbird bug (TB adds an extra space in front of the text)
-        enc_signed_mail = "\n" + enc_signed_mail;
+      else if(this.sign){//prepare for later processing
+        if(mailBody.charAt(0)=="-"){
+          mailBody = "----TRYANGO START----" + "- " + mailBody + "----TRYANGO END----";
+        }
+        else{
+          mailBody = "----TRYANGO START----" + mailBody + "----TRYANGO END----";
+        }
       }
-      else
-        enc_signed_mail = enc_signed_mail.replace(/\r\n/g, "\n");
+//       Logger.dbg("Message after enrcypt;"+ mailBody);
 
-      //Thunderbird kills line-endings, so we need to revert back to "native" line endings
-      //TODO: test on windows && mac
-//       enc_signed_mail = enc_signed_mail.replace(/(\r\n|\r|\n)/g, '\n');
       //change body to enc_signed_mail
       editor.selectAll();
       try{
         var mailEditor = editor.QueryInterface(Components.interfaces.nsIEditorMailSupport);
-        mailEditor.insertTextWithQuotations(enc_signed_mail);
+        mailEditor.insertTextWithQuotations(mailBody);
       }
       catch(ex){
-        editor.insertText(enc_signed_mail);
+        editor.insertText(mailBody);
       }
 
       return 0;
@@ -551,6 +567,18 @@ ConfiComposeStateListener = {
   NotifyComposeFieldsReady: function(){
     //load preferences again
     MailWindow.reload();
+    var angOnSendListener = {
+        observe:
+            function(subject, topic, data){
+                // thunderbird sends a notification right before the mail gets assembled
+                // doing stuff in the compose window is tricky as they reuse compose windows
+                // subject is a reference to the compose window
+                subject.gMsgCompose.addMsgSendListener(new AngMsgSendListener());
+            }
+    };
+    var observerService = Components.classes["@mozilla.org/observer-service;1"]
+    .getService(Components.interfaces.nsIObserverService);
+    observerService.addObserver(angOnSendListener, "mail:composeOnSend", false);
   },
 
 
@@ -567,7 +595,7 @@ ConfiComposeStateListener = {
     var flags = dce.OutputFormatted | dce.OutputLFLineBreak;
     var body = editor.outputToString('text/plain', flags);
     editor.endTransaction();
-    body = Utils.convertFromUnicode(body, charset);
+//     body = Utils.convertFromUnicode(body, charset);
 
     //search for PGP block
     var PGPstart = body.indexOf("-----BEGIN PGP ");
@@ -642,7 +670,6 @@ ConfiComposeStateListener = {
       // No non-space characters in tail; delete it
       tail = "";
     }
-
 
     //decrypt email
     Logger.dbg("decrypting email...");
@@ -725,13 +752,146 @@ ConfiComposeStateListener = {
 
 
   ComposeProcessDone: function(result){
+//     Logger.dbg("Ex body"+gMsgCompose.compFields.body);
+
     //called after a mail was sent/saved
     //not needed
   },
 
   SaveInFolderDone: function(folderURI){
     //not needed
-  },
+  }
+}
+
+function readFile(file){
+  var data = ""; 
+  var fstream = Components.classes["@mozilla.org/network/file-input-stream;1"].createInstance(Components.interfaces.nsIFileInputStream); 
+  var cstream = Components.classes["@mozilla.org/intl/converter-input-stream;1"].createInstance(Components.interfaces.nsIConverterInputStream); 
+  fstream.init(file, -1, 0, 0); 
+  cstream.init(fstream, "UTF-8", 0, 0); 
+  let (str = {}) { 
+    let read = 0; 
+    do { 
+      read = cstream.readString(0xffffffff, str); 
+      data += str.value; 
+    } while (read != 0); 
+  } 
+  cstream.close();  
+  return data; 
+}
+
+function AngMsgSendListener(){
+  this.onStartSending =
+    function(aMsgID,aMsgSize){
+    if(!MailWindow.sign || MailWindow.encrypt){ //we proceed in case of clear sign only
+//       Logger.dbg("not signing "+ MailWindow.sign + MailWindow.encrypt);
+      return;
+    }
+    // when this event is fired, thunderbird has assembled the
+    // mail it is to send in an temporary .eml file in the temp directory
+    // first fetch temp directory (has nsIFile interface)
+    var tmpDirFile =
+      Components.classes["@mozilla.org/file/directory_service;1"].
+      getService(Components.interfaces.nsIProperties).
+      get("TmpD", Components.interfaces.nsIFile);
+    // then check for the newest .eml file
+    var entries = tmpDirFile.directoryEntries;
+    var assembledMail = null;
+    while(entries.hasMoreElements()){
+      var entry = entries.getNext();
+      entry.QueryInterface(Components.interfaces.nsIFile);
+      // check whether the current file has .eml extension
+      if ((/.eml$/i).test(entry.leafName)){
+        if(assembledMail == null)
+          assembledMail = entry;
+        else{
+          // the assembled mail should be the newest .eml file
+          if(assembledMail.lastModifiedTime < entry.lastModifiedTime)
+            assembledMail = entry;
+        }
+      }
+    }
+    let body = Utils.readFile(assembledMail);
+    var msgStart = body.indexOf("----TRYANGO START----");
+    if(msgStart < 0){
+      //no BEGIN PGP => stop
+      Logger.dbg("compose-mail: NO ENCRYPTION body found");
+      return;
+    }
+    var msgEnd = body.indexOf("----TRYANGO END----");
+    if(msgEnd < 0){
+      Logger.dbg("compose-mail: NO ENCRYPTION end body found");
+      return;
+    }
+    Logger.dbg("compose-mail: ENCRYPTION body found");
+
+
+    //cut email out of quotations
+    //get indent from beginning to the line before "BEGIN PGP" (= removing "> -----BEGIN PGP")
+    var msgBody = body.substring(msgStart + 21, msgEnd);
+    if(msgBody.length>1){
+      if(msgBody.charAt(0) == '-' && msgBody.charAt(1) == ' '){
+        msgBody = msgBody.substring(2);
+      }
+    }
+    var head = body.substring(0, msgStart);
+
+    var recipients;
+    let start = head.indexOf("To: ") + 4;
+    if(start == -1) {
+      recipients = "";
+    }
+    else{
+      let end = head.substring(start).indexOf("\n");
+      if(end == -1) end = head.length;
+      else{
+        end = end + start;
+      }
+      recipients = head.substring(start, end);
+    }
+
+    var sender;
+    start = head.indexOf("From: ") + 6;
+    if(start == -1) {
+      Logger.dbg("Could not find sender");
+      return;
+    }
+    else{
+      let end = head.substring(start).indexOf("\n");
+      if(end == -1) end = head.length;
+      else{
+        end = end + start;
+      }
+      sender = head.substring(start, end);
+    }
+
+    var tail = body.substring(msgEnd+19);
+    Logger.dbg("head:"+head);
+    Logger.dbg("calling C: encryptSignMail(...) to sign only");
+    var enc_signed_mail = {str : ""};
+    
+    var status = CWrapper.encryptSignMail(enc_signed_mail, msgBody, recipients, sender,
+                                            true, false);
+      //check errors
+    if(status > 0 && status <= CWrapper.getMaxErrNum()){
+      Logger.error("Sign falied with error: " + CWrapper.getErrorStr(status));
+    }
+    else if(enc_signed_mail.str.length > 0){
+      msgBody = enc_signed_mail.str;
+    }
+    else{
+      Logger.dbg("empty str after calling C: encryptSignMail(...) to sign only");
+    }
+    Logger.dbg("after calling C: msgBody" + msgBody);
+
+    Utils.writeFile(assembledMail, head + msgBody + tail);
+    // assembledMail now carries a reference to the assembled mail
+  };
+  this.onProgress = function(aMsgID, aProgress, aProgressMax){};
+  this.onStatus = function(aMsgID, aMsg){};
+  this.onGetDraftFolderURI = function(aFolderUri){};
+  this.onStopSending = function(aMsgID, aStatus, aMsg, aFile){};
+  this.onSendNotPerformed = function(aMsgID, aStatus){};
 }
 
 
@@ -807,7 +967,8 @@ if(typeof window != 'undefined'){ //only set-up if file is NOT imported
     if(ret >= 0){
       //just warnings
       return;
-    }else{
+    }
+    else{
       //errors => abort sending
       Logger.infoPopup(MailWindow.languagepack.getString("mail_send_failed"));
       event.preventDefault();

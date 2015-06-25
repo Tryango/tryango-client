@@ -253,10 +253,12 @@ var MailListener = new function() {
     var blockType = Prefs.locateArmoredBlock(body, 0, indent,
         beginIndexObj, endIndexObj,
         indentStrObj);
-    Logger.dbg("block type \"" + blockType + "\"");
+    Logger.dbg("block type \"" + blockType + "\"" + " indent\"" + indent + "\"");
 
-        if ((blockType != "MESSAGE") && (blockType != "SIGNED MESSAGE"))
-          return {ciphertext:"", blockType:blockType};
+    if ((blockType != "MESSAGE") && (blockType != "SIGNED MESSAGE")){
+      Logger.dbg("wrong block type \"" + blockType + "\"");
+      return {ciphertext:"", blockType:blockType};
+    }
 
     var beginIndex = beginIndexObj.value;
     var endIndex   = endIndexObj.value;
@@ -264,8 +266,10 @@ var MailListener = new function() {
     var head = body.substr(0, beginIndex);
     var tail = body.substr(endIndex + 1);
     var ciphertext = body.substr(beginIndex, endIndex - beginIndex + 1);
+
     var indentRegexp;
     if (indent) {
+      Logger.dbg("indent:\"" + indent + "\"");
       // MULTILINE MATCHING ON
       RegExp.multiline = true;
 
@@ -297,8 +301,8 @@ var MailListener = new function() {
     }
 
     return{
-      ciphertext:ciphertext,
-      blockType:blockType
+      ciphertext: ciphertext,
+      blockType: blockType
     }
   };
 
@@ -311,129 +315,99 @@ var MailListener = new function() {
     this.cmToolbar.children[0].setAttribute("value", this.languagepack.getString("verifytoolbar"));
     this.cmToolbar.setAttribute("style", "background-color: transparent;");
     this.cmToolbar.children[0].setAttribute("style", "color: black;");
+    var msgHdr = this.gFolderDisplay.selectedMessage;
+    if(msgHdr == null){
+      //no message selected
+      return;
+    }
 
     //search for signed/encrypted (BEGIN PGP MESSAGE/BEGIN PGP SIGNED MESSAGE?)
-    if(event.currentTarget.contentDocument.body != null)
-    {
-      //get mailbody
-      var body = event.currentTarget.contentDocument.body.textContent;
-      body = Utils.convertFromUnicode(body, "UTF-8");
-
-
+    if(event.currentTarget.contentDocument.body != null){
       //get sender
-      var msgHdr = this.gFolderDisplay.selectedMessage;
-      if(msgHdr == null){
-        //no message selected
-        return;
-      }
       var sender = msgHdr.author.substring(msgHdr.author.indexOf("<") + 1,
                                            msgHdr.author.indexOf(">"));
-      Logger.dbg("Found body email:\""+body+"\"");
-      var msgObj = this.getPgpMessage(body);
-      if(msgObj.ciphertext == ""){
-        return;
-      }
+      this.currDoc = event.currentTarget.contentDocument;
+      MsgHdrToMimeMessage(msgHdr, null, function (aMsgHdr, aMimeMessage) {
+        // do something with aMimeMessage:
+        let keyStr = aMimeMessage.coerceBodyToPlaintext();
+//         Logger.dbg("Get new key\""+keyStr+ "\"");
+        var msgObj = MailListener.getPgpMessage(keyStr);
 
-      //check mail for PGP headers
-      if(msgObj.blockType=="MESSAGE"){
-        //encrypted email
-        //         Logger.dbg("Found encrypted email:\n" + ciphertext);
+        if(msgObj.ciphertext != ""){
+          var decryptedMail = {str : ""};
+          if(msgObj.blockType=="MESSAGE"){
+            var recipient = MailListener.findAccountFromHeader(msgHdr);
+            Logger.dbg("decrypting email for " + recipient + " from " + sender);
+            var status = CWrapper.decryptMail(decryptedMail, msgObj.ciphertext, sender, recipient);
+            if(status > 0 && status <= CWrapper.getMaxErrNum()){
+              Logger.error("Decrypt failed with error: " + MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
+              //tell user
+              Logger.infoPopup(MailListener.languagepack.getString("mail_dec_failed") + "\nError: " + MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
+              return;
+            }
+            //searching for <html> works since in the body it becomes &lt;html&gt;
+            //so if finding a <html> tag, it is a "real" one and not text of the email
+            if(decryptedMail.str.search("<html") != -1){
+              //cut body out of email
+              var re = new RegExp("<body [^>]*>(.*)</body>");
+              var decryptedMailPureText = decryptedMail.str.match(re);
+              if(decryptedMailPureText == null || decryptedMailPureText.length != 2){ // 2 cause decryptedMailPureText is an array: ["<body...> email </body>", "email"]
+                Logger.error("Could not find body in email!");
 
-        //get account (which received the email)
-        var recipient = this.findAccountFromHeader(msgHdr);
-
-        //decrypt
-        Logger.dbg("decrypting email for " + recipient + " from " + sender);
-        var decryptedMail = {str : ""};
-        var status = CWrapper.decryptMail(decryptedMail, msgObj.ciphertext, sender, recipient);
-        if(status > 0 && status <= CWrapper.getMaxErrNum()){
-          Logger.error("Decrypt failed with error: " + this.languagepack.getString(CWrapper.getErrorStr(status)));
-          //tell user
-          Logger.infoPopup(this.languagepack.getString("mail_dec_failed") + "\nError: " + this.languagepack.getString(CWrapper.getErrorStr(status)));
-          return;
-        }
-
-        this.updateToolBar(status);//showing verification result
-        //show decrypted mail
-        //searching for <html> works since in the body it becomes &lt;html&gt;
-        //so if finding a <html> tag, it is a "real" one and not text of the email
-        if(decryptedMail.str.search("<html>") != -1){
-          //cut body out of email
-          var re = new RegExp("<body [^>]*>(.*)</body>");
-          var decryptedMailPureText = decryptedMail.str.match(re);
-          if(decryptedMailPureText == null || decryptedMailPureText.length != 2){ // 2 cause decryptedMailPureText is an array: ["<body...> email </body>", "email"]
-            Logger.error("Could not find body in email!");
-
-            //write decrypted content as text... (at least)
-            this.insertEmail(event.currentTarget.contentDocument, decryptedMail.str, true);
+                //write decrypted content as text... (at least)
+                MailListener.insertEmail(MailListener.currDoc, decryptedMail.str, true);
+              }
+              else{
+                decryptedMailPureText = decryptedMailPureText[1]; //get only the email = regex part "(.*)"
+                MailListener.insertEmail(MailListener.currDoc, decryptedMailPureText, true);
+              }
+            }
+            else{
+              //no html content, write decrypted content as pure-text output only (no pre-processing needed)
+              MailListener.insertEmail(MailListener.currDoc, decryptedMail.str, false);
+            }
           }
           else{
-            decryptedMailPureText = decryptedMailPureText[1]; //get only the email = regex part "(.*)"
-            this.insertEmail(event.currentTarget.contentDocument, decryptedMailPureText, true);
+          //"SIGNED MESSAGE"
+            Logger.dbg("veryfing signature for msg" + msgObj.ciphertext);
+            var status = CWrapper.verifySignature(decryptedMail, msgObj.ciphertext, sender);
+            Logger.dbg("verified signature for sender:"+sender + " with status:"+status);
+            let message = decryptedMail.str;
+            
+            //signature failed if NOT (status is 0 or no_sig)
+            //user has to be notified if any non-signature errors happen
+            if(status != 0 && CWrapper.getErrorStr(status) != "no_sig"){
+              //error
+              Logger.error("signature check failed: " + status + "\n" +
+                           MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
+              
+              //message could not be decrypted => only display ciphertext (and show
+              //the error to the user)
+              if(status > 0 && status <= CWrapper.getMaxErrNum()){
+                Logger.infoPopup(MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
+                //critical error
+                message = msgObj.ciphertext;
+              }
+            }
+            
+            //update message
+            var isHtml = message.search("<html") != -1;
+            MailListener.insertEmail(MailListener.currDoc, message, isHtml);
           }
+          MailListener.updateToolBar(status);
+
         }
         else{
-          //no html content, write decrypted content as pure-text output only (no pre-processing needed)
-          this.insertEmail(event.currentTarget.contentDocument, decryptedMail.str, false);
+          Logger.dbg("Empty ciphertext");
         }
-      }
-      else {
-        //"SIGNED MESSAGE"
-        msgObj.ciphertext = msgObj.ciphertext.replace(/[^\S\r\n]+$/gm, "")
-        var message = {str : ""};
-//         Logger.dbg("veryfing signature for msg"+ciphertext);
-        var status = CWrapper.verifySignature(message, msgObj.ciphertext, sender);
-        Logger.dbg("verifyed signature for sender:"+sender + " with status:"+status);
-        message = message.str;
-
-        //signature failed if NOT (status is 0 or no_sig)
-        //user has to be notified if any non-signature errors happen
-        if(status != 0 && CWrapper.getErrorStr(status) != "no_sig"){
-          //error
-          Logger.error("signature check failed: " + status + "\n" +
-                       this.languagepack.getString(CWrapper.getErrorStr(status)));
-
-          //message could not be decrypted => only display ciphertext (and show
-          //the error to the user)
-          if(status > 0 && status <= CWrapper.getMaxErrNum()){
-            Logger.infoPopup(this.languagepack.getString(CWrapper.getErrorStr(status)));
-            //critical error
-            message = msgObj.ciphertext;
-          }
-          else{//try to get message direcly to verify signature
-            let currDoc= event.currentTarget.contentDocument;
-            MsgHdrToMimeMessage(msgHdr, null, function (aMsgHdr, aMimeMessage) {
-              // do something with aMimeMessage:
-              let keyStr = aMimeMessage.coerceBodyToPlaintext();
-              Logger.dbg("Get new key\""+keyStr+ "\"");
-              let msgObj = MailListener.getPgpMessage(keyStr);
-              if(msgObj.ciphertext == ""){
-                return;
-              }
-              var message = {str : ""};
-//         Logger.dbg("veryfing signature for msg"+ciphertext);
-              let sender = msgHdr.author.substring(msgHdr.author.indexOf("<") + 1,
-                                           msgHdr.author.indexOf(">"));
-              let status = CWrapper.verifySignature(message, msgObj.ciphertext, sender);
-              message = message.str;
-              MailListener.updateToolBar(status);
-              var isHtml = message.search("<html>") != -1;
-              MailListener.insertEmail(currDoc, message, isHtml);
-            }, true);
-            return;
-          }
-        }
-        this.updateToolBar(status);
-
-        //update message
-        var isHtml = message.search("<html>") != -1;
-        this.insertEmail(event.currentTarget.contentDocument, message, isHtml);
-      }
+        return;
+      }, true);
     }
     else{
       //error: body is null (this should never happen, Thunderbird should supply us with the email)
       Logger.error("event.currentTarget.contentDocument.body is null");
     }
+
   };
 
   //helper function to insert email into documentBody
