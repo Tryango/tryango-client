@@ -259,7 +259,7 @@ class KeyDb{
   Confi_Status makeCurrent(const std::string& id, PublicKeyPair* key){
     KeyList list = (userIdDb[id]);
     for (KeyList::iterator it = list.begin(); it < list.end(); it++){
-      if((*it)->isCorrestondingKey(key)){
+      if((*it)->isCorrespondingKey(key)){
         SecretKeyPair* tk = *it;
         list.erase(it);
         list.push_back(tk);
@@ -267,6 +267,7 @@ class KeyDb{
         return ANG_OK;
       }
     }
+    std::cout<<"no key present to make current"<<std::endl;
     return ANG_NO_KEY_PRESENT;
   }
 

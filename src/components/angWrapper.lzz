@@ -668,6 +668,7 @@ extern "C"{
     std::string id = PktDo::stripId(std::string(userId));
     PublicKeyPair* pk = client.getPubDb()->getKey(id);
     if(pk == NULL) {
+      std::cout<<"Pk is null when trying to synchrovize"<<std::endl;
       return ANG_NO_KEY_PRESENT;
     }
     return client.getKeyDb()->makeCurrent(id, pk);

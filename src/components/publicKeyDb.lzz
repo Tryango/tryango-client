@@ -120,11 +120,14 @@ class PublicKeyPair{
 
 
 typedef std::map <std::string, PublicKeyPair*> PubDbType;
+typedef std::map <std::string, time_t> IdTimeType;
+
 
 
 class PublicKeyDb{
  private:
   PubDbType userIdDb;  //contain public keys of the users - lookup by user id
+  IdTimeType lastAccess;
   ConfiClient* client;
 
   Confi_Status addPackets(std::vector<PACKET>& packets, std::string uId){
@@ -268,11 +271,20 @@ class PublicKeyDb{
 
   PublicKeyPair* getKey(const std::string& id)
   {
+    time_t now = time(0);
+    bool fresh = true;
+    if (lastAccess.find(id) == lastAccess.end() ) {
+      fresh = false;
+    }
+    else if((now - lastAccess.at(id)) > 10){
+      fresh = false;
+    }
+
     if(id.size()<1){
       return NULL;
     }
     PubDbType::iterator it = userIdDb.find(id);
-    if(it != userIdDb.end()){
+    if(fresh && (it != userIdDb.end())){
       return it->second;
     }
     else{

@@ -440,7 +440,7 @@ var MailListener = new function() {
       var re = new RegExp("<body [^>]*>(.*)</body>");
       let emailBody = email.match(re);
       if(emailBody == null || emailBody.length != 2){ // 2 cause decryptedMailPureText is an array: ["<body...> email </body>", "email"]
-        Logger.error("Could not find body in email!");
+        Logger.error("Could not find body in email!"+ email);
       }
       else{
         email = emailBody[1]; //get only the email = regex part "(.*)"
