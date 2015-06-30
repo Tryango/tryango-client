@@ -4,7 +4,7 @@
 <RDF xmlns="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
      xmlns:em="http://www.mozilla.org/2004/em-rdf#">
 
-  <Description>
+  <Description about="urn:mozilla:install-manifest">
     <em:id>tryango@cs.bham.ac.uk</em:id><!-- unique ID of the extension,
     								must be lowercase and @name-->
     <em:name>Tryango</em:name>				<!-- name of the extension -->
