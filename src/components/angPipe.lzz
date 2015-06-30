@@ -1,19 +1,23 @@
 #hdr
 #include <stdio.h>
 #include <stdlib.h>
+#if !defined(_MSC_VER)
 #include <unistd.h>
+#include <sys/wait.h>
+#endif
 #include <cstring>
 #include <string>
 #include <iostream>
 #include <stdint.h>
 #include <time.h>
-#include <sys/wait.h>
+
 #include <vector>
 #end
 class CmdPiper{
 
  public:
   static int runCmd(std::string& output, char* const cmd[], const std::string& input){
+#if !defined(_MSC_VER)  
     int p1[2], p2[2];//, p3[2];
     int n;
     pid_t pid;
@@ -71,14 +75,21 @@ class CmdPiper{
       wait(&rpid);
       return WEXITSTATUS(rpid);
     }
+#else
+    return 1;//Not implemented for windows
+#endif
   }
 
 
   static bool hasGpg(){
+#if !defined(_MSC_VER)
     const char *cmd[] = {"gpg2", "--version", NULL};
     std::string output;
     int result = CmdPiper::runCmd(output, (char**)cmd, "");
     return result == 0;
+#else
+    return false;//Not implemented for windows
+#endif
   }
 
 

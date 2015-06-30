@@ -1,6 +1,5 @@
 #include "angWrapper.h"
 int main (){
-    stripId("id@email.com");
     initClient("test.txt");
     if(!importKeyPurse("noPath", true)){
         printf("No keypurse\n");

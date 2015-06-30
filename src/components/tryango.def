@@ -1,11 +1,12 @@
 LIBRARY			tryango-client
 EXPORTS
-	stripId
-	armId
 	initClient
 	setServer
 	signup
+	getEncryptedSK
+	clearTempKey
 	submitKey
+	revokeKey
 	getServerInfo
 	getPort
 	getServer
@@ -13,20 +14,25 @@ EXPORTS
 	generateRsaKeys
 	getDevices
 	removeDevices
-	getKeyPurse
+	removeKey
+	loadInfoKeysFromFile
+	loadInfoKeysFromGpg
+	clearInfo
+	getInfoKeys
+	transferKeysFromInfo
 	exportKeyPurse
 	importKeyPurse
 	removeKeyPurse
 	checkMailAddr
 	verifySignature
 	encryptSignMail
+	decryptAndSaveAttachment
 	encryptSignAttachment
 	decryptMail
 	freeString
 	hasSecretKey
+	checkPassword
+	checkDecrPassword
 	allocateAndCopy
-	loadKeyPurse
-	saveKeyPurse
-     
-
-    
+	hasGpg
+	synchronizeSK
