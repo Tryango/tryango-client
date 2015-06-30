@@ -29,6 +29,7 @@ class ConfiSsl{
 
  public:
 
+
   ConfiSsl(){
     ctx = NULL;
     bio = NULL;
@@ -73,16 +74,30 @@ class ConfiSsl{
     return rsa;
   }
 
+
   inline int receive(char* buffer,const uint32_t& size){
-    return BIO_read(bio, buffer, size);
+    if(bio == NULL) return -2;
+    int read = -1;
+    while (read <= 0){
+      read = BIO_read(bio, buffer, size);
+      if(read < 0 && !BIO_should_retry(SSL_get_rbio(ssl))){
+        return read;
+      }
+    }
+    return read;
   }
 
 
   long send(const std::string& buffer){
-    if(bio != NULL){
-      return BIO_write(bio, buffer.c_str(), buffer.length());
+    if(bio == NULL) return -2;
+    int written = -1;
+    while (written <= 0){
+      written = BIO_write(bio, buffer.c_str(), buffer.length());
+      if(written < 0 && !BIO_should_retry(SSL_get_wbio(ssl))){
+        return written;
+      }
     }
-    return -1;
+    return written;
   }
 
 
@@ -90,6 +105,7 @@ class ConfiSsl{
     certFile = std::string(certificateFile);
     return reinitCertificate();
   }
+
 
   inline void testAndShutdownConnection(){
     if(this->bio != NULL){
@@ -99,6 +115,7 @@ class ConfiSsl{
       this->bio = NULL;
     }
   }
+
 
   Confi_Status connect(const char* host, const uint32_t port){
     if (ctx==NULL){
@@ -147,7 +164,10 @@ class ConfiSsl{
     return result;
   }
 
+
  private:
+
+
   bool reinitCertificate(){
     if (ctx != NULL){
       SSL_CTX_free(ctx);

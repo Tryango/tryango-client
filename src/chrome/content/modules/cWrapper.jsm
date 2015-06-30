@@ -427,7 +427,9 @@ var CWrapper = {
           result = Logger.promptService.promptPassword(null, this.languagepack.getString("prompt_password_title")
                                        , this.languagepack.getString("prompt_password") + keyIdStr.str
                                        , passValue, this.languagepack.getString("save_password"), check);
-          if(!result) return false;
+          if(!result){
+            return false;
+          }
           pb.setBoolPref("savePW", check.value);
           status = this.checkSignPassword(keyIdStr, sender, passValue.value);
         }

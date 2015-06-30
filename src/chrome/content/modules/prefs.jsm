@@ -256,7 +256,12 @@ var Prefs = new function()
 
     //check if some special prefs were set that need to be told to C
     this._checkNotifyC(prefName, pb, value);
-
+    //save preferences
+    if(retVal){
+      var prefService = Components.classes["@mozilla.org/preferences-service;1"]
+                               .getService(Components.interfaces.nsIPrefService);
+      prefService.savePrefFile(null);
+    }
     return retVal;
   }
 

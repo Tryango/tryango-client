@@ -123,6 +123,10 @@ var MailListener = new function() {
       MsgHdrToMimeMessage(header, null, function (aMsgHdr, aMimeMessage) {
         // do something with aMimeMessage:
         let keyStr = aMimeMessage.coerceBodyToPlaintext();
+        let start = keyStr.search("-----BEGIN PGP");
+//         if(document.body.textContent.search("-----BEGIN PGP") != -1){
+//         }
+        
         Logger.dbg("Get new key"+keyStr);
       }, true);
       return true;
@@ -443,6 +447,7 @@ var MailListener = new function() {
         Logger.error("Could not find body in email!"+ email);
       }
       else{
+        Logger.dbg("Found body in email!");
         email = emailBody[1]; //get only the email = regex part "(.*)"
       }
     }

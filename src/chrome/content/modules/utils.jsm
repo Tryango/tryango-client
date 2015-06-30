@@ -474,7 +474,7 @@ function fillAudit(languagepack){
 
     //get content of file
     NetUtil.asyncFetch(file, function(inputStream, status) {
-      trc = document.getElementById("tex_randomcheck");
+      let trc = document.getElementById("tex_randomcheck");
       if (!Components.isSuccessCode(status)) {
         //error
         trc.value = languagepack.getString("info_file_error") + " " + file.path;

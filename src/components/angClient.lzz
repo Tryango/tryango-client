@@ -22,7 +22,7 @@ class SSLInputStream: public google::protobuf::io::ZeroCopyInputStream {
     INITIAL = 0,    /* initial state */
     NEXT = 1,       /* next data should be read from stream */
     BUFFERED = 2,   /* next data should be read from buffer */
-    SSLERROR = 3       /* some sort of error occurred */
+    SSLERROR = 3    /* some sort of error occurred */
   };
 
   uint64_t byte_count;
@@ -63,21 +63,30 @@ class SSLInputStream: public google::protobuf::io::ZeroCopyInputStream {
   bool Next(const void **data
             , int *size
             ){
-    if (state == SSLERROR) return false;
+    if (state == SSLERROR){
+      return false;
+    }
     if (state != BUFFERED){
-      if (!fill_buffer()) return false;
+      if (!fill_buffer()){
+        return false;
+      }
     }
     *data = &read_buffer[0];
     *size = read_buffer.size();
     state = NEXT;
     byte_count += *size;
+    std::cout<<"Next Read"<<*size<<" bytes"<<std::endl;
     return true;
   }
 
 
   void BackUp(int count
               ){
-    if (state != NEXT) state = SSLERROR;
+    std::cout<<"BacuUp count:"<<count<<std::endl;
+    if (state != NEXT){
+      state = SSLERROR;
+      std::cout<<"BacuUp Error: not NEXT:"<<std::endl;
+    }
     else if ((unsigned int)count > read_buffer.size()) state = SSLERROR;
     else {
       read_buffer.erase(read_buffer.begin(), read_buffer.end() - count);
@@ -89,8 +98,14 @@ class SSLInputStream: public google::protobuf::io::ZeroCopyInputStream {
 
   bool Skip(int count
             ){
-    if (state == SSLERROR) return false;
-    if (count == 0) return true;
+    std::cout<<"Skip: count:"<<count<<std::endl;
+    if (state == SSLERROR){
+      std::cout<<"Skip sslError"<<std::endl;
+      return false;
+    }
+    if (count == 0){
+      return true;
+    }
     else if (state == BUFFERED){
       if ((unsigned int)count >= read_buffer.size()){
         state = NEXT;
@@ -99,7 +114,6 @@ class SSLInputStream: public google::protobuf::io::ZeroCopyInputStream {
       }
       else {
         byte_count += count;
-        read_buffer.erase(read_buffer.begin(), read_buffer.begin() + count);
         return true;
       }
     }
