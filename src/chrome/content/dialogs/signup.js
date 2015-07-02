@@ -22,6 +22,7 @@ function onNext() {
 
   //progression through the dialog
   if(wizard.currentPage){
+	Logger.dbg(wizard.currentPage.pageid);
     switch(wizard.currentPage.pageid) {
     //1. page: welcome page
     case "welcomePage":
@@ -49,11 +50,19 @@ function onNext() {
     case "importKeyPage":
       wizard.currentPage.next = getNextServerPage();
       break;
+
+	case "progressbarPage":
+	  //progressbarPage is called from signup() below
+	  //=> do NOT progress and just return (otherwise infinite recursion!)
+	  return true;
+
+	default:
+	  Logger.error("Unknown wizard page: " + wizard.currentPage);
     }
 
     //lastPage => wizard finished; do the signup
     if(wizard.currentPage.next == "lastPage"){
-      if(!signup()){
+      if(!signup()){ //signup might set currentPage.next to progressbarPage!
         //error => stay on page
         wizard.currentPage.next = wizard.currentPage;
       }
@@ -352,26 +361,18 @@ function importKeyPageCreate(){
   //hide tables
   Logger.dbg("set label, hide tables...");
   //set appropriate text visibility
-  var none = document.getElementById("ang_lbl_noKeys");
-  none.removeAttribute("hidden");
-  var emptyfile = document.getElementById("ang_lbl_emptyFile");
-  emptyfile.setAttribute("hidden", "true");
-  var gpg = document.getElementById("ang_lbl_loadedGpg");
-  gpg.setAttribute("hidden", "true");
-  var file = document.getElementById("ang_lbl_loadedFile");
-  file.setAttribute("hidden", "true");
+  var languagepack = document.getElementById("lang_file");
+  var lbl = document.getElementById("ang_lbl_importKeyFeedback");
+  lbl.value = languagepack.getString("wizard_importKeyPage_lbl_notLoaded");
   var table = document.getElementById("ang_table_importkeys");
   table.setAttribute("hidden", "true");
 
   //labels etc.
-  var languagepack = document.getElementById("lang_file");
   if(Prefs.getPref("advancedOptions")){
     //advanced setup
     //set labels
     document.getElementById("importKeyPage").setAttribute(
       "label", languagepack.getString("wizard_importKeyPage_title_advanced"));
-    document.getElementById("ang_lbl_loadedFile").value =
-      languagepack.getString("wizard_importKeyPage_loadedFile_advanced");
     document.getElementById("key_id").setAttribute(
       "label", languagepack.getString("wizard_importKeyPage_fingerprint_advanced"));
     //show rows in table
@@ -385,8 +386,6 @@ function importKeyPageCreate(){
     //set labels
     document.getElementById("importKeyPage").setAttribute(
       "label", languagepack.getString("wizard_importKeyPage_title_simple"));
-    document.getElementById("ang_lbl_loadedFile").value =
-      languagepack.getString("wizard_importKeyPage_loadedFile_simple");
     document.getElementById("key_id").setAttribute(
       "label", languagepack.getString("wizard_importKeyPage_fingerprint_simple"));
     //hide rows in table
@@ -420,10 +419,8 @@ function onInfoGpg(){
     //check if tree is empty
     if(document.getElementById("info_key_list").childNodes.length != 0){
       //adjust label to show gpg
-      var gpg = document.getElementById("ang_lbl_loadedGpg");
-      var file = document.getElementById("ang_lbl_loadedFile");
-      gpg.removeAttribute("hidden");
-      file.setAttribute("hidden", "true");
+      var lbl = document.getElementById("ang_lbl_importKeyFeedback");
+	  lbl.value = languagepack.getString("wizard_importKeyPage_lbl_loadedGpg");
       //show table (ATTENTION: this is needed to access tree.view apparently!)
       var table = document.getElementById("ang_table_importkeys");
       table.removeAttribute("hidden");
@@ -434,10 +431,8 @@ function onInfoGpg(){
   }else{
 	//else: no entries
 	Logger.dbg("GPG: no entries (status: " + status + ")");
-	var none = document.getElementById("ang_lbl_noKeys");
-	none.setAttribute("hidden", "true");
-	var emptyfile = document.getElementById("ang_lbl_emptyFile");
-	emptyfile.removeAttribute("hidden");
+	var lbl = document.getElementById("ang_lbl_importKeyFeedback");
+	lbl.value = languagepack.getString("wizard_importKeyPage_lbl_emptyFile");
   }
 }
 
@@ -488,10 +483,12 @@ function onInfoFile(){
         }
         else{
           //adjust label to show "loaded from file"
-          var gpg = document.getElementById("ang_lbl_loadedGpg");
-          var file = document.getElementById("ang_lbl_loadedFile");
-          file.removeAttribute("hidden");
-          gpg.setAttribute("hidden", "true");
+		  var lbl = document.getElementById("ang_lbl_loadedFile");
+		  if(Prefs.getPref("advancedOptions")){
+			lbl.value = languagepack.getString("wizard_importKeyPage_lbl_loadedFile_advanced");
+		  }else{
+			lbl.value = languagepack.getString("wizard_importKeyPage_lbl_loadedFile_simple");
+		  }
         }
       }
     }
@@ -503,14 +500,8 @@ function fillInfoTable(email){
   Logger.dbg("fillInfoTable " + email);
 
   //set appropriate text visibility
-  var none = document.getElementById("ang_lbl_noKeys");
-  none.removeAttribute("hidden");
-  var emptyfile = document.getElementById("ang_lbl_emptyFile");
-  emptyfile.setAttribute("hidden", "true");
-  var gpg = document.getElementById("ang_lbl_loadedGpg");
-  gpg.setAttribute("hidden", "true");
-  var file = document.getElementById("ang_lbl_loadedFile");
-  file.setAttribute("hidden", "true");
+  var lbl = document.getElementById("ang_lbl_importKeyFeedback");
+  lbl.value = languagepack.getString("wizard_importKeyPage_lbl_notLoaded");
 
   //load keys and add to tree
   var treeList = document.getElementById("info_key_list");
@@ -616,61 +607,83 @@ function lastPageCreate(){
 function signup(){
   var email = document.getElementById("signup_email").selectedItem.value;
   if(email != "empty"){
-    var doSignup = false;
-
     //check which option was selected (previous key, new key, import key)
     //and execute it
     var keyMethod = document.getElementById("ang_key_radiogroup");
     switch(keyMethod.selectedIndex) {
     case 0:
-      doSignup = true;
+	  doSignup(email);
       break;
     case 1:
-      //display a "waiting" popup
-      if(!Logger.promptService.confirm(
-        null, "Tryango", document.getElementById("lang_file")
-          .getString("wizard_signup_waitingDialog"))){
-        //user abort
-        return false;
-      }
-      doSignup = generateKey();
-      break;
+      //display a "waiting" dialog-page (while generating the key)
+	  //see progressbarPageCreate
+	  getWizard().currentPage.next = "progressbarPage";
+      return true; //no break!
     case 2:
-      doSignup = importKey();
+      if(importKey()){
+		doSignup(email);
+	  }
       break;
-    }
-
-    //if execution succeeded, do the signup
-    if(doSignup){
-      //generate random requestID to identify answers from server
-      var token = generateToken();
-      Logger.dbg("reqId token: " + token);
-      Prefs.setPref("reqId_" + email, token);
-
-      //pass email address to c
-      //TODO: append machineID with random string
-      let result = CWrapper.signup(email, Prefs.getPref("machineID"), token);
-
-      //check errors
-      if(result != 0){
-        //error
-        var strbundle = document.getElementById("strings");
-        var errorStr = CWrapper.getErrorStr(result);
-        Logger.error("Error signing up: " + strbundle.getString(errorStr));
-        Logger.infoPopup(strbundle.getString(errorStr) + " (" + result + ")");
-        return false;
-      }else{
-        Logger.dbg("deleting ap for email: " + email);
-        Pwmgr.setAp(email, "");//delete ap as it is invalid since we submitted to server
-      }
-      Logger.dbg("sign up: " + email);
-      return true;
     }
   }
 
   return false;
 }
 
+function progressbarPageCreate(){
+  Logger.dbg("progressbarPage create");
+
+  // Build a worker
+  /*
+  var blobURL = URL.createObjectURL(
+	new Blob([
+	  function onmessage(){
+		//TODO
+		document.getElementById("prog_bar").value = 50;
+	  }.toString()
+	], {type: 'application/javascript'})
+  );
+  var worker = new Worker(blobURL);
+  //cleanup
+  URL.revokeObjectURL( blobURL );
+  */
+
+  //generate key (TODO: and update progress bar)
+  if(generateKey()){
+	//if key created successfully => doSignup
+	var email = document.getElementById("signup_email").selectedItem.value;
+	if(doSignup(email)){
+	  //TODO: go back one page + error message?
+	}
+	getWizard().advance(null); //TODO: just jump to next page (progressbar not implemented yet)
+  }
+}
+
+function doSignup(email){
+  //generate random requestID to identify answers from server
+  var token = generateToken();
+  Logger.dbg("reqId token: " + token);
+  Prefs.setPref("reqId_" + email, token);
+
+  //pass email address to c
+  //TODO: append machineID with random string
+  let result = CWrapper.signup(email, Prefs.getPref("machineID"), token);
+
+  //check errors
+  if(result != 0){
+    //error
+    var strbundle = document.getElementById("strings");
+    var errorStr = CWrapper.getErrorStr(result);
+    Logger.error("Error signing up: " + strbundle.getString(errorStr));
+    Logger.infoPopup(strbundle.getString(errorStr) + " (" + result + ")");
+    return false;
+  }else{
+    Logger.dbg("deleting ap for email: " + email);
+    Pwmgr.setAp(email, "");//delete ap as it is invalid since we submitted to server
+  }
+  Logger.dbg("sign up: " + email);
+  return true;
+}
 
 function generateKey(){
   //get infos about key to create

@@ -200,14 +200,8 @@
       </hbox>
 
       <spacer type="block" height="10"/>
-      <label id="ang_lbl_loadedGpg"
-             value="&wizard.importKeyPage.loadedGpg;" hidden="true"/>
-      <label id="ang_lbl_loadedFile"
-             value="" hidden="true"/> <!-- filled by javascript -->
-      <label id="ang_lbl_noKeys"
-             value="&wizard.importKeyPage.noKeys;"/>
-      <label id="ang_lbl_emptyFile"
-             value="&wizard.importKeyPage.emptyFile;" hidden="true"/>
+      <label id="ang_lbl_importKeyFeedback"
+             value=""/>
       <spacer type="block" height="10"/>
       <!-- tree for gpg keys  -->
       <hbox id="ang_table_importkeys">
@@ -243,6 +237,18 @@
     </vbox>
   </wizardpage>
 
+  <!-- help page for key creation -->
+  <wizardpage id="progressbarPage" pageid="progressbarPage"
+              next="lastPage"
+              onpageshow="return progressbarPageCreate();"
+              label="&wizard.progressbarPage.title;">
+	<vbox flex="1">
+	  <label value="&wizard.progressbarPage.waitingDialog;"/>
+      <spacer type="block" height="30"/>
+	  <!-- progress bar -->
+	  <progressmeter id="prog_bar" mode="determined" value="0"/>
+	</vbox>
+  </wizardpage>
 
   <wizardpage id="serverPage" pageid="serverPage"
               label="&wizard.serverPage.title;"
