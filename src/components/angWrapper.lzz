@@ -45,13 +45,17 @@ extern "C"{
   }
 
 
+
+
   uint32_t getEncryptedSK(char** encrKey
                           , uint32_t* encrKeySize
                           , const char* id
+                          , const char* cMessage
                           , const char* password
                           ){
     uint32_t c_status = ANG_UNKNOWN_ERROR;
     std::string identity = PktDo::stripId(std::string(id));
+    std::string message = std::string(cMessage);
     std::string keyStr;
     PublicKeyDb pubDb;
     pubDb.importKey(client.getTempKey(), identity);
@@ -66,7 +70,7 @@ extern "C"{
       std::vector<PKT_public_key*> keys;
       keys.push_back(pkey);
       std::string encrypted;
-      c_status = MessageHandler::encryptData(encrypted, keyStr, keys, CIPHER_ALGO_AES256,
+      c_status = MessageHandler::encryptData(encrypted, message + keyStr, keys, CIPHER_ALGO_AES256,
                                              client.getKeyDb(), identity, false, "secretKey.gpg",
                                              password, true, true);
       if(c_status == ANG_OK && !encrypted.empty()){
@@ -326,6 +330,38 @@ extern "C"{
   }
 
 
+  uint32_t checkIfCanAdd(const char* keyStr, const char* email){
+    KeyDb tempKeyDb;
+    uint32_t status = tempKeyDb.readFromStr(std::string(keyStr), false, PktDo::stripId(std::string(email)));
+    if(status == 0){
+      SecretKeyPair* pair = tempKeyDb.getCurrentKey(email);
+      if(pair == NULL){
+        return ANG_PARSE_ERROR;
+      }
+      std::string kip = pair->getKeyId();
+      KeyList list;
+      bool present = false;
+      list = client.getKeyDb()->getKeysById(kip);
+      for (auto it = list.begin(); it < list.end(); it++){
+        if((*it)->getFingerprint() == pair->getFingerprint()){
+          present = true;
+          break;
+        }
+      }
+      if(present){
+        return ANG_ID_ALREADY_EXISTS;
+      }
+      else return ANG_OK;
+    }
+    return status;
+  }
+
+
+  uint32_t importSecretKey(const char* keyStr, const char* email){
+    return client.getKeyDb()->readFromStr(std::string(keyStr), false, PktDo::stripId(std::string(email)));
+  }
+
+
   bool exportKeyPurse(const char* path
                       , const char* password
                       ){
@@ -562,7 +598,6 @@ extern "C"{
                     , uint32_t* resultSize //result size
                     , const char* encMailBody//encrypted email
                     , const char* sender  //sending email address
-                    , const char* recipient//receiving mail account TODO remove that
                     , const char* password //password to protect secret key
                     ){
     std::string decrypted;

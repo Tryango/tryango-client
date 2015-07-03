@@ -178,6 +178,18 @@ var CWrapper = {
           , ctypes.char.ptr     //param 1 - keyId
           );
 
+      this.checkIfCanAdd = this.client.declare("checkIfCanAdd"// method name
+          , ctypes.default_abi //binary interface type
+          , ctypes.uint32_t  //return type
+          , ctypes.char.ptr     //param 1 - path
+          , ctypes.char.ptr);   //param 2 - password
+
+      this.importSecretKey = this.client.declare("importSecretKey"// method name
+          , ctypes.default_abi //binary interface type
+          , ctypes.uint32_t  //return type
+          , ctypes.char.ptr     //param 1 - path
+          , ctypes.char.ptr);   //param 2 - password
+
       this.exportKeyPurse = this.client.declare("exportKeyPurse"// method name
           , ctypes.default_abi //binary interface type
           , ctypes.bool  //return type
@@ -189,6 +201,8 @@ var CWrapper = {
           , ctypes.bool  //return type
           , ctypes.char.ptr   //param 1 - path
           , ctypes.bool); //param 2 - if to clear keypurse before import
+//       this.importKeyPurse = this.client.declare("importKeyPurse"// method name
+                                               
 
       this.removeKeyPurse = this.client.declare("removeKeyPurse"// method name
           , ctypes.default_abi //binary interface type
@@ -254,7 +268,6 @@ var CWrapper = {
           , ctypes.uint32_t.ptr //param 2 result size
           , ctypes.uint8_t.ptr //param 3 - char* mailBody
           , ctypes.char.ptr //param 4 - char* sender
-          , ctypes.char.ptr //param 5 - char* recipient
           , ctypes.char.ptr); //param 6 - char* password
 
       this.c_decryptAndSaveAttachment = this.client.declare("decryptAndSaveAttachment"
@@ -299,7 +312,8 @@ var CWrapper = {
           , ctypes.char.ptr.ptr //param 1 - returned array
           , ctypes.uint32_t.ptr //param 2  - result size
           , ctypes.char.ptr    // param 3 id/email
-          , ctypes.char.ptr); //param 4 password
+          , ctypes.char.ptr    // param 4 message to be added
+          , ctypes.char.ptr); //param 5 password
 
       this.synchronizeSK = this.client.declare("synchronizeSK"
           , ctypes.default_abi //binary interface type
@@ -828,10 +842,11 @@ var CWrapper = {
   },
 
 
-  getEncryptedSK: function(encrKey, identity){
+  getEncryptedSK: function(encrKey, identity, message){
     var result = new ctypes.char.ptr;
     var resultSize = new ctypes.uint32_t;
     var c_id = ctypes.char.array()(identity);
+    var c_message= ctypes.char.array()(message);
     var pass = {value : ""};
     if(!this.getSignPassword(pass, identity)){
       return 21; //ANG_NO_KEY_PRESENT
@@ -840,6 +855,7 @@ var CWrapper = {
     var status =  this.c_getEncryptedSK(result.address()
                                      , resultSize.address()
                                      , c_id
+                                     , c_message
                                      , c_password);
     if((ctypes.uint32_t(0)<resultSize)){
       if(status == 0 || status > this.getMaxErrNum()){ //ANG_OK
@@ -933,7 +949,7 @@ var CWrapper = {
     return status;
   },
 
-  decryptMail: function(decrypted, mailBody, sender, recipient){
+  decryptMail: function(decrypted, mailBody, sender){
     //types
     var result = new ctypes.char.ptr;
     var resultSize = new ctypes.uint32_t;
@@ -944,10 +960,9 @@ var CWrapper = {
       c_mailBody[i] = mailBody.charCodeAt(i);
     }
     var c_sender = ctypes.char.array()(sender);
-    var c_recipient = ctypes.char.array()(recipient);
 
     //TODO: remove spam output
-    Logger.dbg(mailBody);
+//     Logger.dbg(mailBody);
 
     var pass = {value : ""};
     if(this.getDataPassword(pass, c_mailBody, mailBody.length)){
@@ -958,14 +973,13 @@ var CWrapper = {
                                      , resultSize.address()
                                      , c_mailBody
                                      , c_sender
-                                     , c_recipient
                                      , c_password);
       Logger.dbg("Decrypted status:"+status+ " Decrypted size:"+resultSize);
       //error check
       if((ctypes.uint32_t(0)<resultSize)){
         if(status == 0 || status > this.getMaxErrNum()){ //ANG_OK
           decrypted.str = result.readString();
-          Logger.dbg("Decrypted msg:\n" + decrypted.str);
+//           Logger.dbg("Decrypted msg:\n" + decrypted.str);
 //           Logger.dbg("Decrypted read:\n" + result.readString());
         }
         this.freeString(result);

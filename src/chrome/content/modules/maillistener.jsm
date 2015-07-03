@@ -118,17 +118,39 @@ var MailListener = new function() {
   };
 
   this.searchNewKey = function(header, identity){
+    Logger.dbg("serchNewKey for " + identity);
     var reqDevice = header.getStringProperty(this.XHEADER_NEWKEY.toLowerCase());
     let device = Prefs.getPref("machineID");
-    if(reqDevice == device){
+    var sender = header.author.substring(header.author.indexOf("<") + 1,
+                                           header.author.indexOf(">"));
+    if(reqDevice != device){
       MsgHdrToMimeMessage(header, null, function (aMsgHdr, aMimeMessage) {
         // do something with aMimeMessage:
         let keyStr = aMimeMessage.coerceBodyToPlaintext();
-        let start = keyStr.search("-----BEGIN PGP");
-//         if(document.body.textContent.search("-----BEGIN PGP") != -1){
-//         }
-        
-        Logger.dbg("Get new key"+keyStr);
+        let start = keyStr.search("-----BEGIN PGP MESSAGE-----");
+        let end = keyStr.search("-----END PGP MESSAGE-----");
+        var decryptedMail = {str : ""};
+        if(start != -1 && end != -1){
+          Logger.dbg("Message found");
+          var status = CWrapper.decryptMail(decryptedMail, keyStr.substr(start, end - start + 25), sender);
+          Logger.dbg("Decrypt result:"+status);
+          if(status == 0){
+            start = decryptedMail.str.search("-----BEGIN PGP MESSAGE-----");
+            end = decryptedMail.str.search("-----END PGP MESSAGE-----");
+            if(start != -1 && end != -1){
+              keyStr = decryptedMail.str.substr(start, end - start + 25);
+              status = CWrapper.checkIfCanAdd(keyStr, sender);
+              Logger.dbg("checkIfCanAdd result:"+status);
+
+              var message = MailListener.languagepack.getString("key_add_question"); 
+              if(status == 0 && Logger.promptService.confirm(null, "Tryango", message)){
+                status = CWrapper.importSecretKey(keyStr, sender);
+                Logger.dbg("Added key with status" + status);
+                //TODO add sending of the key
+              }
+            }
+          }
+        }
       }, true);
       return true;
     }
@@ -227,10 +249,11 @@ var MailListener = new function() {
         }
         var message = this.languagepack.getString("mail_question_p1") + "\n\n" +
           this.languagepack.getString("mail_question_p2");
-        if(sendEmail && Logger.promptService.confirm(null, "Tryango", message)){
+        if(sendEmail && (!Prefs.getPref("advancedOptions") || Logger.promptService.confirm(null, "Tryango", message) )){
           let encrKey = {str : ""};
-          let status =  CWrapper.getEncryptedSK(encrKey, identity);
-          Logger.dbg("Encrytped key to send:" + encrKey.str);
+          message = this.languagepack.getString("mail_explanation_newkey").replace("$DEVICE", device) + "\n\n\n";
+          let status =  CWrapper.getEncryptedSK(encrKey, identity, message);
+//           Logger.dbg("Encrytped key to send:" + encrKey.str);
           if(status == 0 && encrKey.str.length > 0){
             message = this.languagepack.getString("mail_explanation_newkey").replace("$DEVICE", device) + "\n\n\n" + encrKey.str;
             let custom_headers = {};
@@ -378,9 +401,9 @@ var MailListener = new function() {
         if(msgObj.ciphertext != ""){
           var decryptedMail = {str : ""};
           if(msgObj.blockType=="MESSAGE"){
-            var recipient = MailListener.findAccountFromHeader(msgHdr);
-            Logger.dbg("decrypting email for " + recipient + " from " + sender);
-            var status = CWrapper.decryptMail(decryptedMail, msgObj.ciphertext, sender, recipient);
+//             var recipient = MailListener.findAccountFromHeader(msgHdr);
+            Logger.dbg("decrypting email from " + sender);
+            var status = CWrapper.decryptMail(decryptedMail, msgObj.ciphertext, sender);
             if(status > 0 && status <= CWrapper.getMaxErrNum()){
               Logger.error("Decrypt failed with error: " + MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
               //tell user

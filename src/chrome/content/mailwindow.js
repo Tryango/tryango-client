@@ -676,7 +676,7 @@ ConfiComposeStateListener = {
     var plaintext = {str : ""};
     if(blockType == "MESSAGE"){
 
-      var status = CWrapper.decryptMail(plaintext, ciphertext, "", "");
+      var status = CWrapper.decryptMail(plaintext, ciphertext, "");
       if(status > 0 && status <= CWrapper.getMaxErrNum()){
         Logger.error("Decrypt failed with error:" + CWrapper.getErrorStr(status)); //TODO: check all getErrorStr for a this.languagepack.getString(...) around it!
         //tell user
