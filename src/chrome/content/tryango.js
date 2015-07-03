@@ -58,7 +58,7 @@ Tryango.init = function(){
   }catch(ex){
     //could not initialise C-lib => failsafe: disable Tryango
     Logger.error(ex);
-    Logger.infoPopup(this.languagepack.getString("err_init_lib"));
+    Dialogs.info(this.languagepack.getString("err_init_lib"));
     this.disable();
     return;
   }
@@ -69,7 +69,7 @@ Tryango.init = function(){
 
   //check offline status
   if(this.checkOfflineStatus()){
-    Logger.infoPopup(this.languagepack.getString("warn_offline"));
+    Dialogs.info(this.languagepack.getString("warn_offline"));
   }
 
   //load password manager
@@ -152,7 +152,7 @@ Tryango.handleEvent = function(id){
   case "menu-signup":
     //check offline status
     if(this.checkOfflineStatus()){
-      Logger.infoPopup(this.languagepack.getString("warn_go_online"));
+      Dialogs.info(this.languagepack.getString("warn_go_online"));
       return;
     }
     else{
@@ -206,7 +206,7 @@ Tryango.handleEvent = function(id){
       if(!CWrapper.importKeyPurse(fp.file.path, false)){
         //error
         Logger.error("importKeyPurse failed");
-        Logger.infoPopup(this.languagepack.getString("imp_keypurese_fail"));
+        Dialogs.info(this.languagepack.getString("imp_keypurese_fail"));
       }
       //else: everything ok
     }

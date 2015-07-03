@@ -658,11 +658,13 @@ class ConfiClient
 
 
   void setTempKey(const std::string key){
+    std::cout<<"setting temp key "<<string_to_hex(key)<<std::endl;
     tempKey = key;
   }
 
 
   std::string getTempKey(){
+    std::cout<<"getting temp key "<<string_to_hex(tempKey)<<std::endl;
     return tempKey;
   }
 

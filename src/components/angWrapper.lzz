@@ -56,12 +56,12 @@ extern "C"{
     PublicKeyDb pubDb;
     pubDb.importKey(client.getTempKey(), identity);
     clearTempKey();
-    PublicKeyPair* pk = pubDb.getKey(id);
+    PublicKeyPair* pk = pubDb.getKey(identity, true);
     if(pk == NULL) {
       return ANG_NO_KEY_PRESENT;
     }
     PKT_public_key* pkey = pk->getPEKey();
-    SecretKeyPair* skey = client.getKeyDb()->getCurrentKey(id);
+    SecretKeyPair* skey = client.getKeyDb()->getCurrentKey(identity);
     if(pkey != NULL && skey != NULL && skey->exportPair(keyStr, true, true) && keyStr.length() > 0){
       std::vector<PKT_public_key*> keys;
       keys.push_back(pkey);

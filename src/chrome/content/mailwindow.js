@@ -680,7 +680,7 @@ ConfiComposeStateListener = {
       if(status > 0 && status <= CWrapper.getMaxErrNum()){
         Logger.error("Decrypt failed with error:" + CWrapper.getErrorStr(status)); //TODO: check all getErrorStr for a this.languagepack.getString(...) around it!
         //tell user
-        Logger.infoPopup(this.languagepack.getString("mail_dec_failed") + " Error:" + CWrapper.getErrorStr(status));
+        Dialogs.info(this.languagepack.getString("mail_dec_failed") + " Error:" + CWrapper.getErrorStr(status));
         return;
       }
       plaintext = plaintext.str;
@@ -694,7 +694,7 @@ ConfiComposeStateListener = {
       if(status > 0 && status <= CWrapper.getMaxErrNum()){
         Logger.error("Signature failed with error:" + CWrapper.getErrorStr(status));
         //tell user
-        Logger.infoPopup(this.languagepack.getString("mail_dec_failed") +
+        Dialogs.info(this.languagepack.getString("mail_dec_failed") +
                          " Error:" + this.languagepack.getString(CWrapper.getErrorStr(status)));
         return;
       }
@@ -970,7 +970,7 @@ if(typeof window != 'undefined'){ //only set-up if file is NOT imported
     }
     else{
       //errors => abort sending
-      Logger.infoPopup(MailWindow.languagepack.getString("mail_send_failed"));
+      Dialogs.info(MailWindow.languagepack.getString("mail_send_failed"));
       event.preventDefault();
       event.stopPropagation();
     }

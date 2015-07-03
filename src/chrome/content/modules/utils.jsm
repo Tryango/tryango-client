@@ -99,7 +99,8 @@ var Utils = new function()
     if(!(new FileUtils.File(Prefs.getPref("keyPursePath"))).exists()){
       //no keypurse => no export (this should never happen and be avoided by the
 	  //function calling exportKeyPurse)
-      Logger.infoPopup(languagepack.getString("exp_keypurse_fail"));
+      Dialogs.info(languagepack.getString("exp_keypurse_fail"));
+//       Logger.infoPopup(languagepack.getString("exp_keypurse_fail"));
       return false;
     }
 
@@ -122,7 +123,8 @@ var Utils = new function()
       if(!CWrapper.exportKeyPurse(fp.file.path, "")){ //TODO: password?
         //error
         Logger.error("exportKeyPurse failed");
-        Logger.infoPopup(languagepack.getString("bak_keypurese_fail"));
+        Dialogs.info(languagepack.getString("bak_keypurese_fail"));
+//         Logger.infoPopup(languagepack.getString("bak_keypurese_fail"));
 		return false;
       }
       //else: everything ok
@@ -206,7 +208,8 @@ var Utils = new function()
       if(!CWrapper.removeKeyPurse(Prefs.getPref("keyPursePath"))){
         Logger.error("Could not remove keypurse: " +
                      Prefs.getPref("keyPursePath"));
-        Logger.infoPopup(languagepack.getString("rm_keypurse_fail"));
+        Dialogs.info(languagepack.getString("rm_keypurse_fail"));
+//         Logger.infoPopup(languagepack.getString("rm_keypurse_fail"));
       }
     }else{
 	  //no keypurse => everything good
@@ -818,7 +821,8 @@ function removeDevices(identity, devices, lang, doNotPrompt){
   if(status != 0){
     //error
     Logger.error("CWrapper exception removeDevice (" + identity + "," + devices + "): " + status);
-    Logger.infoPopup(
+    Dialogs.info(
+//     Logger.infoPopup(
       lang.getString("remove_device_failed") +
         "\n(" + identity + ": " + devices + ")\n" +
         lang.getString(CWrapper.getErrorStr(status))

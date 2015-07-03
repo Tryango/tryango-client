@@ -89,3 +89,51 @@ Dialogs.helpEnd = function(window){
   return true;
 }
 
+Dialogs.info = function(message){
+  let mediator = Components.classes['@mozilla.org/appshell/window-mediator;1']
+                  .getService(Components.interfaces.nsIWindowMediator);
+  var window = mediator.getMostRecentWindow("mail:3pane");//getOuterWindowWithId("messengerWindow")
+  Logger.log(window);
+  if(window){
+    let doc = window.document;
+    let box = doc.getElementById("mail-notification-box");
+//     Buttons :
+//     The buttons argument is an array of button descriptions. Each description is an object with the following properties:
+// 
+//     accessKey - the accesskey to appear on the button
+//     callback - function to be called when the button is activated. This function is passed two arguments:
+//         the <notification> the button is associated with
+//         the button description as passed to appendNotification.
+//     label - the label to appear on the button
+//     popup - the id of a popup for the button. If null, the button is a button popup.
+    let buttons = [];
+//   var buttons = [{
+//     label: 'Button',
+//     accessKey: 'B',
+//     popup: 'blockedPopupOptions',
+//     callback: null
+//   }];
+    let priority = box.PRIORITY_INFO_MEDIUM;
+//     Priority Levels :
+// 
+//     PRIORITY_INFO_LOW
+//     PRIORITY_INFO_MEDIUM
+//     PRIORITY_INFO_HIGH
+//     PRIORITY_WARNING_LOW
+//     PRIORITY_WARNING_MEDIUM
+//     PRIORITY_WARNING_HIGH
+//     PRIORITY_CRITICAL_LOW
+//     PRIORITY_CRITICAL_MEDIUM
+//     PRIORITY_CRITICAL_HIGH
+//     PRIORITY_CRITICAL_BLOCK
+    box.appendNotification(message, 'tryango-notify',
+                           'chrome://tryango/skin/cm_logo.png',
+                           priority, buttons);
+
+  }
+  else{
+    Logger.error("Could not get the main window.");
+    Logger.infoPopup(message);
+  }
+}
+

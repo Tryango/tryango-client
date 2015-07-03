@@ -133,12 +133,12 @@ var AttachmentManager = new function()
             var status = CWrapper.decryptAndSaveAttachment(data, this.path, this.sender);
             if(status > CWrapper.getMaxErrNum()){
               //signature failed
-              Logger.infoPopup(this.languagepack.getString(CWrapper.getErrorStr(status)) +
+              Dialogs.info(this.languagepack.getString(CWrapper.getErrorStr(status)) +
                                ":\n\t" + this.path);
             }
             else if(status != 0){
               //error => tell user
-              Logger.infoPopup(this.languagepack.getString("att_dec_failed") + " " + this.path +
+              Dialogs.info(this.languagepack.getString("att_dec_failed") + " " + this.path +
                                "\n(" + this.languagepack.getString(CWrapper.getErrorStr(status)) +
                                ")");
             }

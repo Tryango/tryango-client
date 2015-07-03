@@ -95,8 +95,8 @@ function prefOnLoad()
 {
   //check if tryango is disabled, if so, stop
   if(Prefs.tryangoDisabled){
-    Logger.log("Preferences loaded but Tryango is disabled!");
-    Logger.infoPopup(document.getElementById("lang_file").getString("err_init_lib"));
+    Logger.dbg("Preferences loaded but Tryango is disabled!");
+    Dialogs.info(document.getElementById("lang_file").getString("err_init_lib"));
     window.close();
     return;
   }

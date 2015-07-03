@@ -8,6 +8,7 @@ Components.utils.import("resource:///modules/gloda/mimemsg.js");//for MsgHdrToMi
 
 //own imports
 Components.utils.import("resource://tryango_modules/logger.jsm");
+Components.utils.import("resource://tryango_modules/dialogs.jsm");
 Components.utils.import("resource://tryango_modules/cWrapper.jsm");
 Components.utils.import("resource://tryango_modules/prefs.jsm");
 Components.utils.import("resource://tryango_modules/pwmanager.jsm");
@@ -203,12 +204,15 @@ var MailListener = new function() {
       let err = this.languagepack.getString("signup_failed") + ": " +
           this.languagepack.getString(errorStr) + " (" + result + ")";
       Logger.error(err);
-      Logger.infoPopup(err);
+      Dialogs.info(this.languagepack.getString("att_dec_failed") + " " + this.path +
+                               "\n(" + this.languagepack.getString(CWrapper.getErrorStr(status)) +
+                               ")");
+
+      Dialogs.info(err);
     }
     else{
       if(result == 18 ){ //ANG_ID_ALREADY_EXISTS
         Logger.dbg("Added ap but no need to sumbit new key for identity: " + identity);
-//         sendMessage(identity, "subject", "test body", null, this.XHEADER_NEWKEY +": test header\n");
       }
       else{
         Logger.dbg("Added identity: " + identity);
@@ -221,13 +225,20 @@ var MailListener = new function() {
         }
         catch(err){
         }
-        let message = this.languagepack.getString("send_encrypted_key");
+        var message = this.languagepack.getString("mail_question_p1") + "\n\n" +
+          this.languagepack.getString("mail_question_p2");
         if(sendEmail && Logger.promptService.confirm(null, "Tryango", message)){
           let encrKey = {str : ""};
           let status =  CWrapper.getEncryptedSK(encrKey, identity);
           Logger.dbg("Encrytped key to send:" + encrKey.str);
           if(status == 0 && encrKey.str.length > 0){
-            sendMessage(identity, "Encrypted private key for Tryango", encrKey.str, null, this.XHEADER_NEWKEY +": " + device + "\n");
+            message = this.languagepack.getString("mail_explanation_newkey").replace("$DEVICE", device) + "\n\n\n" + encrKey.str;
+            let custom_headers = {};
+            custom_headers[this.XHEADER_NEWKEY] =  device;
+            sendMessage(identity, this.languagepack.getString("mail_subject_newkey"), message, null, custom_headers);
+          }
+          else{
+            Logger.dbg("Failed to get key to encrypt, status:" + status + " identity:" + identity);
           }
         }
         else{
@@ -237,7 +248,7 @@ var MailListener = new function() {
       if(CWrapper.synchronizeSK(identity) != 0){
         Logger.error(this.languagepack.getString("no_corresponding_key") +": " + identity);
       }
-      Logger.infoPopup(this.languagepack.getString("signup_done") + " (" + identity + ")");
+      Dialogs.info(this.languagepack.getString("signup_done") + " (" + identity + ")");
     }
     //ap is updated in submitKey, no need to do it here
   };
@@ -373,7 +384,7 @@ var MailListener = new function() {
             if(status > 0 && status <= CWrapper.getMaxErrNum()){
               Logger.error("Decrypt failed with error: " + MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
               //tell user
-              Logger.infoPopup(MailListener.languagepack.getString("mail_dec_failed") + "\nError: " + MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
+              Dialogs.info(MailListener.languagepack.getString("mail_dec_failed") + "\nError: " + MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
               return;
             }
             MailListener.updateToolBar(status);
@@ -401,7 +412,8 @@ var MailListener = new function() {
               //message could not be decrypted => only display ciphertext (and show
               //the error to the user)
               if(status > 0 && status <= CWrapper.getMaxErrNum()){
-                Logger.infoPopup(MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
+                Dialogs.info(MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
+//                 Logger.infoPopup(MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
                 //critical error
                 message = msgObj.ciphertext;
               }

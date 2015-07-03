@@ -278,7 +278,8 @@ var Prefs = new function()
       if(!result){
         var errorStr = this.languagepack.getString("info_update_server_port");
         Logger.error(errorStr);
-        Logger.infoPopup(errorStr);
+        Dialogs.info(errorStr);
+//         Logger.infoPopup(errorStr);
       }
     }
     //fill else if's as needed

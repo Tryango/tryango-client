@@ -412,7 +412,8 @@ function onInfoGpg(){
   if(status != 0 && status !=15){ //15 = ANG_NO_ENTRIES
     //error
     Logger.error("loadInfoKeysFromGpg failed with status: " + status);
-    Logger.infoPopup(languagepack.getString("imp_keys_fail"));
+    Dialogs.info(languagepack.getString("imp_keys_fail"));
+//     Logger.infoPopup(languagepack.getString("imp_keys_fail"));
   }
   else if(status == 0){
     //fill the table
@@ -470,7 +471,8 @@ function onInfoFile(){
     if(status != 0 && status != 15){ //15 = ANG_NO_ENTRIES
       //error
       Logger.error("loadInfoKeysFromFile failed");
-      Logger.infoPopup(languagepack.getString("imp_keys_fail"));
+//       Logger.infoPopup(languagepack.getString("imp_keys_fail"));
+      Dialogs.info(languagepack.getString("imp_keys_fail"));
     }
     else if(status == 0){
       //fill table
@@ -657,7 +659,8 @@ function signup(){
         var strbundle = document.getElementById("strings");
         var errorStr = CWrapper.getErrorStr(result);
         Logger.error("Error signing up: " + strbundle.getString(errorStr));
-        Logger.infoPopup(strbundle.getString(errorStr) + " (" + result + ")");
+        Dialogs.info(strbundle.getString(errorStr) + " (" + result + ")");
+//         Logger.infoPopup(strbundle.getString(errorStr) + " (" + result + ")");
         return false;
       }else{
         Logger.dbg("deleting ap for email: " + email);
