@@ -668,7 +668,7 @@ function progressbarPageCreate(){
   var blobURL = URL.createObjectURL(
 	new Blob([
 	  function onmessage(){
-		//TODO
+		//TODO: web workers cannot accesss the DOM since DOM is not thread-safe
 		document.getElementById("prog_bar").value = 50;
 	  }.toString()
 	], {type: 'application/javascript'})
@@ -678,6 +678,7 @@ function progressbarPageCreate(){
   URL.revokeObjectURL( blobURL );
   */
 
+  //TODO: progressbarPage is not even shown since this method needs to terminate first!
   //generate key (TODO: and update progress bar)
   if(generateKey()){
 	//if key created successfully => doSignup
