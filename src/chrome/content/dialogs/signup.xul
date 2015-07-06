@@ -237,19 +237,6 @@
     </vbox>
   </wizardpage>
 
-  <!-- help page for key creation -->
-  <wizardpage id="progressbarPage" pageid="progressbarPage"
-              next="lastPage"
-              onpageshow="return progressbarPageCreate();"
-              label="&wizard.progressbarPage.title;">
-	<vbox flex="1">
-	  <label value="&wizard.progressbarPage.waitingDialog;"/>
-      <spacer type="block" height="30"/>
-	  <!-- progress bar -->
-	  <progressmeter id="prog_bar" mode="determined" value="0"/>
-	</vbox>
-  </wizardpage>
-
   <wizardpage id="serverPage" pageid="serverPage"
               label="&wizard.serverPage.title;"
               onpageshow="serverPageCreate()"

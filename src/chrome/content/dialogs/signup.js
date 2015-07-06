@@ -51,18 +51,13 @@ function onNext() {
       wizard.currentPage.next = getNextServerPage();
       break;
 
-	case "progressbarPage":
-	  //progressbarPage is called from signup() below
-	  //=> do NOT progress and just return (otherwise infinite recursion!)
-	  return true;
-
 	default:
 	  Logger.error("Unknown wizard page: " + wizard.currentPage);
     }
 
     //lastPage => wizard finished; do the signup
     if(wizard.currentPage.next == "lastPage"){
-      if(!signup()){ //signup might set currentPage.next to progressbarPage!
+      if(!signup()){
         //error => stay on page
         wizard.currentPage.next = wizard.currentPage;
       }
@@ -608,86 +603,33 @@ function lastPageCreate(){
 
 function signup(){
   var email = document.getElementById("signup_email").selectedItem.value;
+  var ret = false;
   if(email != "empty"){
     //check which option was selected (previous key, new key, import key)
     //and execute it
     var keyMethod = document.getElementById("ang_key_radiogroup");
     switch(keyMethod.selectedIndex) {
     case 0:
-	  doSignup(email);
-      break;
+	  //use previous key
+	  ret = doSignup(email);
+	  break;
     case 1:
-      //display a "waiting" dialog-page (while generating the key)
-	  //see progressbarPageCreate
-	  getWizard().currentPage.next = "progressbarPage";
-      return true; //no break!
+	  //generate new key
+	  if(generateKey()){
+		//if key created successfully => doSignup
+		ret = doSignup(email);
+	  }
+	  break;
     case 2:
+	  //import key
       if(importKey()){
-		doSignup(email);
+		ret = doSignup(email);
 	  }
       break;
     }
-
-    //if execution succeeded, do the signup
-    if(doSignup){
-      //generate random requestID to identify answers from server
-      var token = generateToken();
-      Logger.dbg("reqId token: " + token);
-      Prefs.setPref("reqId_" + email, token);
-
-      //pass email address to c
-      //TODO: append machineID with random string
-      let result = CWrapper.signup(email, Prefs.getPref("machineID"), token);
-
-      //check errors
-      if(result != 0){
-        //error
-        var strbundle = document.getElementById("strings");
-        var errorStr = CWrapper.getErrorStr(result);
-        Logger.error("Error signing up: " + strbundle.getString(errorStr));
-        Dialogs.info(strbundle.getString(errorStr) + " (" + result + ")");
-//         Logger.infoPopup(strbundle.getString(errorStr) + " (" + result + ")");
-        return false;
-      }else{
-        Logger.dbg("deleting ap for email: " + email);
-        Pwmgr.setAp(email, "");//delete ap as it is invalid since we submitted to server
-      }
-      Logger.dbg("sign up: " + email);
-      return true;
-    }
   }
 
-  return false;
-}
-
-function progressbarPageCreate(){
-  Logger.dbg("progressbarPage create");
-
-  // Build a worker
-  /*
-  var blobURL = URL.createObjectURL(
-	new Blob([
-	  function onmessage(){
-		//TODO: web workers cannot accesss the DOM since DOM is not thread-safe
-		document.getElementById("prog_bar").value = 50;
-	  }.toString()
-	], {type: 'application/javascript'})
-  );
-  var worker = new Worker(blobURL);
-  //cleanup
-  URL.revokeObjectURL( blobURL );
-  */
-
-  //TODO: progressbarPage is not even shown since this method needs to terminate first!
-  //generate key (TODO: and update progress bar)
-  if(generateKey()){
-	//if key created successfully => doSignup
-	var email = document.getElementById("signup_email").selectedItem.value;
-	if(doSignup(email)){
-	  //TODO: go back one page + error message?
-	}
-	getWizard().advance(null); //TODO: just jump to next page (progressbar not implemented yet)
-  }
+  return ret;
 }
 
 function doSignup(email){
