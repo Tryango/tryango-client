@@ -142,7 +142,7 @@ var MailListener = new function() {
               status = CWrapper.checkIfCanAdd(keyStr, sender);
               Logger.dbg("checkIfCanAdd result:"+status);
 
-              var message = MailListener.languagepack.getString("key_add_question"); 
+              var message = MailListener.languagepack.getString("key_add_question");
               if(status == 0 && Logger.promptService.confirm(null, "Tryango", message)){
                 status = CWrapper.importSecretKey(keyStr, sender);
                 Logger.dbg("Added key with status" + status);
@@ -173,6 +173,7 @@ var MailListener = new function() {
 
   this.searchAP = function(header, identity){
     //TODOTODO: could not identify receiving email address when encrypted mail arrives (maybe since email is not clicked on findAccountFromHeader does not work?)
+
     //see also:
     //  https://developer.mozilla.org/en-US/Add-ons/Thunderbird/HowTos/Common_Thunderbird_Extension_Techniques/Filter_Incoming_Mail
     //  http://kewisch.wordpress.com/2012/10/11/executing-js-code-when-receiving-an-email-with-a-specific-header-set/
@@ -424,14 +425,14 @@ var MailListener = new function() {
             Logger.dbg("verified signature for sender:"+sender + " with status:"+status);
             Logger.dbg("display dbg 12");
             let message = decryptedMail.str;
-            
+
             //signature failed if NOT (status is 0 or no_sig)
             //user has to be notified if any non-signature errors happen
             if(status != 0 && CWrapper.getErrorStr(status) != "no_sig"){
               //error
               Logger.error("signature check failed: " + status + "\n" +
                            MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
-              
+
               //message could not be decrypted => only display ciphertext (and show
               //the error to the user)
               if(status > 0 && status <= CWrapper.getMaxErrNum()){
@@ -442,7 +443,7 @@ var MailListener = new function() {
               }
             }
             MailListener.updateToolBar(status);
-            
+
             //update message
             var isHtml = message.search("<html") != -1;
             MailListener.insertEmail(MailListener.currDoc, message, isHtml);

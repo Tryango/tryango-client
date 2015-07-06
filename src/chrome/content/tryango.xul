@@ -6,7 +6,7 @@
 <!-- language file -->
 <!DOCTYPE tryango SYSTEM "chrome://tryango/locale/lang.dtd">
 
-<overlay id="tryango" 
+<overlay id="tryango"
 	 xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
 
   <!-- Reference to JavaScript file -->
@@ -101,11 +101,12 @@
   </toolbarpalette>
 
   <!-- Overlay to show signature check -->
-  <vbox id="expandedHeadersBox"
+  <vbox id="singlemessage"
         xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
 
     <hbox id="tryango-verification-toolbar"
           style="background-color: transparent;"
+		  insertbefore="messagepanewrapper"
           pack="center">
       <!-- value will be filled by JavaScript -->
       <label id="tryango-verification-label"
@@ -121,5 +122,3 @@
   </stringbundleset>
 
 </overlay>
-
-
