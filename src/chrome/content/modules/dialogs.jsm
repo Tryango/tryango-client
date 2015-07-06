@@ -99,7 +99,7 @@ Dialogs.info = function(message){
     let box = doc.getElementById("mail-notification-box");
 //     Buttons :
 //     The buttons argument is an array of button descriptions. Each description is an object with the following properties:
-// 
+//
 //     accessKey - the accesskey to appear on the button
 //     callback - function to be called when the button is activated. This function is passed two arguments:
 //         the <notification> the button is associated with
@@ -115,7 +115,7 @@ Dialogs.info = function(message){
 //   }];
     let priority = box.PRIORITY_INFO_MEDIUM;
 //     Priority Levels :
-// 
+//
 //     PRIORITY_INFO_LOW
 //     PRIORITY_INFO_MEDIUM
 //     PRIORITY_INFO_HIGH
@@ -126,6 +126,7 @@ Dialogs.info = function(message){
 //     PRIORITY_CRITICAL_MEDIUM
 //     PRIORITY_CRITICAL_HIGH
 //     PRIORITY_CRITICAL_BLOCK
+	//TODO: this spams the box and only old messages are shown => maybe prepend not append?
     box.appendNotification(message, 'tryango-notify',
                            'chrome://tryango/skin/cm_logo.png',
                            priority, buttons);
@@ -136,4 +137,3 @@ Dialogs.info = function(message){
     Logger.infoPopup(message);
   }
 }
-

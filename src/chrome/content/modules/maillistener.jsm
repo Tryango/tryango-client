@@ -6,6 +6,7 @@ Components.utils.import("resource://gre/modules/mailServices.js");
 Components.utils.import("resource://gre/modules/iteratorUtils.jsm");
 Components.utils.import("resource:///modules/gloda/mimemsg.js");//for MsgHdrToMimeMessage
 
+
 //own imports
 Components.utils.import("resource://tryango_modules/logger.jsm");
 Components.utils.import("resource://tryango_modules/dialogs.jsm");
@@ -103,7 +104,8 @@ var MailListener = new function() {
             .getService(Components.interfaces.nsIMimeConverter);
       var subject =  mimeConvert.decodeMimeHeader(header.subject, null, false, true);
       Logger.error("Could not identify receiving email address (" +
-                     header.folder.prettiestName + "/" + subject + ")");
+                   header.folder.prettiestName + "/" + subject + ")");
+	  //TODOTODO: could not identify receiving email address when encrypted mail arrives (maybe since email is not clicked on findAccountFromHeader does not work?)
       return;
     }
 
@@ -172,8 +174,6 @@ var MailListener = new function() {
   };
 
   this.searchAP = function(header, identity){
-    //TODOTODO: could not identify receiving email address when encrypted mail arrives (maybe since email is not clicked on findAccountFromHeader does not work?)
-
     //see also:
     //  https://developer.mozilla.org/en-US/Add-ons/Thunderbird/HowTos/Common_Thunderbird_Extension_Techniques/Filter_Incoming_Mail
     //  http://kewisch.wordpress.com/2012/10/11/executing-js-code-when-receiving-an-email-with-a-specific-header-set/
@@ -362,6 +362,7 @@ var MailListener = new function() {
   //and decrypt/verify if necessary
   this.onMsgDisplay = function(event){
     //explanation: hooked messagepane and overload "onpageshow" function (see tryango.js)
+	//event is pageshow-Event on target messagepane
 
     //reset
     this.cmToolbar.children[0].setAttribute("value", this.languagepack.getString("verifytoolbar"));
@@ -371,6 +372,10 @@ var MailListener = new function() {
     if(!msgHdr){
       //no message selected
       Logger.dbg("no message header");
+
+	  //TODO: get header in full screen mode
+	  Logger.dbg(msgHdrForCurrentMessage()); //FIXME: does not exist
+
       return;
     }
 
