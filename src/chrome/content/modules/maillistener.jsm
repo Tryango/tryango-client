@@ -105,7 +105,6 @@ var MailListener = new function() {
       var subject =  mimeConvert.decodeMimeHeader(header.subject, null, false, true);
       Logger.error("Could not identify receiving email address (" +
                    header.folder.prettiestName + "/" + subject + ")");
-	  //TODOTODO: could not identify receiving email address when encrypted mail arrives (maybe since email is not clicked on findAccountFromHeader does not work?)
       return;
     }
 
@@ -113,6 +112,7 @@ var MailListener = new function() {
       this.submitKey(identity);
     }
     else{
+	  //TODO: FIXME: why is this done at msgAdded and not just at onMsgDisplay? (or rather: why is the email decrypted in searchNewKey!? it is done twice for every gmail account whenever an email is received!)
       if(!this.searchNewKey(header, identity)){
         this.searchOldKey(header, identity);
       }
@@ -373,7 +373,7 @@ var MailListener = new function() {
       //no message selected
       Logger.dbg("no message header");
 
-	  //TODO: get header in full screen mode
+	  //TODOTODO: get header in full screen mode
 	  Logger.dbg(msgHdrForCurrentMessage()); //FIXME: does not exist
 
       return;
@@ -615,6 +615,9 @@ var MailListener = new function() {
 	          return account.email;
 	        }
         }
+
+		//TODOTODO: could not identify receiving email address when encrypted mail arrives (is this line the error?)
+		Logger.error("msgHdr.accountKey does not match any account.key");
         return "";
       }
       else{
@@ -625,13 +628,14 @@ var MailListener = new function() {
 	        return ret.defaultIdentity.email;
         }
         else{
-          Logger.error("Find account account from header did not find email addres");
-	        return "";
+          Logger.error("Find account account from header did not find email address");
+	      return "";
         }
       }
     }
     else{
-        Logger.error("Find account account from header did not find email addres - mshHeader is null");
+      Logger.error("Find account account from header did not find email addres - msgHeader is null");
+	  return "";
     }
   };
 

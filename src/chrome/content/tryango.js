@@ -17,8 +17,6 @@ Components.utils.import("resource://tryango_modules/cWrapper.jsm");
 Components.utils.import("resource://tryango_modules/attachmentManager.jsm");
 Components.utils.import("resource://tryango_modules/utils.jsm");
 
-//TODO: test with multiple send-windows open!
-
 // (Singleton) Basic Tryango class
 // "main" class for all Tryango functions
 if (! Tryango){

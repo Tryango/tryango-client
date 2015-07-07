@@ -23,18 +23,18 @@ var Utils = new function()
     if(!text){
       return "";
     }
-    
+
     if(!charset){
       charset = "utf-8";
     }
-    
+
     // Encode plaintext
     try{
       var unicodeConv = Components.classes["@mozilla.org/intl/scriptableunicodeconverter"].getService(Components.interfaces.nsIScriptableUnicodeConverter);
-      
+
       unicodeConv.charset = charset;
       return unicodeConv.ConvertFromUnicode(text);
-      
+
     }
     catch(ex) {
       Logger.dbg("convertFromUnicode: caught an exception\n");
@@ -43,34 +43,35 @@ var Utils = new function()
   }
 
   this.writeFile = function(file, data) {
-    Components.utils.import("resource://gre/modules/NetUtil.jsm"); 
-    Components.utils.import("resource://gre/modules/FileUtils.jsm"); 
-    var ostream = FileUtils.openSafeFileOutputStream(file) 
-    var converter = Components.classes["@mozilla.org/intl/scriptableunicodeconverter"]. 
-    createInstance(Components.interfaces.nsIScriptableUnicodeConverter); 
-    converter.charset = "UTF-8"; 
-    var istream = converter.convertToInputStream(data); 
-    NetUtil.asyncCopy(istream, ostream, function(status) { 
-        if (!Components.isSuccessCode(status))  
-            return; 
+    Components.utils.import("resource://gre/modules/NetUtil.jsm");
+    Components.utils.import("resource://gre/modules/FileUtils.jsm");
+    var ostream = FileUtils.openSafeFileOutputStream(file)
+    var converter = Components.classes["@mozilla.org/intl/scriptableunicodeconverter"].
+    createInstance(Components.interfaces.nsIScriptableUnicodeConverter);
+    converter.charset = "UTF-8";
+    var istream = converter.convertToInputStream(data);
+    NetUtil.asyncCopy(istream, ostream, function(status) {
+        if (!Components.isSuccessCode(status))
+            return;
     });
 },
 
   this.readFile = function(file){
-    var data = ""; 
-    var fstream = Components.classes["@mozilla.org/network/file-input-stream;1"].createInstance(Components.interfaces.nsIFileInputStream); 
-    var cstream = Components.classes["@mozilla.org/intl/converter-input-stream;1"].createInstance(Components.interfaces.nsIConverterInputStream); 
-    fstream.init(file, -1, 0, 0); 
-    cstream.init(fstream, "UTF-8", 0, 0); 
-    let (str = {}) { 
-      let read = 0; 
-      do { 
-        read = cstream.readString(0xffffffff, str); 
-        data += str.value; 
-      } while (read != 0); 
-    } 
-    cstream.close();  
-    return data; 
+    var data = "";
+    var fstream = Components.classes["@mozilla.org/network/file-input-stream;1"].createInstance(Components.interfaces.nsIFileInputStream);
+    var cstream = Components.classes["@mozilla.org/intl/converter-input-stream;1"].createInstance(Components.interfaces.nsIConverterInputStream);
+    fstream.init(file, -1, 0, 0);
+    cstream.init(fstream, "UTF-8", 0, 0);
+    {
+	  let str = {};
+      let read = 0;
+      do {
+        read = cstream.readString(0xffffffff, str);
+        data += str.value;
+      } while (read != 0);
+    }
+    cstream.close();
+    return data;
   }
 
   this.convertToUnicode = function (text, charset) {
@@ -78,17 +79,17 @@ var Utils = new function()
 
     if (!text || !charset /*|| (charset.toLowerCase() == "iso-8859-1")*/)
       return text;
-    
+
   // Encode plaintext
     try {
       var unicodeConv = Components.classes["@mozilla.org/intl/scriptableunicodeconverter"].getService(Components.interfaces.nsIScriptableUnicodeConverter);
-      
+
       unicodeConv.charset = charset;
       return unicodeConv.ConvertToUnicode(text);
-      
+
     }
     catch (ex) {
-      
+
       Logger.dbg("convertToUnicode: caught an exception while converting'"+text+"' to "+charset+"\n");
       return text;
     }
