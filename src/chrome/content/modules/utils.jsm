@@ -15,7 +15,11 @@ var EXPORTED_SYMBOLS = ["Utils"]; //only export Utils, not the rest
 
 var Utils = new function()
 {
+  this.window = null;
 
+  this.init = function(window){
+	this.window = window;
+  }
 
   this.convertFromUnicode = function(text, charset) {
     Logger.dbg("convertFromUnicode: " + charset + "\n");
@@ -96,8 +100,9 @@ var Utils = new function()
   }
 
 
-  this.exportKeyPurse = function(window, languagepack){
-    if(!(new FileUtils.File(Prefs.getPref("keyPursePath"))).exists()){
+  this.exportKeyPurse = function(languagepack){
+    if(!this.window || !(new FileUtils.File(Prefs.getPref("keyPursePath"))).exists()){
+	  //no window => no export
       //no keypurse => no export (this should never happen and be avoided by the
 	  //function calling exportKeyPurse)
       Dialogs.info(languagepack.getString("exp_keypurse_fail"));
@@ -111,7 +116,7 @@ var Utils = new function()
     //filters:
     fp.appendFilter("Keypurses", "*.purse"); //only key purses
     fp.appendFilter("All files", "*");
-    fp.init(window, languagepack.getString("sel_keypurse_bak"),
+    fp.init(this.window, languagepack.getString("sel_keypurse_bak"),
             Components.interfaces.nsIFilePicker.modeSave);
 
     //check result
@@ -138,7 +143,7 @@ var Utils = new function()
 	}
   }
 
-  this.removeAllDevicesAndRevokeKeys = function(window, languagepack){
+  this.removeAllDevicesAndRevokeKeys = function(languagepack){
     //function is called when plugin is deinstalled or user presses "reset"
     //a lot of pop-ups are ok, we have to make sure the user is aware what he/she
     //is doing
@@ -172,7 +177,7 @@ var Utils = new function()
 		Logger.dbg("Backup prompt: YES");
 
         Logger.dbg("Export keypurse");
-        if(this.exportKeyPurse(window, languagepack)){
+        if(this.exportKeyPurse(languagepack)){
 		  Logger.dbg("exportKeyPurse done");
 
 		  //backup ok

@@ -50,6 +50,9 @@ Tryango.init = function(){
   var lang = this.languagepack.getString("language");
   Logger.log("Language: " + lang);
 
+  //init utils
+  Utils.init(window);
+
   //init C interface
   try{
     CWrapper.initLibrary(this.languagepack);
@@ -211,7 +214,7 @@ Tryango.handleEvent = function(id){
     break;
 
   case "menu-export":
-    Utils.exportKeyPurse(window, this.languagepack);
+    Utils.exportKeyPurse(this.languagepack);
     break;
 
   case "button-cm-decrypt":

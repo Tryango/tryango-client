@@ -1,6 +1,4 @@
-//TODOTODO: (machineID) make sure machineID is not signing up the same device twice
-//TODO: memory leaks through EventListeners (?) => if so, clean them somewhere
-
+//TODO: (machineID) make sure machineID is not signing up the same device twice
 
 
 /* Basic file for JavaScript code on composing a new e-mail */
@@ -264,8 +262,8 @@ var MailWindow = new function(){
 
     //vars
     var msgcomposeWindow = document.getElementById("msgcomposeWindow");
-    let msg_type = Number(msgcomposeWindow.getAttribute("msgtype"));
-    var draft = false;
+    var msg_type = Number(msgcomposeWindow.getAttribute("msgtype"));
+	var draft = false;
 
     //Events:  Now, Later, Save, SaveAs, SaveAsDraft,
     //         SaveAsTemplate, SendUnsent, AutoSaveAsDraft
@@ -274,18 +272,14 @@ var MailWindow = new function(){
       //normal send => continue
     }
     else if(msg_type == nsIMsgCompDeliverMode.SaveAsDraft ||
-            msg_type == nsIMsgCompDeliverMode.AutoSaveAsDraft ||
             msg_type == nsIMsgCompDeliverMode.SaveAs ||
-            msg_type == nsIMsgCompDeliverMode.Save
+            msg_type == nsIMsgCompDeliverMode.Save ||
+			msg_type == nsIMsgCompDeliverMode.AutoSaveAsDraft
            ){
-      //TODO: encrypt/decrypt drafts
-      return 0;
-
-      //TODO: original code
+      //encrypt/decrypt drafts
       //draft => continue
-      //draft = true;
-    }
-    else{
+      draft = true;
+    }else{
       //other options => stop here
       return 0;
     }
@@ -414,7 +408,8 @@ var MailWindow = new function(){
       else{
         //bucket not there!? => error
         Logger.error("Cannot get attachmentBucket");
-        //TODO: what to do? abort sending? (not that we send attachments without encrypting them) => return -1?
+        //avoid sending attachments without encrypting them => return -1
+		return -1;
       }
 
       /*************************
@@ -451,12 +446,12 @@ var MailWindow = new function(){
         Logger.error("Could not get message body:\n" + ex);
         return -1;
       }
-      Logger.dbg("mailBody:\n" + mailBody);
+      Logger.dbg("mailBody:\n" + mailBody); //TODO: FIXME: the code above inserts empty lines every second line when saving drafts a second time!!! (it works the first time though)
 
-      
+
 //       if(sendFlowed && this.sign && !this.encrypt && !gMsgCompose.composeHTML){
 //         RegExp.multiline = true;
-// 
+//
 //         mailBody = mailBody.replace(/^ /g, "~ ");
 //         mailBody = mailBody.replace(/^>/g, "|");
 //         mailBody = mailBody.replace(/^[ \t]+$/g, "");
@@ -473,7 +468,8 @@ var MailWindow = new function(){
                                               this.sign, this.encrypt);
 //         check errors
         if(status > 0 && status <= CWrapper.getMaxErrNum()){
-          Logger.error("Encrypt/Sign falied with error: " + CWrapper.getErrorStr(status));
+          Logger.error("Encrypt/Sign falied with error: " +
+					   this.languagepack.getString(CWrapper.getErrorStr(status)));
           //ask user if mail should be sent unencrypted
           var usermsg = this.languagepack.getString("mail_enc_sign_failed") + "\n" +
             this.languagepack.getString("mail_send_unencrypted");
@@ -496,7 +492,7 @@ var MailWindow = new function(){
           else{
             //Thunderbird kills line-endings, so we need to revert back to "native" line endings
             //TODO: test on windows && mac
-            mailBody = mailBody.replace(/(\r\n|\r|\n)/g, '\n');
+            mailBody = mailBody.replace(/(\r\n|\r[^\n])/g, '\n');
           }
         }
         else{
@@ -522,6 +518,8 @@ var MailWindow = new function(){
       catch(ex){
         editor.insertText(mailBody);
       }
+
+	  //TODOTODO: for drafts: email has to be decrypted again/reloaded after saving it as (encrypted) draft so that it says unencrypted in the editor! => hook an event "afterDraftSaved" or similar?
 
       return 0;
     }
@@ -583,6 +581,12 @@ ConfiComposeStateListener = {
 
 
   NotifyComposeBodyReady: function(){
+	//TODO: FIXME: temporary solution - it would be good to get the xheader "X-Mozilla-Draft-Info: internal/draft;"
+	//check if message is a draft by checking where it is stored (URI)
+	//=> if it is a draft, the folder Draft should be included
+	var draft = gMsgCompose.originalMsgURI.match(/Draft/g) != null;
+	Logger.dbg("draft: " + draft);
+
     //called after email body is loaded (with quotations in the beginning!)
     //nsIEditor: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/NsIEditor
     //get message body
@@ -678,9 +682,11 @@ ConfiComposeStateListener = {
 
       var status = CWrapper.decryptMail(plaintext, ciphertext, "");
       if(status > 0 && status <= CWrapper.getMaxErrNum()){
-        Logger.error("Decrypt failed with error:" + CWrapper.getErrorStr(status)); //TODO: check all getErrorStr for a this.languagepack.getString(...) around it!
+        Logger.error("Decrypt failed with error:" +
+					 this.languagepack.getString(CWrapper.getErrorStr(status)));
         //tell user
-        Dialogs.info(this.languagepack.getString("mail_dec_failed") + " Error:" + CWrapper.getErrorStr(status));
+        Dialogs.info(this.languagepack.getString("mail_dec_failed") + " Error: " +
+					 this.languagepack.getString(CWrapper.getErrorStr(status)));
         return;
       }
       plaintext = plaintext.str;
@@ -692,10 +698,11 @@ ConfiComposeStateListener = {
       sender = gCurrentIdentity.email;
       var status = CWrapper.verifySignature(plaintext, ciphertext, sender);
       if(status > 0 && status <= CWrapper.getMaxErrNum()){
-        Logger.error("Signature failed with error:" + CWrapper.getErrorStr(status));
+        Logger.error("Signature failed with error:" +
+					 this.languagepack.getString(CWrapper.getErrorStr(status)));
         //tell user
-        Dialogs.info(this.languagepack.getString("mail_dec_failed") +
-                         " Error:" + this.languagepack.getString(CWrapper.getErrorStr(status)));
+        Dialogs.info(this.languagepack.getString("mail_dec_failed") + " Error: " +
+					 this.languagepack.getString(CWrapper.getErrorStr(status)));
         return;
       }
       plaintext = ciphertext;
@@ -703,6 +710,7 @@ ConfiComposeStateListener = {
 
     //write decrypted email back
     Logger.dbg("write decrypted email back");
+	Logger.dbg("email:\n" + plaintext);
     editor.beginningOfDocument();
     editor.selectAll(); //replace everything (easier than handling ranges in thunderbird!)
     var mailEditor;
@@ -731,12 +739,13 @@ ConfiComposeStateListener = {
       plaintext = match[1];
     }
 
-    //insert decrypted text as quotation
+    //insert decrypted text as quotation (if it is not a draft!)
     //nsIEditorMailSupport: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsIEditorMailSupport#insertTextWithQuotations%28%29
-    if(mailEditor){
-      mailEditor.insertAsCitedQuotation(plaintext, "", true);
+    if(mailEditor && !draft){
+	  mailEditor.insertAsCitedQuotation(plaintext, "", true);
     }else{
-      editor.insertText(plainText);
+	  editor.insertText(plaintext);
+	  Logger.dbg("inserted email:\n" + editor.outputToString('text/plain', flags));
     }
 
     //insert tail
@@ -752,32 +761,32 @@ ConfiComposeStateListener = {
 
 
   ComposeProcessDone: function(result){
-//     Logger.dbg("Ex body"+gMsgCompose.compFields.body);
+	//Logger.dbg("Ex body"+gMsgCompose.compFields.body);
 
     //called after a mail was sent/saved
-    //not needed
+    //not needed => empty interface
   },
 
   SaveInFolderDone: function(folderURI){
-    //not needed
+    //not needed => empty interface
   }
 }
 
 // function readFile(file){
-//   var data = ""; 
-//   var fstream = Components.classes["@mozilla.org/network/file-input-stream;1"].createInstance(Components.interfaces.nsIFileInputStream); 
-//   var cstream = Components.classes["@mozilla.org/intl/converter-input-stream;1"].createInstance(Components.interfaces.nsIConverterInputStream); 
-//   fstream.init(file, -1, 0, 0); 
-//   cstream.init(fstream, "UTF-8", 0, 0); 
-//   let (str = {}) { 
-//     let read = 0; 
-//     do { 
-//       read = cstream.readString(0xffffffff, str); 
-//       data += str.value; 
-//     } while (read != 0); 
-//   } 
-//   cstream.close();  
-//   return data; 
+//   var data = "";
+//   var fstream = Components.classes["@mozilla.org/network/file-input-stream;1"].createInstance(Components.interfaces.nsIFileInputStream);
+//   var cstream = Components.classes["@mozilla.org/intl/converter-input-stream;1"].createInstance(Components.interfaces.nsIConverterInputStream);
+//   fstream.init(file, -1, 0, 0);
+//   cstream.init(fstream, "UTF-8", 0, 0);
+//   let (str = {}) {
+//     let read = 0;
+//     do {
+//       read = cstream.readString(0xffffffff, str);
+//       data += str.value;
+//     } while (read != 0);
+//   }
+//   cstream.close();
+//   return data;
 // }
 
 function AngMsgSendListener(){
@@ -869,12 +878,13 @@ function AngMsgSendListener(){
     Logger.dbg("head:"+head);
     Logger.dbg("calling C: encryptSignMail(...) to sign only");
     var enc_signed_mail = {str : ""};
-    
+
     var status = CWrapper.encryptSignMail(enc_signed_mail, msgBody, recipients, sender,
                                             true, false);
       //check errors
     if(status > 0 && status <= CWrapper.getMaxErrNum()){
-      Logger.error("Sign falied with error: " + CWrapper.getErrorStr(status));
+      Logger.error("Sign falied with error: " +
+				   this.languagepack.getString(CWrapper.getErrorStr(status)));
     }
     else if(enc_signed_mail.str.length > 0){
       msgBody = enc_signed_mail.str;
@@ -910,10 +920,19 @@ if(typeof window != 'undefined'){ //only set-up if file is NOT imported
     MailWindow.onload(event);
   }, true);
 
-  //init StateListener to hook "reply to" messages
-  window.addEventListener("compose-window-init", ConfiComposeStateListener.init, true);
+  /*EVENTS to hook:
+   * compose-send-message   A message gets sent
+   * compose-window-close   A compose window gets closed
+   * compose-window-init   A compose window has been opened
+   * https://developer.mozilla.org/en-US/docs/Mozilla/Thunderbird/Events
+   */
 
-  // could use document.getElementById("msgcomposeWindow") instead of window
+  //init StateListener to hook "reply to" messages
+  window.addEventListener("compose-window-init", function(event){
+	ConfiComposeStateListener.init(event);
+  }, true);
+
+  // can use document.getElementById("msgcomposeWindow") instead of window
   window.addEventListener("compose-send-message", function(event){
 
     var ret;

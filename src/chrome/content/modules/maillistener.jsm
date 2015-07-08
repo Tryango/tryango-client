@@ -53,6 +53,7 @@ var MailListener = new function() {
   this.gFolderDisplay = null;
   this.languagepack = null;
   this.cmToolbar = null;
+  this.window = null;
 
   this.init = function(gFolderDisplay, languagepack, cmToolbar){
     addHeader(this.XHEADER);
@@ -223,9 +224,9 @@ var MailListener = new function() {
     let device = Prefs.getPref("machineID");
     let result = CWrapper.submitKey(identity, device);
     if (result != 0 && result != 18){//18 = ANG_ID_ALREADY_EXISTS
-      let errorStr = CWrapper.getErrorStr(result);
+      let errorStr = this.languagepack.getString(CWrapper.getErrorStr(result));
       let err = this.languagepack.getString("signup_failed") + ": " +
-          this.languagepack.getString(errorStr) + " (" + result + ")";
+          errorStr + " (" + result + ")";
       Logger.error(err);
       Dialogs.info(this.languagepack.getString("att_dec_failed") + " " + this.path +
                                "\n(" + this.languagepack.getString(CWrapper.getErrorStr(status)) +
@@ -275,8 +276,22 @@ var MailListener = new function() {
       Dialogs.info(this.languagepack.getString("signup_done") + " (" + identity + ")");
     }
     //ap is updated in submitKey, no need to do it here
+
+	//signup is done, so ask user to back up tryango credentials now
+	this.askUserToBackup();
   };
 
+  this.askUserToBackup = function(){
+	if(Logger.promptService.confirm(null, "Tryango",
+									this.languagepack.getString("prompt_user_backup"))){
+	  //backup
+	  Logger.dbg("backing up keys");
+	  Utils.exportKeyPurse(this.languagepack);
+	}else{
+	  //no backup
+	  Logger.log("user refused to do a backup of Tryango credentials");
+	}
+  };
 
   this.recoverHtml = function(body){
     var htmlStart = body.indexOf("<html>");
@@ -373,8 +388,8 @@ var MailListener = new function() {
       //no message selected
       Logger.dbg("no message header");
 
-	  //TODOTODO: get header in full screen mode
-	  Logger.dbg(msgHdrForCurrentMessage()); //FIXME: does not exist
+	  //TODO: FIXME: get header in full screen mode (msgHdrForCurrentMessage does not exist!!)
+	  Logger.dbg(msgHdrForCurrentMessage());
 
       return;
     }
@@ -616,7 +631,7 @@ var MailListener = new function() {
 	        }
         }
 
-		//TODOTODO: could not identify receiving email address when encrypted mail arrives (is this line the error?)
+		//TODO: FIXME: could not identify receiving email address when encrypted mail arrives (is this line the error?)
 		Logger.error("msgHdr.accountKey does not match any account.key");
         return "";
       }

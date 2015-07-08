@@ -13,7 +13,7 @@ Components.utils.import("resource://tryango_modules/cWrapper.jsm");
 var EXPORTED_SYMBOLS = ["AttachmentManager"]
 
 
-// class handling attachments (decrypt for saving / encrypt for sending)  
+// class handling attachments (decrypt for saving / encrypt for sending)
 var AttachmentManager = new function()
 {
   //variables
@@ -58,7 +58,7 @@ var AttachmentManager = new function()
       //attachmentList is a list of objects
       //attachmentList.selectedItems is an array
       //=> different ways to access
-      var att 
+      var att
       if(bool_att_list){
         att = attachmentList.getItemAtIndex(i).attachment;
       }else{
@@ -147,22 +147,22 @@ var AttachmentManager = new function()
               Logger.dbg("Attachment " + this.path + " decryption/signature ok or cancelled");
             }
           },
-          
+
           onDataAvailable: function(aRequest, aSupports, aInputStream, offset, count){
             //read stream as raw data
             this.raw.push(NetUtil.readInputStreamToString(aInputStream, count));
           },
         }
       // ----------------------- end Asynchronous StreamListener -----------------------
-      
+
       //start the listener
-      channel.asyncOpen(AsyncStreamListener, null);        
+      channel.asyncOpen(AsyncStreamListener, null);
     } //end for
 
     return; //no return value, this method works asynchronous!
   }
 
-  //TODOTODO: FIXME: (attachments) removing files before sending kills the encrypted file. to reproduce: create mail with txt attachment (that one works), save as draft, close, reopen, go to /tmp, remove nsmail.txt (temp file of the attachment), send. when email arrives it's in weird binary format!
+  //TODO: FIXME: (attachments) removing files before sending kills the encrypted file. to reproduce: create mail with txt attachment (that one works), save as draft, close, reopen, go to /tmp, remove nsmail.txt (temp file of the attachment), send. when email arrives it's in weird binary format!
   /*
    * function to encrypt attachments
    *	@param attachmentBucket		the attachmentBucket from Thunderbird
@@ -221,9 +221,9 @@ var AttachmentManager = new function()
       //encrypt and sign
       var newPath = path + ".pgp";
       Logger.dbg("newPath: " + newPath); //XXX: remove after testing
-      var status = CWrapper.encryptSignAttachment(newPath, path, recipients, sender, 
+      var status = CWrapper.encryptSignAttachment(newPath, path, recipients, sender,
                                                   sign, encrypt);
-      
+
       if(status == 0){
         //create file://... URL
         var nsifile = new FileUtils.File(newPath);
@@ -268,4 +268,3 @@ var AttachmentManager = new function()
 
 //end of AttachmentManager
 }
-

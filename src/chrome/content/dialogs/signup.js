@@ -646,9 +646,9 @@ function doSignup(email){
   if(result != 0){
     //error
     var strbundle = document.getElementById("strings");
-    var errorStr = CWrapper.getErrorStr(result);
-    Logger.error("Error signing up: " + strbundle.getString(errorStr));
-    Logger.infoPopup(strbundle.getString(errorStr) + " (" + result + ")");
+    var errorStr = strbundle.getString(CWrapper.getErrorStr(result));
+    Logger.error("Error signing up: " + errorStr);
+    Logger.infoPopup(errorStr + " (" + result + ")");
     return false;
   }else{
     Logger.dbg("deleting ap for email: " + email);
