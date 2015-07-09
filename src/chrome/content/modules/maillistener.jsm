@@ -118,8 +118,8 @@ var MailListener = new function() {
 	}
 
 	//get identity
-    var identity = this.findAccountFromHeader(header);
-    if(identity == ""){
+    var acc = this.findAccountFromHeader(header, true);
+    if(acc == ""){
       //print folder and subject of message for debug purposes
       var mimeConvert = Components.classes["@mozilla.org/messenger/mimeconverter;1"]
             .getService(Components.interfaces.nsIMimeConverter);
@@ -128,6 +128,11 @@ var MailListener = new function() {
                    header.folder.prettiestName + "/" + subject + ")");
       return;
     }
+	if(!acc.mail){
+	  Logger.error("Implementation error, findAccountFromHeader returned not an object with drafts=true");
+	  return;
+	}
+	var identity = acc.mail;
 	Logger.dbg("msgAdded " + identity + " " + header.folder.prettiestName);
 
 
@@ -139,8 +144,8 @@ var MailListener = new function() {
 	//cases msgAdded is called.
 	// => if msgAdded to "Drafts", we call the callback-function
 	// (see also mailwindow.js::send_handler - marked with DRAFTCALLBACK)
-	if(header.folder && header.folder.prettiestName == "Drafts"){
-	  //TODOTODO: get real name of drafts folder!
+	if(header.folder && header.folder.URI == acc.draftfolder){
+	  //URI of message matches the draftfolder of this account => it is a draft
 	  Logger.dbg("found a new draft");
 	  if(this.draftCallback){
 		//new draft and we are waiting for a draft (callback != null)
@@ -659,20 +664,25 @@ var MailListener = new function() {
 
 
   //helper function to find account from a message header
-  this.findAccountFromHeader = function(msgHdr){
+  this.findAccountFromHeader = function(msgHdr, drafts = false){
     if(msgHdr){
       if(msgHdr.accountKey){
         //message has been moved and the original account is specified by accountKey
         //=> search for accountKey in accounts and get the email-address
         var accMgr = Components.classes["@mozilla.org/messenger/account-manager;1"]
-         .getService(Components.interfaces.nsIMsgAccountManager);
+			.getService(Components.interfaces.nsIMsgAccountManager);
         var accounts = accMgr.accounts;
         //iterate over accounts and search for the right key
         for(var i = 0; i < accounts.length; i++){
-	        var account = accounts.queryElementAt(i, Components.interfaces.nsIMsgAccount);
-	        if(account.key == msgHdr.accountKey){
+	      var account = accounts.queryElementAt(i, Components.interfaces.nsIMsgAccount);
+	      if(account.key == msgHdr.accountKey){
+			if(drafts){
+			  return {"mail": account.email,
+			   "draftfolder": account.draftFolder};
+			}else{
 	          return account.email;
-	        }
+			}
+	      }
         }
 
 		//TODO: FIXME: could not identify receiving email address when encrypted mail arrives (is this line the error?)
@@ -684,7 +694,12 @@ var MailListener = new function() {
         //=> get account via the folder the email is in
         var ret = this.findAccountFromFolder(msgHdr.folder);
         if(ret != null){
-	        return ret.defaultIdentity.email;
+		  if(drafts){
+			return {"mail": ret.defaultIdentity.email,
+					"draftfolder": ret.defaultIdentity.draftFolder};
+		  }else{
+			return ret.defaultIdentity.email;
+		  }
         }
         else{
           Logger.error("Find account account from header did not find email address");
