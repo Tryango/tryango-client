@@ -91,6 +91,20 @@ var MailListener = new function() {
   };
 
   // functions
+
+  /**
+   * function to add a callback in case we are saving a draft
+   *  @param	the function callback to call (if we find a draft)
+   *
+   *  see also: maillistener.jsm::msgAdded and mailwindow.js::send_handler
+   *			both marked with "DRAFTCALLBACK:"
+   */
+  this.addDraftCallback = function(func){
+	Logger.dbg("adding draftCallback");
+	//just store the callback for now
+	this.draftCallback = func;
+  };
+
   /**
    * function to handle incoming emails
    *  @param  header header of type "nsIMsgDBHdr"
@@ -98,6 +112,12 @@ var MailListener = new function() {
    *    "nsIMsgFolderListener::msgAdded" and "...::msgsClassified"
    */
   this.msgAdded = function(header){
+	//assert
+	if(!header){
+	  return;
+	}
+
+	//get identity
     var identity = this.findAccountFromHeader(header);
     if(identity == ""){
       //print folder and subject of message for debug purposes
@@ -108,12 +128,36 @@ var MailListener = new function() {
                    header.folder.prettiestName + "/" + subject + ")");
       return;
     }
+	Logger.dbg("msgAdded " + identity + " " + header.folder.prettiestName);
 
-    if(this.searchAP(header, identity)){
+
+	//check for drafts
+	//DRAFTCALLBACK: this is a helper. If a draft is saved, it gets encrypted but
+	//stays open. To decrypt the open compose-mail-window again, we need to get
+	//the event when the draft WAS saved. This is done by adding a callback
+	//when we find a new Draft message/a Draft message gets updated. In both
+	//cases msgAdded is called.
+	// => if msgAdded to "Drafts", we call the callback-function
+	// (see also mailwindow.js::send_handler - marked with DRAFTCALLBACK)
+	if(header.folder && header.folder.prettiestName == "Drafts"){
+	  //TODOTODO: get real name of drafts folder!
+	  Logger.dbg("found a new draft");
+	  if(this.draftCallback){
+		//new draft and we are waiting for a draft (callback != null)
+		//=> call callback-function and reset
+		Logger.dbg("calling draftCallback");
+		this.draftCallback();
+		this.draftCallback = null;
+	  }
+	}
+	//search email for AP (then it's a confirmation email of the server and we need to process it)
+	//searchAP aborts immediatelly if we are not in "searching" mode (Prefs)
+    else if(this.searchAP(header, identity)){
       this.submitKey(identity);
     }
     else{
 	  //TODO: FIXME: why is this done at msgAdded and not just at onMsgDisplay? (or rather: why is the email decrypted in searchNewKey!? it is done twice for every gmail account whenever an email is received!)
+	  //TODO: is this the "new" protocol for distributing keys? then please add a comment explaining it
       if(!this.searchNewKey(header, identity)){
         this.searchOldKey(header, identity);
       }
@@ -134,7 +178,7 @@ var MailListener = new function() {
         let end = keyStr.search("-----END PGP MESSAGE-----");
         var decryptedMail = {str : ""};
         if(start != -1 && end != -1){
-          Logger.dbg("Message found");
+          Logger.dbg("PGP message found");
           var status = CWrapper.decryptMail(decryptedMail, keyStr.substr(start, end - start + 25), sender);
           Logger.dbg("Decrypt result:"+status);
           if(status == 0){

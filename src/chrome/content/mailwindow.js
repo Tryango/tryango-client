@@ -461,6 +461,7 @@ var MailWindow = new function(){
       /****************
        * encrypt/sign  - inserting tags for later processing
        */
+	  var origMailBody = mailBody;
       if(this.encrypt){ //we proceed in case of encryption
         Logger.dbg("calling C: encryptSignMail(...)");
         var enc_signed_mail = {str : ""};
@@ -519,7 +520,29 @@ var MailWindow = new function(){
         editor.insertText(mailBody);
       }
 
-	  //TODOTODO: for drafts: email has to be decrypted again/reloaded after saving it as (encrypted) draft so that it says unencrypted in the editor! => hook an event "afterDraftSaved" or similar?
+	  //DRAFTCALLBACK: the email we just encrypted for saving has to be decrypted again AFTER
+	  //it was saved. To do so, we add a callback to msgAdded (if a new message arrives in the
+	  //"Drafts" folder. (see also maillistener.jsm::msgAdded - marked with DRAFTCALLBACK)
+	  if(draft){
+		//add callback when message is saved as draft
+		MailListener.addDraftCallback(function(){
+		  Logger.dbg("in draftCallback");
+
+		  //reset editor window to original message
+		  editor.selectAll();
+		  try{
+			var mailEditor = editor.QueryInterface(Components.interfaces.nsIEditorMailSupport);
+			mailEditor.insertTextWithQuotations(origMailBody);
+		  }
+		  catch(ex){
+			editor.insertText(origMailBody);
+		  }
+
+		  //done
+		  return;
+
+		}.bind(this)); //bind ensures the context is still there when the callback happens
+	  }
 
       return 0;
     }

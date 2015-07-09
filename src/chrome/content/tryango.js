@@ -101,7 +101,6 @@ Tryango.init = function(){
   document.getElementById("messagepane").addEventListener(
     "pageshow", MailListener.onMsgDisplay.bind(MailListener), true);
 
-
   //after loading everything: check if this is the first start, if so, display setup wizard
   var firstStartup = Prefs.getPref("firstStartup");
   if(firstStartup){
