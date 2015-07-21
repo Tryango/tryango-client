@@ -6,8 +6,7 @@
 <!-- language file -->
 <!DOCTYPE tryango SYSTEM "chrome://tryango/locale/lang.dtd">
 
-<overlay id="tryango"
-	 xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+<overlay id="tryango" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
 
   <!-- Reference to JavaScript file -->
   <script type="application/x-javascript" src="chrome://tryango/content/tryango.js"/>

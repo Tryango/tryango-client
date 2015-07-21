@@ -157,21 +157,29 @@ extern "C"{
   }
 
 
-  uint32_t getServerInfo(char* dest
-                         , uint32_t size
+  uint32_t getServerInfo(char** serverInfo
+                         , uint32_t* serverInfoSize
                          ){
     std::string result;
     Confi_Status status = client.getServerInfo(result);
     if(status==ANG_OK){
-      memset(dest, '\0', size);
-      memcpy(dest, result.c_str(), (size < result.length())? size : result.length());
+      *serverInfoSize = allocateAndCopy(serverInfo, result);
+    }
+    else{
+      (*serverInfo) = NULL;
+      *serverInfoSize = 0;
     }
     return status;
   }
 
 
-  uint32_t getPort(){
-    return client.getPort();
+  uint32_t getV(){
+    return client.getV();
+  }
+
+
+  void setV(uint32_t v){
+    client.setV(v);
   }
 
 
@@ -180,6 +188,11 @@ extern "C"{
                  ){
     std::string serverName = client.getHost();
     *hostnameSize = allocateAndCopy(hostname, serverName);
+  }
+
+
+  uint32_t getPort(){
+    return client.getPort();
   }
 
 
@@ -215,6 +228,7 @@ extern "C"{
     std::string ap = hex_to_string(std::string(hexAp, 2 * HASH_SIZE));
     uint32_t status = client.getDevices(result, resultSize, ap, identity, std::string(device));
     memcpy(hexAp, string_to_hex(ap).c_str(), 2 * HASH_SIZE);
+    std::cout<<"End of getDevices status"<<status<<" resultSize:"<<*resultSize<<std::endl;
     return status;
   }
 
@@ -369,7 +383,7 @@ extern "C"{
   }
 
 
-  bool importKeyPurse(const char* path
+  uint32_t importKeyPurse(const char* path
                       , bool clearOld
                       ){
     return client.getKeyDb()->readFromFile(std::string(path), clearOld, "");
@@ -458,6 +472,31 @@ extern "C"{
   }
 
 
+  uint32_t clearSignMail(char** result //return
+                          , uint32_t* resultSize //result size
+                          , const char* mailBody //the body in clear text
+                          , const char* sender //the mail address of the sender
+                          , const char* password //the password used to protect the key
+                           ){
+    Confi_Status status = ANG_UNKNOWN_ERROR;
+    std::string encrypted;
+    status =  MessageHandler::clearSign(encrypted
+                                        , std::string(mailBody)
+                                        , client.getKeyDb()
+                                        , PktDo::stripId(sender)
+                                        , std::string(password)
+                                        );
+    if(status == ANG_OK){
+      *resultSize = allocateAndCopy(result, encrypted);
+    }
+    else{
+      (*result)=NULL;
+      *resultSize = 0;
+    }
+    return status;
+  }
+
+
   uint32_t encryptSignMail(char** result //return
                           , uint32_t* resultSize //result size
                           , const char* mailBody //the body in clear text
@@ -507,7 +546,7 @@ extern "C"{
         }
       }
       else if(sign){
-        std::cout<<"signing with body:"<<std::endl<<string_to_hex(std::string(mailBody))<<std::endl;
+/*         std::cout<<"signing with body:"<<std::endl<<string_to_hex(std::string(mailBody))<<std::endl; */
         status =  MessageHandler::clearSign(encrypted
                                             , std::string(mailBody)
                                             , client.getKeyDb()
@@ -515,7 +554,7 @@ extern "C"{
                                              , std::string(password)
                                             );
         if(status == ANG_OK){
-          std::cout<<"signed with body:"<<std::endl<<string_to_hex(encrypted)<<std::endl;
+/*           std::cout<<"signed with body:"<<std::endl<<string_to_hex(encrypted)<<std::endl; */
           *resultSize = allocateAndCopy(result, encrypted);
         }
         else{
@@ -623,9 +662,10 @@ extern "C"{
   //helper function
   void freeString(char* string
                   ){
-    if(string!=NULL){
+    if(string != NULL){
       free(string);
     }
+    std::cout<<"End of freeString"<<std::endl;
   }
 
 

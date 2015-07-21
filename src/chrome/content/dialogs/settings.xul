@@ -97,7 +97,7 @@
       </groupbox>
       
     <!-- tab 2: manage devices -->
-    <groupbox flex="1">
+    <groupbox flex="2">
       <label class="header" value="&settings.desc_devices;"/>
       <!-- tree of devices -->
       <!-- https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XUL/tree -->
@@ -135,19 +135,19 @@
       <!-- tree of keys -->
       <!-- https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XUL/tree -->
       <tree id="tree_keys" hidecolumnpicker="true" seltype="multiple"
-            rows="20" treelines="true">
+            rows="20" treelines="true" flex="1">
         <treecols>
-            <treecol primary="true" id="key_type" label="&wizard.importKeyPage.kt_type;" flex="1"/>
+            <treecol primary="true" id="key_type" label="&wizard.importKeyPage.kt_type;" flex="2"/>
             <splitter class="tree-splitter"/>
-            <treecol id="key_email" label="&wizard.importKeyPage.kt_email;" flex="1"/>
+            <treecol id="key_email" label="&wizard.importKeyPage.kt_email;" flex="4"/>
             <splitter class="tree-splitter"/>
-            <treecol sortActive="true" id="key_created" label="&wizard.importKeyPage.kt_created;" flex="1"/>
+            <treecol sortActive="true" id="key_created" label="&wizard.importKeyPage.kt_created;" flex="4"/>
             <splitter class="tree-splitter"/>
-            <treecol id="key_expiry" label="&wizard.importKeyPage.kt_expiry;" flex="1"/>
+            <treecol id="key_expiry" label="&wizard.importKeyPage.kt_expiry;" flex="2"/>
             <splitter class="tree-splitter"/>
-            <treecol id="key_id" label="&wizard.importKeyPage.kt_fingerprint;" flex="1"/>
+            <treecol id="key_id" label="&wizard.importKeyPage.kt_fingerprint;" flex="8"/>
             <splitter class="tree-splitter"/>
-            <treecol id="key_version" label="&wizard.importKeyPage.kt_encrypted;" flex="1"/>
+            <treecol id="key_version" label="&wizard.importKeyPage.kt_encrypted;" flex="0"/>
         </treecols>
         <treechildren id="tree_keys_content">
           <!-- TAB WILL BE FILLED BY JAVASCRIPT -->

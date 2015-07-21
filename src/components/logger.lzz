@@ -16,13 +16,13 @@
  *
  * e.g. when logging to cerr/cout:
  * 	Logger log;
- *	Logger err(&std::cerr);
+ *	Logger error(&std::cerr);
  *	log << "bla bla" << std::endl;
  *	err << "error!" << std::endl;
  *
  * logging to files:
  *	Logger log("./file.log");
- *	Logger err("./error.log");
+ *	Logger error("./error.log");
  *	log << "bla bla" << std::endl;
  *	err << "error!" << std::endl;
  */

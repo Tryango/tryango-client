@@ -19,7 +19,7 @@ Components.utils.import("resource://tryango_modules/utils.jsm");
 
 // (Singleton) Basic Tryango class
 // "main" class for all Tryango functions
-if (! Tryango){
+if (!Tryango){
   var Tryango = {};
   Tryango.isInit = false;
 }
@@ -76,14 +76,15 @@ Tryango.init = function(){
   //load password manager
   Pwmgr.init();
   Logger.log("Password manager initialised");
-  if(!CWrapper.importKeyPurse(Prefs.getPref("keyPursePath"), true)){
-    Utils.syncKeypurse(this.languagepack);
-    Logger.log("Keypurse loaded succesfully");
-  }
-  else{
-    Logger.log("Keypurse does not exists or is invalid");
-  }
-
+  CWrapper.post("importKeyPurse", [Prefs.getPref("keyPursePath"), true], function(status){
+    if(status == 0){
+      Utils.syncKeypurse();
+      Logger.dbg("Keypurse loaded succesfully");
+    }
+    else{
+      Logger.log("Keypurse does not exists or is invalid");
+    }
+  });
   //init attachmentManager
   this.gFolderDisplay = gFolderDisplay; //needed to get sender for attachments
   AttachmentManager.init(window, this.languagepack);
@@ -98,8 +99,9 @@ Tryango.init = function(){
 
   //events to hook: https://developer.mozilla.org/en-US/docs/Web/Events
   //watch incoming mails for encryption/signature
-  document.getElementById("messagepane").addEventListener(
-    "pageshow", MailListener.onMsgDisplay.bind(MailListener), true);
+  var msgPane = document.getElementById("messagepane");
+  msgPane.addEventListener(
+    "pageshow", MailListener.onMsgDisplay.bind(MailListener, window), true);
 
   //after loading everything: check if this is the first start, if so, display setup wizard
   var firstStartup = Prefs.getPref("firstStartup");

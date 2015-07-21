@@ -53,6 +53,7 @@
 <!ENTITY  wizard.importKeyPage.loadedGpg  "Results from loading keys from GnuPG for chosen email address. Select one key.">
 <!ENTITY  wizard.importKeyPage.noKeys     "No entries have been loaded yet.">
 <!ENTITY  wizard.importKeyPage.emptyFile     "File is empty.">
+<!ENTITY  wizard.importKeyPage.errorWritingKP  "Encoutered error when trying to save keypurse to the file:">
 
 
 <!ENTITY  wizard.lastPage.title      "Signup with Tryandgo is complete.">

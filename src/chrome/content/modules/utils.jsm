@@ -241,7 +241,7 @@ var Utils = new function()
     return ret;
   }
 
-  this.syncKeypurse = function(languagepack){
+  this.syncKeypurse = function(){
     var addresses = this.getEmailAddresses();
     var machineID = Prefs.getPref("machineID");
     if(machineID){
@@ -249,13 +249,15 @@ var Utils = new function()
         //check if identity/machineID is signed up
         var ap = Pwmgr.getAp(identity);
         if(ap != undefined && ap.length > 1){
-          let status = CWrapper.synchronizeSK(identity);
-          if(status != 0){
-            Logger.error(languagepack.getString("no_corresponding_key") +": " + identity);
-          }
-          else{
-            Logger.dbg("Keypurse synchronised successfully for id "+ identity);
-          }
+          CWrapper.post("synchronizeSK", [identity], function(status){
+            if(status != 0){
+              Logger.error(CWrapper.languagepack.getString("no_corresponding_key") +": " + identity);
+            }
+            else{
+              Logger.dbg("Keypurse synchronised successfully for id "+ identity);
+            }
+          });
+//           let status = CWrapper.synchronizeSK(identity);
         }
       }
     }
@@ -432,6 +434,8 @@ function infoOnLoad(){
 //helper functions
 function fillStatus(languagepack){
   var tex_st = document.getElementById("tex_status");
+  tex_st.value = languagepack.getString("info_waiting");
+  tex_st.readOnly = true;
   var str = "";
   var server = Prefs.getPref("server")
   var port = Prefs.getPref("port");
@@ -440,31 +444,28 @@ function fillStatus(languagepack){
     str += "Server: " + CWrapper.getServer() + "\tPort: " + CWrapper.getPort() + "\n";
 
     //call C - server status etc.
-    var serverinfo = CWrapper.getServerInfo();
-    //get status from returned string (first element before space)
-    var st = serverinfo.split(" ");
-    str += languagepack.getString("info_connection") + " ";
-    if(st[0] == 0){
-      str += languagepack.getString("info_connected") + "\n\n";
-    }
-    else{
-      str += languagepack.getString(CWrapper.getErrorStr(parseInt(st[0])));
-      str += " (" + languagepack.getString("info_error") + " " + st[0] + ")\n\n";
-    }
-    st.shift(); //remove first element (status)...
-    st = st.join();
-    if(st == ""){
-      str += languagepack.getString("info_unavailable") + "\n";
-    }
-    else{
-      str += languagepack.getString("info_serverinfo") + "\n" + st; //...and display rest
-    }
+    CWrapper.post("getServerInfo", [], function(status, info){
+      str += languagepack.getString("info_connection") + " ";
+//       status = parseInt(status);
+      if(status == 0){
+        str += languagepack.getString("info_connected") + "\n\n";
+      }
+      else{
+        str += languagepack.getString(CWrapper.getErrorStr(status));
+        str += " (" + languagepack.getString("info_error") + " " + status + ")\n\n";
+      }
+      if(info == undefined || info == ""){
+        str += languagepack.getString("info_unavailable") + "\n";
+      }
+      else{
+        str += languagepack.getString("info_serverinfo") + "\n" + info; //...and display rest
+      }
+      tex_st.value = str;
+    });
   }
   else{
-    str = languagepack.getString("info_no_server_port");
+    tex_st.value = languagepack.getString("info_no_server_port");
   }
-  tex_st.value = str;
-  tex_st.readOnly = true;
 }
 
 function fillAudit(languagepack){
@@ -502,33 +503,38 @@ function fillAudit(languagepack){
   }
 }
 
-var treeView = {
-    rowCount : 10000,
-    getCellText : function(row, column){
-      if (column.id == "namecol") return "Row "+row;
-      else return "February 18";
-    },
-    setTree: function(treebox){ this.treebox = treebox; },
-    isContainer: function(row){ return false; },
-    isSeparator: function(row){ return false; },
-    isSorted: function(){ return false; },
-    getLevel: function(row){ return 0; },
-    getImageSrc: function(row,col){ return null; },
-    getRowProperties: function(row,props){},
-    getCellProperties: function(row,col,props){},
-    getColumnProperties: function(colid,col,props){}
-};
+// var treeView = {
+//     rowCount : 10000,
+//     getCellText : function(row, column){
+//       if (column.id == "namecol") return "Row "+row;
+//       else return "February 18";
+//     },
+//     setTree: function(treebox){ this.treebox = treebox; },
+//     isContainer: function(row){ return false; },
+//     isSeparator: function(row){ return false; },
+//     isSorted: function(){ return false; },
+//     getLevel: function(row){ return 0; },
+//     getImageSrc: function(row,col){ return null; },
+//     getParentIndex: function(row){
+//       row = this.rowTranslate(row);
+//       return this.parent[row];
+//     },
+//     getRowProperties: function(row,props){},
+//     getCellProperties: function(row,col,props){},
+//     getColumnProperties: function(colid,col,props){}
+// };
 
 
 var devicesView = {
-  rows : ["no devices"],
-  isopen : [true],
-  closedNo : [0],
-  parent : [0],
-  emails : {},
-  rowCount : 1,
-  rowRealCount : 1,
-  treeBox: null,
+  rows : ["no devices"], //string for a given row
+  isopen : [true],       //set if given row is open
+  closedNo : [0],        //number of closed rows above given row before translation
+  parent : [-1],         //index of parent of current row - if -1 then top level
+  emails : {},           //number of emails for given identity
+  rowCount : 1,          //number of rows minus closed rows
+  rowRealCount : 1,      //number of rows including closed ones
+  treeBox: null,         //treeBox that needs to be notified of row changes etc.
+
   rowTranslate: function(row){
     return row - this.closedNo[row];
   },
@@ -543,8 +549,13 @@ var devicesView = {
       return this.rows[row];
     }
   },
+
   getLevel: function(row){
-    if(this.parent[this.rowTranslate(row)] == -1) return 0;
+    Logger.dbg("get level row:"+row + "translate:" + this.rowTranslate(row));
+    Logger.dbg("this.parent:" + this.parent[this.rowTranslate(row)]);
+    var i = this.parent[this.rowTranslate(row)];
+    Logger.dbg("i:" + i);
+    if(i == -1) return 0;
     return 1;
   },
 
@@ -559,6 +570,7 @@ var devicesView = {
     if(row == this.rowRealCount - 1) return true;
     return (this.parent[row] == this.parent[row+1]);
   },
+
   isContainerOpen: function(row){
     row = this.rowTranslate(row);
     return this.isopen[row];
@@ -578,7 +590,7 @@ var devicesView = {
 
   toggleOpenState: function(row){
     var realRow = this.rowTranslate(row);
-    var rowNo = 1;
+    var rowNo = 1; //assuming each identity has at least info row
     if(this.emails[this.rows[realRow]] > 0){
       rowNo = this.emails[this.rows[realRow]];
     }
@@ -587,6 +599,10 @@ var devicesView = {
       var i = row + 1;
       while(i < this.rowCount + rowNo){
         this.closedNo[i] = this.closedNo[i - rowNo] + rowNo;
+        let realI = this.rowTranslate[i];
+        if(this.parent[realI] != -1){
+          this.parent[realI] = this.parent[realI] - rowNo;
+        }
         i++;
       }
     }
@@ -594,6 +610,10 @@ var devicesView = {
       var i = this.rowCount + rowNo - 1;
       while(i > row + rowNo){
         this.closedNo[i] = this.closedNo[Math.max(i - rowNo, row)] + rowNo;
+        let realI = this.rowTranslate[i];
+        if(this.parent[realI] != -1){
+          this.parent[realI] = this.parent[realI] - rowNo;
+        }
         i--;
       }
       for(var j = row + 1; j < row + 1 + rowNo; j++){
@@ -607,12 +627,13 @@ var devicesView = {
     this.treeBox.invalidateRow(row);
   },
 
-  incI: function(text, lastParent, i){
-    this.rows[i] = text;
-    this.parent[i] = lastParent;
-    this.closedNo[i] = 0;
-    return i+1;
-  },
+//   incI: function(text, lastParent, i){
+//     this.rows[i] = text;
+//     this.parent[i] = lastParent;
+//     this.closedNo[i] = 0;
+//     return i + 1;
+//   },
+
   isSeparator: function(row){ return false; },
   isSorted: function(){ return false; },
   getImageSrc: function(row,col){ return null; },
@@ -620,13 +641,162 @@ var devicesView = {
   getCellProperties: function(row,col,props){},
   getColumnProperties: function(colid,col,props){},
   cycleCell: function(idx, column) {},
-  cycleHeader: function(col, elem) {}
+  cycleHeader: function(col, elem) {},
+
+  addIdentity: function(identity, infoText){
+//     Logger.dbg("AddIdentity:" + identity + " text:" + infoText);
+//     Logger.dbg("RealRowCount:" + this.rowRealCount + " rowCount:"+ this.rowCount);
+    this.isopen[this.rowRealCount] = true;
+    this.emails[identity] = 0;
+    this.rows[this.rowRealCount] = identity;
+    this.parent[this.rowRealCount] = -1;
+    if(this.rowCount > 1){
+      this.closedNo[this.rowCount] = this.closedNo[this.rowCount - 1];
+    }
+    else{
+      this.closedNo[this.rowCount] = 0;
+    }
+
+    this.isopen[this.rowRealCount + 1] = true;
+    this.emails[identity + 1] = 0;
+    this.rows[this.rowRealCount + 1] = infoText;
+//     Logger.dbg("row[i]:" + this.rows[this.rowRealCount]);
+//     Logger.dbg("row[i+1]:" + this.rows[this.rowRealCount+1]);
+    this.parent[this.rowRealCount + 1] = this.rowCount;
+    this.closedNo[this.rowCount + 1] = this.closedNo[this.rowCount];
+
+    this.rowCount += 2;
+    this.rowRealCount += 2;
+    if(this.treeBox != null){
+      this.treeBox.rowCountChanged(this.rowCount - 2, 2);
+    }
+    
+  },
+
+  openAll: function(){
+    var lastParent = 0;
+    this.parent[lastParent] = -1; //first cell must be a parent
+    for(var i = 0; i < this.rowRealCount; i++){
+      this.isopen[i] = true;
+      if(this.parent[i] == -1){
+        lastParent = i;
+      }
+      else{
+        this.parent[i] = lastParent;
+      }
+      this.closedNo[i] = 0;
+    }
+    var added = this.rowRealCount - this.rowCount;
+    this.rowCount = this.rowRealCount;
+    if(added != 0 && this.treeBox != null){
+      this.treeBox.rowCountChanged(this.rowCount - added, added);
+    }
+  },
+
+  setIdentityContent: function(identity, content){
+    this.openAll();
+    var parent = this.rowRealCount - 1;
+    if(this.parent[parent] != -1){
+      parent = this.parent[parent];
+    }
+    while(parent > -1 && identity != this.rows[parent]){
+      parent--;
+      if(parent > 0 && this.parent[parent] != -1){
+        parent = this.parent[parent];
+      }
+    }
+    if(parent > -1){
+      this.emails[parent] = content.size;
+      var lastChild = parent + 1;
+      while (lastChild <= this.rowRealCount && this.parent[lastChild] != -1 ){
+        lastChild++;
+      }
+      lastChild--;
+      for(var r = 0; r + parent <= lastChild && r < content.length; r++){
+        this.rows[r + parent] = content[r];
+      }
+      var added = (content.length - lastChild + parent);
+      //shift
+      if(((r + parent) != this.rowRealCount - 1) && added != 0){
+        let i;
+        if(added > 0){
+          for(i = this.rowRealCount - 1; i > lastChild; i--){
+            this.rows[i + added] = this.rows[i];
+            this.parent[i + added] = this.parent[i];
+            if(this.parent[i] > lastChild + 1){
+              this.parent[i] += added;
+            }
+            this.isopen[i + added] = true;
+            this.closedNo[i + added] = 0;
+          }
+        }
+        else{
+          for(i = lastChild + 1; i < (this.rowRealCount + added); i++){
+            this.rows[i] = this.rows[i - added];
+            this.parent[i] = this.parent[i - added];
+            if(this.parent[i] > lastChild + 1){
+              this.parent[i] += added;
+            }
+            this.isopen[i] = true;
+            this.closedNo[i] = 0;
+          }
+        }
+      }
+      //just add
+      for(var i = r; i < content.length; i++){
+        this.rows[i + parent] = content[i];
+        this.parent[i + parent] = parent;
+        this.closedNo[i + parent] = 0;
+      }
+      this.rowRealCount += added;
+      this.rowCount += added;
+      if(this.treeBox != null){
+        this.treeBox.rowCountChanged(this.rowCount - added, added);
+      }
+    }
+    else{ //no identitiy
+      Logger.error("We tried to add devices to non existing identity");
+    }
+  },
+
+  changeIdentityText: function(identity, text){//assume we have only one child
+    var realParent = this.rowRealCount - 1;
+    var parent = this.rowCount - 1;
+    if(this.parent[realParent] != -1){
+      parent = this.parent[parent];
+      realParent = this.rowTranslate(parent);
+    }
+    while(parent > -1 && identity != this.rows[realParent]){
+      realParent--;
+      parent--;
+      if(realParent > 0 && this.parent[realParent] != -1){
+        parent = this.parent[realParent];
+        realParent = this.rowTranslate(parent);
+      }
+    }
+    if(parent > -1){
+      this.rows[realParent] = text;
+      this.treeBox.invalidateRow(parent);
+    }
+  },
+
+  setEmpty: function(text){
+    this.isopen[this.rowRealCount] = true;
+    this.rowRealCount = 1;
+    this.rowCount = 1;
+    this.rows[0] = text;
+    this.parent[0] = -1;
+    this.closedNo[0] = 0;
+    this.treeBox.invalidateRow(0);
+    this.emails = {};
+  }
+
 };
 
 
 function fillDevices(languagepack){
   //fill devices
-  Utils.syncKeypurse(languagepack);
+  Utils.syncKeypurse();
   //set date for last update
   Logger.dbg("filling devices");
   document.getElementById("tree_devices_updated").value = new Date().toISOString();
@@ -638,59 +808,60 @@ function fillDevices(languagepack){
   devicesView.emails = {};
   devicesView.levels = [];
   devicesView.rows = [];
-  var i = 0;
-  var lastParent = 0;
-  for each(let identity in addresses){
-    devicesView.emails[identity] = 0;
-    devicesView.isopen[i] = true;
-    lastParent = i;
-    i = devicesView.incI(identity, -1, i);
-    if(device){
+  devicesView.rowCount = 0;
+  devicesView.rowRealCount = 0;
+
+  var identity;
+  if(device){
+    for each(identity in addresses){
+      var ap = Pwmgr.getAp(identity);
+      if(ap != undefined && ap.length > 1){
+        devicesView.addIdentity(identity, languagepack.getString("info_waiting"));
+      }
+      else{
+        devicesView.addIdentity(identity, languagepack.getString("not_signedup"));
+        Logger.dbg("Account " + identity + " no ap");
+      }
+    }
+//     i = 0;
+    for each(identity in addresses){
       var ap = Pwmgr.getAp(identity);
       if(ap != undefined && ap.length > 1){
         try{
-          var ret = CWrapper.getDevices(identity, device);
+          CWrapper.post("getDevices", [identity, device], function(status, devices, newAp){
+            Logger.dbg("*********Callback identity:" + identity );
+            if(status == 0 && newAp && newAp.length > 1){
+              Pwmgr.setAp(identity, newAp);
+            }
+            else if(status == 12){//Error response from server
+              Logger.dbg("Outdated AP, status:" + status);
+              Pwmgr.setAp(identity, "");
+            }
+            if(devices.length > 0){
+              devicesView.setIdentityContent(identity, devices);
+            }
+            else{
+              devicesView.changeIdentityText(identity,languagepack.getString("no_devices"));
+            }
+          });
         }
         catch(err){
           //this exception might happen if the server is not available or device is not signed up with tryango
           //for getDevices this is not a critical error => catch it
           Logger.error("CWrapper exception (" + identity + "," + device + "):\n" +
-                       err + "\n\nreturn: " + ret);
-
-          var errMsg = languagepack.getString("info_unavailable");
-          i = devicesView.incI(errMsg, lastParent, i);
-          continue;
-        }
-
-        if(ret.length > 0){
-          devicesView.emails[identity] = ret.length;
-          for each(let device in ret){
-            i = devicesView.incI(device, lastParent, i);
-          }
-        }
-        else{
-          i = devicesView.incI(languagepack.getString("info_empty_return"), lastParent, i);
-	        Logger.dbg("Account " + identity + " not with tryango (getDevices(...) empty)");
+                       err + "\n\n" );
+          devicesView.changeIdentityText(identity,languagepack.getString("info_error") + " " + err);
         }
       }
-      else{
-        i = devicesView.incI(languagepack.getString("not_signedup"), lastParent, i);
-	      Logger.dbg("Account " + identity + " no ap");
-      }
-    }
-    else{
-      i = devicesView.incI(languagepack.getString("no_device"), lastParent, i);
-	    Logger.dbg("Account " + identity + " no device");
     }
   }
-
-  if(i == 0){
-    devicesView.rows[0] = languagepack.getString("info_empty_return");
-    i = i + 1;
+  else{
+    Logger.dbg("No device stored in preferences");
+    for each(identity in addresses){
+      devicesView.addIdentity(identity, languagepack.getString("no_device_set"));
+    }
   }
-  devicesView.rowCount = i;
-  devicesView.rowRealCount = i;
-  Logger.dbg("Row count:" + devicesView.rowCount);
+  Logger.dbg("Setting devices view");
   document.getElementById("tree_devices").view = devicesView;
 }
 

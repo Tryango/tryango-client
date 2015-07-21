@@ -331,6 +331,9 @@ class KeyDb{
         if (skp == NULL){
           return ANG_NO_KEY_PRESENT;
         }
+        if (skp->hasSExpired()){
+          return ANG_SIGKEY_EXPIRED;//37
+        }
         fingerprint = skp->getSSKey()->pkey.fingerprint;
         Confi_Status status = skp->checkPassword(password);
         if(status == ANG_OK){
@@ -453,6 +456,7 @@ class KeyDb{
 
   Confi_Status readFromFile(const std::string& fileName, bool clearOld, const std::string& filterId)
   {
+    std::cout<<"readefromfile:"<<fileName<<std::endl;
     std::ifstream file (fileName, std::ios::in|std::ios::binary|std::ios::ate);
     if (file.is_open()){
       std::streampos size;

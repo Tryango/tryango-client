@@ -55,8 +55,8 @@
 <!ENTITY  wizard.progressbarPage.waitingDialog "Tryango is creating a new account. This might take a few moments.">
 
 
-<!ENTITY  wizard.lastPage.title      "Signup with Tryandgo is complete.">
-<!ENTITY  wizard.lastPage.completed  "You have signed up with Tryango. Shortly you should receive an email with a secret value which will complete the signup procedure. You can safely igrore/delete that email after you see the confirmation pop-up of Tryango.">
+<!ENTITY  wizard.lastPage.title      "Signup with Tryango is complete.">
+<!ENTITY  wizard.lastPage.completed  "The signing process will continue in the background. Shortly you should receive an email with a secret value which will complete the signup procedure. You can safely ignore/delete that email after you see the confirmation of completing Tryango signup.">
 
 <!-- settings -->
 <!ENTITY  settings.title         "Settings">

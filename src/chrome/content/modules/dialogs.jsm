@@ -89,11 +89,22 @@ Dialogs.helpEnd = function(window){
   return true;
 }
 
+Dialogs.error = function(message){
+  this._showMessage(message, 2);
+}
+
+Dialogs.warn = function(message){
+  this._showMessage(message, 1);
+}
+
 Dialogs.info = function(message){
+  this._showMessage(message, 0);
+}
+
+Dialogs._showMessage= function(message, priorityNum){
   let mediator = Components.classes['@mozilla.org/appshell/window-mediator;1']
                   .getService(Components.interfaces.nsIWindowMediator);
   var window = mediator.getMostRecentWindow("mail:3pane");//getOuterWindowWithId("messengerWindow")
-  Logger.log(window);
   if(window){
     let doc = window.document;
     let box = doc.getElementById("mail-notification-box");
@@ -113,20 +124,31 @@ Dialogs.info = function(message){
 //     popup: 'blockedPopupOptions',
 //     callback: null
 //   }];
-    let priority = box.PRIORITY_INFO_MEDIUM;
-//     Priority Levels :
-//
-//     PRIORITY_INFO_LOW
-//     PRIORITY_INFO_MEDIUM
+	//TODO: this spams the box and only old messages are shown => maybe prepend not append?
+//     PRIORITY_INFO_LOW  
+//     PRIORITY_INFO_MEDIUM  0 
 //     PRIORITY_INFO_HIGH
 //     PRIORITY_WARNING_LOW
-//     PRIORITY_WARNING_MEDIUM
+//     PRIORITY_WARNING_MEDIUM 1
 //     PRIORITY_WARNING_HIGH
 //     PRIORITY_CRITICAL_LOW
 //     PRIORITY_CRITICAL_MEDIUM
-//     PRIORITY_CRITICAL_HIGH
+//     PRIORITY_CRITICAL_HIGH 2
 //     PRIORITY_CRITICAL_BLOCK
-	//TODO: this spams the box and only old messages are shown => maybe prepend not append?
+    let priority;
+    switch(priorityNum){
+    case 0:
+      priority = box.PRIORITY_INFO_HIGH;
+      break;
+    case 1:
+      priority = box.PRIORITY_WARNING_MEDIUM;
+      break;
+    case 2:
+      priority = box.PRIORITY_CRITICAL_HIGH;
+      break;
+    default:
+      break;
+    }
     box.appendNotification(message, 'tryango-notify',
                            'chrome://tryango/skin/cm_logo.png',
                            priority, buttons);
