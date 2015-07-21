@@ -488,108 +488,88 @@ var MailListener = new function() {
     MailListener.updateToolBar(-1);//processing
 
     // find mail body
-    var msgPane = null;
-    for (var j=0; j<window.frames.length && msgPane == null; j++) {
-      if (window.frames[j].name == "messagepane") {
-        msgPane =  window.frames[j];
-      }
-    }
     let messageURI = window.gFolderDisplay.view.dbView.URIForFirstSelectedMessage;
-    Logger.dbg("msgHeader:" + messageURI);
+//     Logger.dbg("msgHeader:" + messageURI);
 
-//     let aMessageHeader = window.messenger.messageServiceFromURI(messageURI).msgHdrFromURI(messageURI);
-//     Logger.dbg("msgHeader:" + aMessageHeader);
-    var pgpStr = /* interactive ? null : */ "-----BEGIN PGP";
-    var msgStr = null;
-    var foundIndex = -1;
-    var bodyEl = msgPane.document.getElementsByTagName("body")[0];
+    let messenger = Components.classes["@mozilla.org/messenger;1"]
+                    .createInstance(Components.interfaces.nsIMessenger);
+    let msgHdr = messenger.msgHdrFromURI(messageURI);
+    Logger.dbg("msgHeader:" + msgHdr);
 
-    if (bodyEl.firstChild) {
-      let node = bodyEl.firstChild;
-      while (node) {
-        if (node.nodeName == "DIV") {
-          foundIndex = node.textContent.indexOf(pgpStr);
-
-          if (foundIndex >= 0) {
-            if (node.textContent.indexOf(pgpStr+" LICENSE AUTHORIZATION") == foundIndex)
-              foundIndex = -1;
+    if(msgHdr){
+      var sender = msgHdr.author.substring(msgHdr.author.indexOf("<") + 1,
+                                             msgHdr.author.indexOf(">"));
+      if(!sender || sender.length < 1){
+        Logger.error("Could not find sender");
+        return;
+      }
+      this.currDoc = event.currentTarget.contentDocument;
+      MsgHdrToMimeMessage(msgHdr, null, function (aMsgHdr, aMimeMessage) {
+        let msgStr;
+        try{
+          msgStr = aMimeMessage.coerceBodyToPlaintext();
+        }
+        catch(e){
+          msgStr = MailListener.currDoc.body.textContent;
+          Logger.log("Could not get text content of the email:" + e + " - trying to recover html");
+          msgStr = MailListener.recoverHtml(msgStr);
+          var isHtml = msgStr.search("<html") != -1;
+          MailListener.insertEmail(MailListener.currDoc, msgStr, isHtml);
+          return;
+        }
+        var msgObj = MailListener.getPgpMessage(msgStr);
+        if(msgObj.ciphertext != ""){
+          if(msgObj.blockType=="MESSAGE"){
+            Logger.dbg("decrypting email from " + sender);
+            var status = CWrapper.decryptMail(msgObj.ciphertext, sender,
+              function(status, decrypted){
+                if(status > 0 && status <= CWrapper.getMaxErrNum()){
+                  Logger.error("Decrypt failed with error: " + MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
+              //tell user
+                  Dialogs.error(MailListener.languagepack.getString("mail_dec_failed") + "\nError: "
+                               + MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
+                }
+                else{
+                  var isHtml = decrypted.search("<html") != -1;
+                  MailListener.insertEmail(MailListener.currDoc, decrypted, isHtml);
+                }
+                MailListener.updateToolBar(status);
+              });
           }
-          if (foundIndex >= 0) {
-            bodyEl = node;
-            break;
+          else{
+            //"SIGNED MESSAGE"
+            Logger.dbg("veryfing signature for msg" + msgObj.ciphertext);
+            var status = CWrapper.post("verifySignature", [msgObj.ciphertext, sender],
+              function(status, message){
+                Logger.dbg("verified signature for sender:"+sender + " with status:"+status);
+                if(status != 0 && CWrapper.getErrorStr(status) != "no_sig"){
+                  //error
+                  Logger.error("signature check failed: " + status + "\n" +
+                               MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
+
+                  //message could not be decrypted => only display ciphertext (and show
+                  //the error to the user)
+                  if(status > 0 && status <= CWrapper.getMaxErrNum()){
+                    Dialogs.error(MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
+                  }
+                }
+                MailListener.updateToolBar(status);
+                //update message
+                if(message.length > 0){
+                  var isHtml = message.search("<html") != -1;
+                  MailListener.insertEmail(MailListener.currDoc, message, isHtml);
+                }
+              });
           }
         }
-        node = node.nextSibling;
-      }
-    }
-
-    if (foundIndex >= 0) {
-      msgStr = bodyEl.textContent;
-    }
-    Logger.dbg("onMsgDisplay - msgStr:" + msgStr);
-    //get sender
-    let box = window.document.getElementById("expandedfromBox");
-    if(box){
-      let child = msgPane.document.getAnonymousNodes(box)[0];
-      if(child && child.firstChild && child.firstChild.firstChild){
-        var sender = msgPane.document.getAnonymousNodes(box)[0].firstChild.firstChild.getAttribute("emailAddress");
-      }
-    }
-    if(!sender || sender.length <1){
-      Logger.error("Could not find sender");
-      return;
-    }
-
-    var msgObj = MailListener.getPgpMessage(msgStr);
-
-    if(msgObj.ciphertext != ""){
-      if(msgObj.blockType=="MESSAGE"){
-        //             var recipient = MailListener.findAccountFromHeader(msgHdr);
-        Logger.dbg("decrypting email from " + sender);
-        var status = CWrapper.decryptMail(msgObj.ciphertext, sender,
-          function(status, decrypted){
-            if(status > 0 && status <= CWrapper.getMaxErrNum()){
-              Logger.error("Decrypt failed with error: " + MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
-          //tell user
-              Dialogs.error(MailListener.languagepack.getString("mail_dec_failed") + "\nError: "
-                           + MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
-            }
-            else{
-              var isHtml = decrypted.search("<html") != -1;
-              MailListener.insertEmail(msgPane.document, decrypted, isHtml);
-            }
-            MailListener.updateToolBar(status);
-          });
-      }
-      else{
-        //"SIGNED MESSAGE"
-        Logger.dbg("veryfing signature for msg" + msgObj.ciphertext);
-        var status = CWrapper.post("verifySignature", [msgObj.ciphertext, sender],
-          function(status, message){
-            Logger.dbg("verified signature for sender:"+sender + " with status:"+status);
-            if(status != 0 && CWrapper.getErrorStr(status) != "no_sig"){
-              //error
-              Logger.error("signature check failed: " + status + "\n" +
-                           MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
-
-              //message could not be decrypted => only display ciphertext (and show
-              //the error to the user)
-              if(status > 0 && status <= CWrapper.getMaxErrNum()){
-                Dialogs.error(MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
-              }
-            }
-            MailListener.updateToolBar(status);
-            //update message
-            if(message.length > 0){
-              var isHtml = message.search("<html") != -1;
-              MailListener.insertEmail(msgPane.document, message, isHtml);
-            }
-            });
-      }
+        else{
+          Logger.dbg("Empty ciphertext");
+          MailListener.updateToolBar(-2);
+        }
+      }, true);
     }
     else{
-      Logger.dbg("Empty ciphertext");
-      MailListener.updateToolBar(-2);
+      Logger.error("Could not get message header!");
     }
   };
 
