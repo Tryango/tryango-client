@@ -264,7 +264,7 @@ var CWrapper = {
       if(status != 0){
         var result = true;
         do {
-          result = logger.promptService.promptPassword(null, this.languagepack.getString("prompt_password_title")
+          result = Logger.promptService.promptPassword(null, this.languagepack.getString("prompt_password_title")
                                        , this.languagepack.getString("prompt_password") + keyIdStr.str
                                        , passValue, this.languagepack.getString("save_password"), check);
         }
@@ -775,7 +775,7 @@ var CWrapper = {
   },
 
   decryptMail: function(mailBody, sender, aPassword, callback){
-    if(aPassword.lenth < 1){
+    if(aPassword.length < 1){
       this.getDataPassword(mailBody, function(success, password){
         if(success){
           CWrapper.post("decryptMail", [mailBody, sender, password], function(status, decrypted){
