@@ -48,6 +48,7 @@ var CWrapper = {
   _callback: null,
   _server: "",
   _port: -1,
+  libraryLoaded: false,
 
   post:function(method, args, callback){
    Logger.dbg("post:"+method +" args:"+args +" callback:"+ callback);
@@ -130,6 +131,26 @@ var CWrapper = {
           , ctypes.char.ptr      //param 2 password
           );
 
+   this.c_checkDecrPassword = this.client.declare("checkDecrPassword"// method name
+          , ctypes.default_abi  //binary interface type
+          , ctypes.uint32_t     //return type
+          , ctypes.char.ptr.ptr //param 1 - returned array
+          , ctypes.uint32_t.ptr //param 2  - result size
+          , ctypes.uint8_t.ptr  // param 3 -  encrypted data
+          , ctypes.uint32_t     //param 4 - encrypted data size
+          , ctypes.char.ptr     //param 5  - password
+          );
+
+   this.c_decryptMail = this.client.declare("decryptMail"
+          , ctypes.default_abi  //binary interface type
+          , ctypes.uint32_t     //return type - Confi_Status
+          , ctypes.char.ptr.ptr //param 1 - returned array
+          , ctypes.uint32_t.ptr //param 2 result size
+          , ctypes.uint8_t.ptr  //param 3 - char* mailBody
+          , ctypes.char.ptr     //param 4 - char* sender
+          , ctypes.char.ptr     //param 6 - char* password
+          );
+
     this.c_clearSignMail = this.client.declare("clearSignMail"
           , ctypes.default_abi  //binary interface type
           , ctypes.uint32_t     //return type
@@ -210,13 +231,72 @@ var CWrapper = {
     }
   },
 
+  synchGetDataPassword: function(data){
+    var pb = Components.classes["@mozilla.org/preferences-service;1"]//cannot use prefs.jsm because of cyclic dependancy
+                          .getService(Components.interfaces.nsIPrefService)
+                          .getBranch("extensions.tryango.");
+    Logger.dbg("synchGetDataPassword data: "+ data);
+    var check = {value: pb.getBoolPref("savePW")};
+    var keyIdStr = "";
+    var passValue = {value: ""};
+
+    var keyId = new ctypes.char.ptr;
+    var keyIdSize = new ctypes.uint32_t;
+    var c_data = ctypes.uint8_t.array()(data.length)
+    for(var i = 0; i < data.length; i++){
+      c_data[i] = data.charCodeAt(i);
+    }
+    var status;
+    do{
+      status = this.c_checkDecrPassword(keyId.address()
+                                         , keyIdSize.address()
+                                         , c_data
+                                         , c_data.length
+                                         , passValue.value);
+      if((ctypes.uint32_t(0) < keyIdSize)){
+        keyIdStr = keyId.readString();
+        this.freeString(keyId);
+        if(passValue.value == ""){
+          passValue.value = Pwmgr.getPass(keyIdStr);
+        }
+      }
+      else{
+        return {success: false, password: ""};
+      }
+      if(status != 0){
+        var result = true;
+        do {
+          result = logger.promptService.promptPassword(null, this.languagepack.getString("prompt_password_title")
+                                       , this.languagepack.getString("prompt_password") + keyIdStr.str
+                                       , passValue, this.languagepack.getString("save_password"), check);
+        }
+        while(result && passValue.value == "");
+        if(!result){
+          return {success: false, password: ""};
+        }
+        pb.setBoolPref("savePW", check.value);
+        if(check.value){
+          Logger.dbg("Setting password for "+ keyIdStr + " to " + passValue.value);
+          Pwmgr.setPass(keyIdStr, passValue.value);
+        }
+        else{
+          Pwmgr.removePass(keyIdStr);
+        }
+      }
+    }
+    while(status != 0)
+    return {success: true, password: passValue.value};
+  },
+
   getDataPassword: function(data, callback){
     //from https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsIPromptService
 //     this._keyId = "";
     var pb = Components.classes["@mozilla.org/preferences-service;1"]//cannot use prefs.jsm because of cyclic dependancy
                           .getService(Components.interfaces.nsIPrefService)
                           .getBranch("extensions.tryango.");
+    Logger.dbg("getDataPassword data: "+ data);
     var check = {value: pb.getBoolPref("savePW")};
+
     function dataPwCallback(status, keyId, ask, password){
       if(status != 0){
         if(keyId != ""){
@@ -685,17 +765,51 @@ var CWrapper = {
     }
   },
 
-  decryptMail: function(mailBody, sender, callback){
-    this.getDataPassword(mailBody, function(success, password){
-      if(success){
-        CWrapper.post("decryptMail", [mailBody, sender, password], function(status, decrypted){
-          callback(status, decrypted);
-        });
+//sychronous decryption without signature verification - should be fast as we do not contact server
+  synchDecryptMail: function(mailBody){
+    var ret = this.synchGetDataPassword(mailBody);
+    if(ret.success){
+      var result = new ctypes.char.ptr;
+      var resultSize = new ctypes.uint32_t;
+      var c_mailBody= ctypes.uint8_t.array()(mailBody.length)
+      for(var i = 0; i < mailBody.length; i++){
+        c_mailBody[i] = mailBody.charCodeAt(i);
       }
-      else{
-        callback(21, "");//ANG_NO_KEY_PRESENT
+      var status = this.c_decryptMail(result.address()
+                                     , resultSize.address()
+                                     , c_mailBody
+                                     , ""
+                                     , ret.password);
+      var decrypted = "";
+      if((ctypes.uint32_t(0)<resultSize)){
+        if(status == 0 || status > this.getMaxErrNum()){ //ANG_OK
+          decrypted = result.readString();
+        }
+        this.freeString(result);
       }
-    });
+      return {status:status, decrypted: decrypted, password: ret.password};
+    }
+    return {status:21, decrypted: "", password: ""};
+  },
+
+  decryptMail: function(mailBody, sender, aPassword, callback){
+    if(aPassword.lenth < 1){
+      this.getDataPassword(mailBody, function(success, password){
+        if(success){
+          CWrapper.post("decryptMail", [mailBody, sender, password], function(status, decrypted){
+            callback(status, decrypted);
+          });
+        }
+        else{
+          callback(21, "");//ANG_NO_KEY_PRESENT
+        }
+      });
+    }
+    else{// we have a password already
+      CWrapper.post("decryptMail", [mailBody, sender, aPassword], function(status, decrypted){
+        callback(status, decrypted);
+      });
+    }
   },
 
 

@@ -245,7 +245,9 @@ var Utils = new function()
     var addresses = this.getEmailAddresses();
     var machineID = Prefs.getPref("machineID");
     if(machineID){
+      var i = 0;
       for each(let identity in addresses){
+        i++;
         //check if identity/machineID is signed up
         var ap = Pwmgr.getAp(identity);
         if(ap != undefined && ap.length > 1){
@@ -255,6 +257,10 @@ var Utils = new function()
             }
             else{
               Logger.dbg("Keypurse synchronised successfully for id "+ identity);
+            }
+            if(i == addresses.length){
+              CWrapper.libraryLoaded = true;
+              Logger.dbg("Done synchronising keypurse");
             }
           });
 //           let status = CWrapper.synchronizeSK(identity);

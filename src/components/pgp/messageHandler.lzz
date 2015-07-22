@@ -142,7 +142,7 @@ class MessageHandler{
       case PKT_PLAINTEXT:
         std::cout<<"case:PKT_PLAINTEXT"<<std::endl;
         result.append(v.at(i).pkt.plaintext->data);
-        if(mdctx!=NULL){
+        if(mdctx != NULL){
           std::string* pdata = &(v.at(i).pkt.plaintext->data);
           std::cout<<"Signature checking text:"<<string_to_hex(*pdata)<<std::endl;
           if(!EVP_DigestUpdate(mdctx, (unsigned char*)pdata->c_str(), pdata->size())){
@@ -179,9 +179,11 @@ class MessageHandler{
               status = ANG_PARSE_ERROR;
             }
             else{
-              std::cout<<"Verifying signature"<<std::endl;
-              status = SignKey::verifySignature(mdctx, sig, sender, pubDb);
-              std::cout<<"Verifying signature status:"<<status<<std::endl;
+              if(sender.length() > 0){
+                std::cout<<"Verifying signature"<<std::endl;
+                status = SignKey::verifySignature(mdctx, sig, sender, pubDb);
+                std::cout<<"Verifying signature status:"<<status<<std::endl;
+              }
             }
           }
           else{
