@@ -378,8 +378,8 @@ var MailWindow = new function(){
       return -1;
     }
     Logger.dbg("mailBody:\n" + mailBody); //TODO: FIXME: the code above inserts empty lines every second line when saving drafts a second time!!! (it works the first time though)
-    var password = "";
-    if(this.sign && this.encrypt){ //for signature only we ask password later
+    MailWindow._password = "";
+    if(this.sign){
       var ret = CWrapper.synchGetSignPassword(sender);//TODO: change to asynchronous
       if(ret.status != 0){
         if(ret.status == 21){//ANG_CANCEL
@@ -408,7 +408,8 @@ var MailWindow = new function(){
         }
       }
       else{
-        password = ret.password;
+        MailWindow._password = ret.password;
+        Logger.dbg("Set pw:" + MailWindow._password);
       }
     }
     //check encrypt and sign again since it could have changed above!
@@ -443,19 +444,21 @@ var MailWindow = new function(){
               ///send email
               MailWindow._justSend = true;
               SendMessage();
+              Logger.dbg("********erasing password");
+              MailWindow._password = "";
             }
             else{
               //do nothing
             }
           }
           else{
-            this._encryptAttachments(recipients, sender, password, mailBody);
+            this._encryptAttachments(recipients, sender, this._password, mailBody);
           }
         }.bind(this)
       );
     }
     else{
-      this._encryptAttachments(recipients, sender, password, mailBody);
+      this._encryptAttachments(recipients, sender, this._password, mailBody);
     }
     return 3;//postpone sending - it will be done from callbacks
   }
@@ -490,6 +493,8 @@ var MailWindow = new function(){
                 //send unencrypted
                 MailWindow._justSend = true;
                 SendMessage();
+                Logger.dbg("********erasing password");
+                MailWindow._password = "";
               }
               else{
                 //user abort -- do nothing
@@ -551,6 +556,8 @@ var MailWindow = new function(){
          }
          MailWindow._justSend = true;
          SendMessage();
+         Logger.dbg("********erasing password");
+         MailWindow._password = "";
        }
       );
     }
@@ -564,6 +571,8 @@ var MailWindow = new function(){
       MailWindow._replaceBody(mailBody, origMailBody);
       MailWindow._justSend = true;
       SendMessage();
+      Logger.dbg("********erasing password");
+      MailWindow._password = "";
     }
     //Logger.dbg("Message after enrcypt;"+ mailBody);
   }
@@ -807,7 +816,7 @@ ConfiComposeStateListener = {
       //clear signature only
 
       //TODO: is this code needed? shall "reply" check the signature again? (it should already have been checked before!)
-      sender = gCurrentIdentity.email;
+      var sender = gCurrentIdentity.email;
       var status = CWrapper.verifySignature(plaintext, ciphertext, sender);
       if(status > 0 && status <= CWrapper.getMaxErrNum()){
         Logger.error("Signature failed with error:" +
@@ -988,10 +997,11 @@ function AngMsgSendListener(){
 
     let tail = body.substring(msgEnd+19);
     Logger.dbg("head:"+head);
-    Logger.dbg("calling C: clearSignMail(...) to sign only");
+    Logger.dbg("calling C: clearSignMail(...) to sign only with pw:" + MailWindow._password);
 //     var enc_signed_mail = {str : ""};
 
-    let ret = CWrapper.synchClearSignMail(msgBody, sender);
+    let ret = CWrapper.synchClearSignMail(msgBody, sender, MailWindow._password);
+//     MailWindow._password = "";
       //check errors
     if(ret.status > 0 && ret.status <= CWrapper.getMaxErrNum()){
       Logger.error("Sign falied with error: " +

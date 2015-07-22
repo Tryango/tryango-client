@@ -408,7 +408,7 @@ extern "C"{
   }
 
 
-  bool checkMailAddr(const char* mailAddr
+  Confi_Status checkMailAddr(const char* mailAddr
                      ){
     std::string mail = PktDo::stripId(std::string(mailAddr));
     printf(("Checking mail for id" +mail +"\n").c_str());

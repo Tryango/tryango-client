@@ -188,7 +188,7 @@ class ConfiClient
     return &keyDb;
   }
 
-  bool checkMailAddr(const std::string& id
+  Confi_Status checkMailAddr(const std::string& id
                      ){
     return publicKeyDb.checkMailAddr(id);
   }

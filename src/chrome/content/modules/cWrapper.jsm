@@ -245,6 +245,26 @@ var CWrapper = {
       c_data[i] = data.charCodeAt(i);
     }
     var status;
+    status = this.c_checkDecrPassword(keyId.address()
+                                     , keyIdSize.address()
+                                     , c_data
+                                     , c_data.length
+                                     , passValue.value);
+    if((ctypes.uint32_t(0) < keyIdSize)){
+      keyIdStr = keyId.readString();
+      this.freeString(keyId);
+      if(passValue.value == ""){
+        passValue.value = Pwmgr.getPass(keyIdStr);
+      }
+    }
+    else{
+      return {success: false, password: ""};
+    }
+
+    if(status == 0){
+      return {success: true, password: passValue.value};
+    }
+    
     do{
       status = this.c_checkDecrPassword(keyId.address()
                                          , keyIdSize.address()
@@ -265,7 +285,7 @@ var CWrapper = {
         var result = true;
         do {
           result = Logger.promptService.promptPassword(null, this.languagepack.getString("prompt_password_title")
-                                       , this.languagepack.getString("prompt_password") + keyIdStr.str
+                                       , this.languagepack.getString("prompt_password") + keyIdStr
                                        , passValue, this.languagepack.getString("save_password"), check);
         }
         while(result && passValue.value == "");
@@ -368,16 +388,16 @@ var CWrapper = {
     if(ret.status != 0){
       if(ret.keyId != ""){
         passValue.value = Pwmgr.getPass(ret.keyId);
-        ret = this.checkSignPassword(sender, passValue.value);
+        ret = this._checkSignPassword(sender, passValue.value);
         while(ret.status != 0){
-          result = Logger.promptService.promptPassword(null, this.languagepack.getString("prompt_password_title")
+          var result = Logger.promptService.promptPassword(null, this.languagepack.getString("prompt_password_title")
                                        , this.languagepack.getString("prompt_password") + ret.keyId
                                        , passValue, this.languagepack.getString("save_password"), check);
           if(!result){
             return {status:30, password: ""}; //ANG_CANCEL
            }
           pb.setBoolPref("savePW", check.value);
-          ret = this.checkSignPassword(sender, passValue.value);
+          ret = this._checkSignPassword(sender, passValue.value);
         }
         if(check.value){
           Pwmgr.setPass(ret.keyId, passValue.value);
@@ -687,17 +707,17 @@ var CWrapper = {
     }.bind(this));
   },
 
-  synchClearSignMail: function(mailBody, sender){
-    var ret = this.synchGetSignPassword( sender);
-    if(ret.status != 0){
-      Logger.dbg("Failed to get password for private key of:" + sender);
-      return {status: ret.status, signed: mailBody}; //ANG_NO_KEY_PRESENT
-    }
+  synchClearSignMail: function(mailBody, sender, password){
+//     var ret = this.synchGetSignPassword( sender);
+//     if(ret.status != 0){
+//       Logger.dbg("Failed to get password for private key of:" + sender);
+//       return {status: ret.status, signed: mailBody}; //ANG_NO_KEY_PRESENT
+//     }
     var result = new ctypes.char.ptr;
     var resultSize = new ctypes.uint32_t;
     var c_mailBody = ctypes.char.array()(mailBody);
     var c_sender = ctypes.char.array()(sender);
-    var c_password = ctypes.char.array()(ret.password);
+    var c_password = ctypes.char.array()(password);
 
     var status =  this.c_clearSignMail(result.address()
                                      , resultSize.address()

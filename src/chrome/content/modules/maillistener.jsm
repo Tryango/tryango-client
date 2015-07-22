@@ -542,25 +542,26 @@ var MailListener = new function() {
         }
         var msgObj = MailListener.getPgpMessage(msgStr);
         if(msgObj.ciphertext != ""){
-          if(msgObj.blockType=="MESSAGE"){
-            Logger.dbg("decrypting email without checking signature.");
-            var sender = msgHdr.author.substring(msgHdr.author.indexOf("<") + 1,
-                msgHdr.author.indexOf(">"));
-            if(!sender || sender.length < 1){//fallback method to find sender
-              var msgPane = null;
-              for (var j = 0; j < window.frames.length && msgPane == null; j++) {
-                if (window.frames[j].name == "messagepane") {
-                  msgPane =  window.frames[j];
-                }
-              }
-              let box = window.document.getElementById("expandedfromBox");
-              if(box){
-                let child = msgPane.document.getAnonymousNodes(box)[0];
-                if(child && child.firstChild && child.firstChild.firstChild){
-                  sender = msgPane.document.getAnonymousNodes(box)[0].firstChild.firstChild.getAttribute("emailAddress");
-                }
+          var sender = msgHdr.author.substring(msgHdr.author.indexOf("<") + 1,
+                                               msgHdr.author.indexOf(">"));
+          if(!sender || sender.length < 1){//fallback method to find sender
+            var msgPane = null;
+            for (var j = 0; j < window.frames.length && msgPane == null; j++) {
+              if (window.frames[j].name == "messagepane") {
+                msgPane =  window.frames[j];
               }
             }
+            let box = window.document.getElementById("expandedfromBox");
+            if(box){
+              let child = msgPane.document.getAnonymousNodes(box)[0];
+              if(child && child.firstChild && child.firstChild.firstChild){
+                sender = msgPane.document.getAnonymousNodes(box)[0].firstChild.firstChild.getAttribute("emailAddress");
+              }
+            }
+          }
+
+          if(msgObj.blockType=="MESSAGE"){
+            Logger.dbg("decrypting email without checking signature.");
 
             if(CWrapper.libraryLoaded){
               var ret = CWrapper.synchDecryptMail(msgObj.ciphertext);
