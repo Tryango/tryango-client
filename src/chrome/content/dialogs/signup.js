@@ -614,9 +614,7 @@ function signup(){
       break;
     case 2:
       //import key
-      if(importKey()){
-        doSignup(email);
-      }
+      importKey(email);
       break;
     }
   }
@@ -677,10 +675,9 @@ function generateKey(){
 }
 
 
-function importKey(){
+function importKey(email){
   //identify key
   var tree = document.getElementById("info_key_tree")
-  var email = document.getElementById("signup_email").selectedItem.value;
   var col = tree.columns.key_id;
   var index = tree.view.getParentIndex(tree.currentIndex);
   Logger.dbg("Transfering of RSA keys");
@@ -698,6 +695,7 @@ function importKey(){
           function(success){
             if(success){
               Logger.dbg("Keypurse saved with fingerprint " + fingerprint);
+              doSignup(email);
             }
             else{
               var languagepack = document.getElementById("lang_file");
