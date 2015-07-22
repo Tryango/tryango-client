@@ -511,7 +511,7 @@ function fillInfoTable(email, type){
         expire = new Date(keys[i].signExpire);
         //only display keys if they are not expired or advanced setup is on
         if(advSetup || (keys[i].signExpire == 0) || (expire.getTime() < Date.now()) ){
-          Utils.treeAppendRow(treeList, keys[i], document, false, languagepack);
+          Utils.treeAppendRow(treeList, keys[i], document, false);
         }
       }
       //check length, if only 1 key & simple setup => proceed
@@ -660,8 +660,8 @@ function generateKey(){
   //create key
   CWrapper.post("generateRsaKeys", [email, password, keySize], function(success){
     if(success){
-      CWrapper.post("exportKeyPurse", [Prefs.getPref("keyPursePath"), ""], function(status){
-        if(success){
+      CWrapper.post("exportKeyPurse", [Prefs.getPref("keyPursePath"), ""], function(success2){
+        if(success2){
           Logger.dbg("Keypurse saved");
         }
         else{

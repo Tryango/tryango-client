@@ -51,7 +51,7 @@ var CWrapper = {
   libraryLoaded: false,
 
   post:function(method, args, callback){
-   Logger.dbg("post:"+method +" args:"+args +" callback:"+ callback);
+   Logger.dbg("+++++++++++++++++++++++post:"+method +" args:"+args +" callback:"+ callback);
    if(this._state == CState["idle"]){
      Logger.dbg("post running");
      this._state = CState["running"];
@@ -59,7 +59,7 @@ var CWrapper = {
      this.angWorker.postMessage({method:method, args:args});
    }
    else{
-     Logger.dbg("pusing to queeu");
+     Logger.dbg("pushing to queue");
      this._queue.push({method:method, args:args, callback:callback});
    }
   },
@@ -67,12 +67,10 @@ var CWrapper = {
   handleMsg: function(e){
 //TODO - remove --v
     if(!e.data || !e.data.method){
-      Logger.error('error incoming from worker, event type:'+ e.type + e.toString());
-      return;
+      Logger.error('-----------------------error incoming from worker, event type:'+ e.type + e.toString());
     }
     else{
-
-      Logger.dbg('********************************incoming message from worker, msg1:'+ e.data.method + " args:"+ e.data.args);
+      Logger.dbg('--------------------------------incoming message from worker, msg1:'+ e.data.method + " args:"+ e.data.args);
       if(e.data.method == "openLibrary"){
         Logger.dbg("Library OK loaded.");
       }
@@ -86,20 +84,20 @@ var CWrapper = {
       else{
         var toRun  = CWrapper._queue.pop();
         CWrapper._callback = toRun.callback;
-        CWrapper.angWorker.postMessage({method:toRun.method, args:toRun.args});
+        CWrapper.angWorker.postMessage({method:toRun.method, args:toRun.args}); //TODO - dynamically update ap in params
       }
       if(oldCallback != null && e.data && e.data.args){
-        Logger.dbg("************************************incoming message  ** calling callback with args:" + e.data.args);
+        Logger.dbg("************************** calling callback with args:" + e.data.args);
         oldCallback(...e.data.args);
       }
       else{
-        Logger.dbg("************************************incoming message  ** calling is null or no args");
+        Logger.dbg("***************************** no callback - calling is null or no args");
       }
     }
     else{
       Logger.error("Not expecting message from worker. Function:"+e.data.method);
     }
-    Logger.log('************************************end incoming message from worker state:' + CWrapper._state);
+    Logger.log('====================================end incoming message from worker state:' + CWrapper._state);
   },
 
 
@@ -503,64 +501,42 @@ var CWrapper = {
   },
 
 
-  removeDevices: function(identity, device, devices, totalDevices, doNotPrompt){
-    //init
-    var arr_t = ctypes.ArrayType(ctypes.char.ptr);
-    var c_devices = new arr_t(devices.length);
-    var removeAp = false;
-    for(var i = 0; i < devices.length; i++){
-      c_devices[i] = ctypes.char.array()(devices[i]);
-      if(devices[i] == device){
-        removeAp = true;
-      }
-    }
-
-    //revoke key?
-    if(devices.length >= totalDevices){
-      if(doNotPrompt ||
-         Logger.promptService.confirm(
-           null, "Trango",
-           this.languagepack.getString("prompt_allRemoved_revoke")
-         )
-        ){
-        var status = this.revokeKey(identity, device);
-        if(status == 0){
-          Logger.dbg("Key revocation was successful");
-        }
-        else{
-          Logger.dbg("Could not revoke key - err no:"+status);
-        }
-
-      };
-    }
-    //request
-    var ap = Pwmgr.getAp(identity);
-    if(ap != undefined && ap.length > 1){
-      var charAp = ctypes.char.array()(ap);
-      var status = this.c_removeDevices(charAp, identity, device, c_devices, ctypes.uint32_t(devices.length));
-      //check errors
-      if(status == 0){
-        //update nonce and store it securely
-        if(removeAp){
-          Pwmgr.setAp(identity, "");
-        }
-        else{
-          Pwmgr.setAp(identity, charAp.readString());
-        }
-      }
-      else if(status == 12){//ap is outdated so we remove it - what about server down?
-        Logger.dbg("Outdated AP, status: "+status);
-        Pwmgr.setAp(identity, "");
-      }
-      //else => just return status below
-
+  removeDevices: function(identity, device, devices, totalDevices, doNotPrompt, callback){
+    var hexAp = Pwmgr.getAp(identity);
+    if(hexAp == undefined || hexAp.length <= 1){
+      callback(23);
     }
     else{
-      Logger.dbg("Empty AP - signup needed.");
-      return 23; //ANG_NO_AP
+      if(devices.length >= totalDevices){
+        if(doNotPrompt ||
+           Logger.promptService.confirm(
+             null, "Trango",
+             this.languagepack.getString("prompt_allRemoved_revoke")
+           )
+          ){
+          this.revokeKey(identity, device, function(status){
+            if(status == 0){
+              Logger.dbg("Key revocation was successful");
+            }
+            else{
+            Logger.dbg("Could not revoke key - err no:" + status);
+            }
+         });
+        }
+      }
+      CWrapper.post("removeDevices", [hexAp, identity, device, devices], function(status, newHexAp, id){
+        if(status == 0){
+          //update nonce and store it securely
+          Pwmgr.setAp(id, newHexAp);
+        }
+        else if(status == 12){//ap is outdated so we remove it - what about server down?
+          Logger.dbg("Outdated AP, status: " + status);
+          Pwmgr.setAp(id, "");
+        }
+        callback(status);
+      });
     }
-
-    return status;
+    //request
   },
 
 
@@ -574,27 +550,33 @@ var CWrapper = {
   },
 
 
-  revokeKey: function(identity, device){
+  revokeKey: function(identity, device, callback){
     var hexAp = ctypes.char.array()(Pwmgr.getAp(identity)); //TODO: check Pwmgr return first
     if(hexAp != undefined && hexAp.length > 1){
-      if(this.synchronizeSK(identity) != 0){
-        return 21; //ANG_NO_KEY_PRESENT
-      }
       var pass = {value : ""};
-      if(!this.getSignPassword(pass, identity)){
-        return 21; //ANG_NO_KEY_PRESENT
-      }
-      var c_password = ctypes.char.array()(pass.value);
-
-      var result = this.c_revokeKey(hexAp, identity, device, c_password);
-      if(result == 0){ //ANG_OK is 0
-        var newHexAp = hexAp.readString();
-        Pwmgr.setAp(identity, newHexAp);
-      }
-      return result;
+      CWrapper.post("synchronizeSK", [identity], function(status){
+        if(status != 0){
+          callback(21);
+        }
+        else{
+          this.getSignPassword(identity, function(success, password){
+            if(success){
+              CWrapper.post("revokeKey",[hexAp, identity, device, password], function(status, newHexAp){
+                if(status == 0){ //ANG_OK is 0
+                  Pwmgr.setAp(identity, newHexAp);
+                }
+                callback(status);
+              });
+            }
+            else{
+              callback(21);//ANG_NO_KEY_PRESENT
+            }
+          });
+        }
+      });
     }
     else{
-      return 23; //ANG_NO_AP
+      callback(23); //ANG_NO_AP
     }
   },
 

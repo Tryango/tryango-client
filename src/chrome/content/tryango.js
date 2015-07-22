@@ -191,31 +191,11 @@ Tryango.handleEvent = function(id){
     break;
 
   case "menu-import":
-    //pick file to import from
-    //pick file to save to
-    var fp = Components.classes["@mozilla.org/filepicker;1"].createInstance(
-      Components.interfaces.nsIFilePicker);
-    //filters:
-    fp.appendFilter("Keypurses", "*.purse; *.gpg; *.pgp; *.asc; *,txt"); //only key purses
-    fp.appendFilter("All files", "*");
-    fp.init(window, this.languagepack.getString("sel_keypurse_imp"),
-            Components.interfaces.nsIFilePicker.modeOpen);
-
-    //check result
-    var res = fp.show();
-    if(res != Components.interfaces.nsIFilePicker.returnCancel){
-      //import keypurse from selected location
-      if(!CWrapper.importKeyPurse(fp.file.path, false)){
-        //error
-        Logger.error("importKeyPurse failed");
-        Dialogs.info(this.languagepack.getString("imp_keypurese_fail"));
-      }
-      //else: everything ok
-    }
+    Utils.importKeyPurse();
     break;
 
   case "menu-export":
-    Utils.exportKeyPurse(this.languagepack);
+    Utils.exportKeyPurse();
     break;
 
   case "button-cm-decrypt":
@@ -233,9 +213,10 @@ Tryango.handleEvent = function(id){
     var sender = "";
     var msgHdr = this.gFolderDisplay.selectedMessage;
     if(msgHdr != null){
-      var sender = msgHdr.author.substring(msgHdr.author.indexOf("<") + 1,
+      sender = msgHdr.author.substring(msgHdr.author.indexOf("<") + 1,
                                            msgHdr.author.indexOf(">"));
-    }else{
+    }
+    else{
       //else: error will result in signature to fail, decrypt should be possible anyway
       Logger.error("decrypt attachment: gFolderDisplay.selectedMessage is empty => no sender => signature verify will fail");
     }
@@ -254,9 +235,9 @@ Tryango.reset = function(removeEverything = false){
 
   //remove devices and keys from server as well as locally
   //this also asks if the user wants to backup the keypurse
-  if(!Utils.removeAllDevicesAndRevokeKeys(window, this.languagepack)){
-	Logger.log("removeEverything: abort");
-	return false;
+  if(!Utils.removeAllDevicesAndRevokeKeys()){
+    Logger.log("removeEverything: abort");
+    return false;
   }
 
   //clear XHEADERS

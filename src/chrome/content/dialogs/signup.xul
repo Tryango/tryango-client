@@ -169,12 +169,12 @@
       <label id="ang_adv_size" value="&wizard.createKeyPage.keysize;" />
         <radiogroup id="createKey_size">
           <radio id="createKey_4096"
-                 label="4096 btis"
+                 label="4096 bits"
                  selected="true"/>
           <radio id="createKey_2048"
-                 label="2048 btis"/>
+                 label="2048 bits"/>
           <radio id="createKey_1024"
-                 label="1024 btis"/>
+                 label="1024 bits"/>
         </radiogroup>
       </hbox>
 

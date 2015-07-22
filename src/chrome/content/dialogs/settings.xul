@@ -80,7 +80,7 @@
         <vbox align="left">
           <button label="&settings.buttonrefresh;"
                   width="100"
-                  oncommand="fillStatus(document.getElementById('lang_file'));">
+                  oncommand="fillStatus();">
           </button>
         </vbox>
         <spacer type="block" height="20"/>
@@ -159,7 +159,7 @@
         <!-- refresh button -->
         <button label="&settings.buttonrefresh;"
                 width="100"
-                oncommand="fillKeys(document.getElementById('lang_file'));">
+                oncommand="fillKeys();">
         </button>
         <!-- remove button -->
         <button label="&settings.buttonremove;"
@@ -184,7 +184,7 @@
         <vbox align="left">
           <button label="&settings.buttonrefresh;"
                   width="100"
-                  oncommand="fillAudit(document.getElementById('lang_file'));">
+                  oncommand="fillAudit();">
           </button>
         </vbox>
       </vbox>

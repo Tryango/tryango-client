@@ -636,7 +636,27 @@ var Client = {
       }
       this.freeString(ctypes.cast(result, ctypes.char.ptr));
     }
-    return {method: "getDevices", args:[status, devices, newHexAp]};
+    return {method: "getDevices", args:[status, devices, newHexAp, identity]};
+  },
+
+  removeDevices: function(hexAp, identity, device, devices){
+    var arr_t = ctypes.ArrayType(ctypes.char.ptr);
+    var c_devices = new arr_t(devices.length);
+    var c_hexAp = ctypes.char.array()(hexAp);
+    var removeAp = false;
+
+    for(var i = 0; i < devices.length; i++){
+      c_devices[i] = ctypes.char.array()(devices[i]);
+      if(devices[i] == device){
+        removeAp = true;
+      }
+    }
+    var status = this.c_removeDevices(c_hexAp, identity, device, c_devices, ctypes.uint32_t(devices.length));
+    var newHexAp = "";
+    if(!removeAp){
+      newHexAp = c_hexAp.readString();
+    }
+    return {method: "removeDevices", args:[status, newHexAp, identity]};
   },
 
   synchronizeSK: function(identity){
@@ -657,6 +677,12 @@ var Client = {
     else{
       return {method: "submitKey", args: [22, ""]}; //ANG_NO_AP
     }
+  },
+
+  revokeKey: function(hexAp, identity, device, password){
+    var status =  this.c_revokeKey(hexAp, identity, device, password);
+    var newHexAp = hexAp.readString();
+    return {method: "revokeKey", args: [status, newHexAp]};
   },
 
   getInfoKeys: function(identity, fromKeypurse){

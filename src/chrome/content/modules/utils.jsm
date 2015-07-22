@@ -3,6 +3,7 @@ Components.utils.import("resource://tryango_modules/pwmanager.jsm");
 Components.utils.import("resource://tryango_modules/cWrapper.jsm");
 Components.utils.import("resource://tryango_modules/prefs.jsm")
 Components.utils.import("resource://tryango_modules/logger.jsm");
+Components.utils.import("resource://tryango_modules/dialogs.jsm");
 
 //standard modules
 Components.utils.import("resource:///modules/iteratorUtils.jsm"); //for fixIterator
@@ -18,7 +19,7 @@ var Utils = new function()
   this.window = null;
 
   this.init = function(window){
-	this.window = window;
+    this.window = window;
   }
 
   this.convertFromUnicode = function(text, charset) {
@@ -99,55 +100,82 @@ var Utils = new function()
     }
   }
 
+  this.importKeyPurse = function(){
+    if(!this.window){
+      Dialogs.error(CWrapper.languagepack.getString("imp_keypurse_fail"));
+    }
+    else{
+    var fp = Components.classes["@mozilla.org/filepicker;1"].createInstance(
+      Components.interfaces.nsIFilePicker);
+    //filters:
+    fp.appendFilter("Keypurses", "*.purse; *.gpg; *.pgp; *.asc; *,txt"); //only key purses
+    fp.appendFilter("All files", "*");
+    fp.init(this.window, CWrapper.languagepack.getString("sel_keypurse_imp"),
+            Components.interfaces.nsIFilePicker.modeOpen);
 
-  this.exportKeyPurse = function(languagepack){
+    //check result
+    var res = fp.show();
+    if(res != Components.interfaces.nsIFilePicker.returnCancel){
+      CWrapper.post("importKeyPurse", [Prefs.getPref("keyPursePath"), true], function(status){
+        if(status == 0){
+          Utils.syncKeypurse();
+          Dialogs.info(CWrapper.languagepack.getString("imp_keypurse_ok"));
+        }
+        else{
+          Dialogs.error(CWrapper.languagepack.getString("imp_keypurse_fail"));
+        }
+      });
+
+    }
+
+    }
+  }
+
+  this.exportKeyPurse = function(){
     if(!this.window || !(new FileUtils.File(Prefs.getPref("keyPursePath"))).exists()){
 	  //no window => no export
       //no keypurse => no export (this should never happen and be avoided by the
 	  //function calling exportKeyPurse)
-      Dialogs.info(languagepack.getString("exp_keypurse_fail"));
-//       Logger.infoPopup(languagepack.getString("exp_keypurse_fail"));
-      return false;
+      Dialogs.error(CWrapper.languagepack.getString("exp_keypurse_fail"));
+//       Logger.infoPopup(CWrapper.languagepack.getString("exp_keypurse_fail"));
     }
+    else{
+      //pick file to save to
+      var fp = Components.classes["@mozilla.org/filepicker;1"].createInstance(
+        Components.interfaces.nsIFilePicker);
+      //filters:
+      fp.appendFilter("Keypurses", "*.purse"); //only key purses
+      fp.appendFilter("All files", "*");
+      fp.init(this.window, CWrapper.languagepack.getString("sel_keypurse_bak"),
+              Components.interfaces.nsIFilePicker.modeSave);
 
-    //pick file to save to
-    var fp = Components.classes["@mozilla.org/filepicker;1"].createInstance(
-      Components.interfaces.nsIFilePicker);
-    //filters:
-    fp.appendFilter("Keypurses", "*.purse"); //only key purses
-    fp.appendFilter("All files", "*");
-    fp.init(this.window, languagepack.getString("sel_keypurse_bak"),
-            Components.interfaces.nsIFilePicker.modeSave);
-
-    //check result
-    var date = (new Date()).toISOString();
-    date = date.substring(0, date.indexOf("T"));
-    fp.defaultString = "tryango_" + date + "_key.purse";
-    var res = fp.show();
-    if(res != Components.interfaces.nsIFilePicker.returnCancel){
-      //backup keypurse to selected location
-      if(!CWrapper.exportKeyPurse(fp.file.path, "")){ //TODO: password?
-        //error
-        Logger.error("exportKeyPurse failed");
-        Dialogs.info(languagepack.getString("bak_keypurese_fail"));
-//         Logger.infoPopup(languagepack.getString("bak_keypurese_fail"));
-		return false;
+      //check result
+      var date = (new Date()).toISOString();
+      date = date.substring(0, date.indexOf("T"));
+      fp.defaultString = "tryango_" + date + "_key.purse";
+      var res = fp.show();
+      if(res != Components.interfaces.nsIFilePicker.returnCancel){
+        //backup keypurse to selected location
+        CWrapper.post("exportKeyPurse", [fp.file.path, ""], function(success){ //TODO: password?
+          if(success){
+            Dialogs.info(CWrapper.languagepack.getString("bak_keypurse_ok"));
+            Logger.dbg("Keypurse saved");
+          }
+          else{
+            Logger.error("exportKeyPurse failed");
+            Dialogs.error(CWrapper.languagepack.getString("bak_keypurse_fail"));
+          }
+        });
+        //backup done
       }
-      //else: everything ok
-
-	  //backup done
-	  return true;
-    }else{
-	  //cancel
-	  return false;
-	}
+    }
   }
 
-  this.removeAllDevicesAndRevokeKeys = function(languagepack){
+  this.removeAllDevicesAndRevokeKeys = function(){
     //function is called when plugin is deinstalled or user presses "reset"
     //a lot of pop-ups are ok, we have to make sure the user is aware what he/she
     //is doing
-	var ret;
+    var ret;
 
     //(local) remove keypurse (if it exists) => backup first
     if(Prefs.getPref("keyPursePath") !=  undefined &&
@@ -157,70 +185,73 @@ var Utils = new function()
       Logger.dbg("keypurse exists => remove it");
 
       //BACKUP: export keypurse if user wants to
-	  //all three buttons: yes/cancel/no buttons
-	  //ATTENTION: cancel button has to be "button 1" since closing the window with
-	  //           the close button in the titlebar always returns 1
-	  var buttonFlags = (Components.interfaces.nsIPromptService.BUTTON_POS_0) *
-		  (Components.interfaces.nsIPromptService.BUTTON_TITLE_YES) +
-		  (Components.interfaces.nsIPromptService.BUTTON_POS_1) *
-		  (Components.interfaces.nsIPromptService.BUTTON_TITLE_CANCEL) + //cancel needs to be 1!!!
-		  (Components.interfaces.nsIPromptService.BUTTON_POS_2) *
-		  (Components.interfaces.nsIPromptService.BUTTON_TITLE_NO);
-	  var buttonResult = Logger.promptService.confirmEx(
-		null, "Tryango", languagepack.getString("exp_keypurse"),
-		buttonFlags,
-		null, null, null, //button labels set above already
-		null, new Object() //no checkbox
-	  );
-	  //0 = YES
+  //all three buttons: yes/cancel/no buttons
+  //ATTENTION: cancel button has to be "button 1" since closing the window with
+  //           the close button in the titlebar always returns 1
+  var buttonFlags = (Components.interfaces.nsIPromptService.BUTTON_POS_0) *
+        (Components.interfaces.nsIPromptService.BUTTON_TITLE_YES) +
+        (Components.interfaces.nsIPromptService.BUTTON_POS_1) *
+        (Components.interfaces.nsIPromptService.BUTTON_TITLE_CANCEL) + //cancel needs to be 1!!!
+        (Components.interfaces.nsIPromptService.BUTTON_POS_2) *
+        (Components.interfaces.nsIPromptService.BUTTON_TITLE_NO);
+      var buttonResult = Logger.promptService.confirmEx(
+        null, "Tryango", CWrapper.languagepack.getString("exp_keypurse"),
+        buttonFlags,
+        null, null, null, //button labels set above already
+        null, new Object() //no checkbox
+      );
+      //0 = YES
       if(buttonResult == 0){
-		Logger.dbg("Backup prompt: YES");
+        Logger.dbg("Backup prompt: YES");
 
         Logger.dbg("Export keypurse");
-        if(this.exportKeyPurse(languagepack)){
-		  Logger.dbg("exportKeyPurse done");
+        if(this.exportKeyPurse()){
+          Logger.dbg("exportKeyPurse done");
 
-		  //backup ok
-		  ret = true;
-		}else{
-		  Logger.dbg("User abort exportKeyPurse");
+          //backup ok
+          ret = true;
+        }
+        else{
+          Logger.dbg("User abort exportKeyPurse");
 
-		  //backup user cancelled or error
-		  return false;
-		}
+          //backup user cancelled or error
+          return false;
+        }
       }
-	  //1 = CANCEL
-	  else if(buttonResult == 1){
-		Logger.dbg("Backup prompt: CANCEL");
+      //1 = CANCEL
+      else if(buttonResult == 1){
+        Logger.dbg("Backup prompt: CANCEL");
 
-		//continue = false
-		return false;
-	  }
-	  //2 = NO
-	  else if(buttonResult == 2){
-		Logger.dbg("Backup prompt: NO");
+        //continue = false
+        return false;
+      }
+      //2 = NO
+      else if(buttonResult == 2){
+        Logger.dbg("Backup prompt: NO");
 
-		//continue = true
-		ret = true;
-	  }else{
-		//error => just warn and abort
-		Logger.error("Backup keypurse prompt returned unexpected result: " + buttonResult);
-		//continue = false
-		return false;
-	  }
+        //continue = true
+        ret = true;
+      }
+      else{
+        //error => just warn and abort
+        Logger.error("Backup keypurse prompt returned unexpected result: " + buttonResult);
+        //continue = false
+        return false;
+      }
 
       //remove keypurse
       Logger.dbg("removing keypurse...");
       if(!CWrapper.removeKeyPurse(Prefs.getPref("keyPursePath"))){
         Logger.error("Could not remove keypurse: " +
                      Prefs.getPref("keyPursePath"));
-        Dialogs.info(languagepack.getString("rm_keypurse_fail"));
-//         Logger.infoPopup(languagepack.getString("rm_keypurse_fail"));
+        Dialogs.info(CWrapper.languagepack.getString("rm_keypurse_fail"));
+//         Logger.infoPopup(CWrapper.languagepack.getString("rm_keypurse_fail"));
       }
-    }else{
-	  //no keypurse => everything good
-	  ret = true;
-	}
+    }
+    else{
+      //no keypurse => everything good
+      ret = true;
+    }
 
     //clear data on tryango server
     //(server) remove devices (will revoke keys if no device is signed up for it any more)
@@ -233,7 +264,7 @@ var Utils = new function()
         if(ap != undefined && ap.length > 1){
           //remove identity/machineID if it is signed up
           Logger.dbg("Removing device " + identity + " " + machineID);
-          removeDevices(identity, [machineID], languagepack, true); //doNotPrompt = true
+          removeDevices(identity, [machineID],  true); //doNotPrompt = true
         }
       }
     }
@@ -294,10 +325,10 @@ var Utils = new function()
     return addresses;
   }
 
-  this.treeAppendRow = function (tree, keyRow, document, isOpen, lang){
+  this.treeAppendRow = function (tree, keyRow, document, isOpen){
     //REMARK: setting css text-wrap/word-break/overflow/etc. does not work
     //        for treecell.label! Apparently those cannot line-break!
-
+    var lang = CWrapper.languagepack;
     //set open
     var item = document.createElement("treeitem");
     item.setAttribute("container", "true");
@@ -421,26 +452,24 @@ function infoOnLoad(){
     return;
   }
 
-  // load language
-  var languagepack = document.getElementById("lang_file");
-
   //fill status
-  fillStatus(languagepack);
+  fillStatus();
 
   //fill random checking if advancedOptions is set
-  fillAudit(languagepack);
+  fillAudit();
 
   //fill keys from keypurse
-  fillKeys(languagepack);
+  Logger.dbg("Filling keys from infoOnLoad()");
+  fillKeys();
 
   //fill devices (might return an error => do it last)
-  fillDevices(languagepack);
+  fillDevices();
 }
 
 //helper functions
-function fillStatus(languagepack){
+function fillStatus(){
   var tex_st = document.getElementById("tex_status");
-  tex_st.value = languagepack.getString("info_waiting");
+  tex_st.value = CWrapper.languagepack.getString("info_waiting");
   tex_st.readOnly = true;
   var str = "";
   var server = Prefs.getPref("server")
@@ -451,30 +480,30 @@ function fillStatus(languagepack){
 
     //call C - server status etc.
     CWrapper.post("getServerInfo", [], function(status, info){
-      str += languagepack.getString("info_connection") + " ";
+      str += CWrapper.languagepack.getString("info_connection") + " ";
 //       status = parseInt(status);
       if(status == 0){
-        str += languagepack.getString("info_connected") + "\n\n";
+        str += CWrapper.languagepack.getString("info_connected") + "\n\n";
       }
       else{
-        str += languagepack.getString(CWrapper.getErrorStr(status));
-        str += " (" + languagepack.getString("info_error") + " " + status + ")\n\n";
+        str += CWrapper.languagepack.getString(CWrapper.getErrorStr(status));
+        str += " (" + CWrapper.languagepack.getString("info_error") + " " + status + ")\n\n";
       }
       if(info == undefined || info == ""){
-        str += languagepack.getString("info_unavailable") + "\n";
+        str += CWrapper.languagepack.getString("info_unavailable") + "\n";
       }
       else{
-        str += languagepack.getString("info_serverinfo") + "\n" + info; //...and display rest
+        str += CWrapper.languagepack.getString("info_serverinfo") + "\n" + info; //...and display rest
       }
       tex_st.value = str;
     });
   }
   else{
-    tex_st.value = languagepack.getString("info_no_server_port");
+    tex_st.value = CWrapper.languagepack.getString("info_no_server_port");
   }
 }
 
-function fillAudit(languagepack){
+function fillAudit(){
   var tab = document.getElementById("tab_randomcheck");
   if(Prefs.getPref("advancedOptions")){
     //show random checking / proofs
@@ -493,12 +522,12 @@ function fillAudit(languagepack){
       let trc = document.getElementById("tex_randomcheck");
       if (!Components.isSuccessCode(status)) {
         //error
-        trc.value = languagepack.getString("info_file_error") + " " + file.path;
+        trc.value = CWrapper.languagepack.getString("info_file_error") + " " + file.path;
         trc.readOnly = true;
         return; //quit before other things below
       }
       else{
-        trc.value = languagepack.getString("info_log") + " " +
+        trc.value = CWrapper.languagepack.getString("info_log") + " " +
           NetUtil.readInputStreamToString(inputStream, inputStream.available());
         trc.readOnly = true;
       }
@@ -557,10 +586,10 @@ var devicesView = {
   },
 
   getLevel: function(row){
-    Logger.dbg("get level row:"+row + "translate:" + this.rowTranslate(row));
-    Logger.dbg("this.parent:" + this.parent[this.rowTranslate(row)]);
+//     Logger.dbg("get level row:"+row + "translate:" + this.rowTranslate(row));
+//     Logger.dbg("this.parent:" + this.parent[this.rowTranslate(row)]);
     var i = this.parent[this.rowTranslate(row)];
-    Logger.dbg("i:" + i);
+//     Logger.dbg("i:" + i);
     if(i == -1) return 0;
     return 1;
   },
@@ -664,7 +693,6 @@ var devicesView = {
     }
 
     this.isopen[this.rowRealCount + 1] = true;
-    this.emails[identity + 1] = 0;
     this.rows[this.rowRealCount + 1] = infoText;
 //     Logger.dbg("row[i]:" + this.rows[this.rowRealCount]);
 //     Logger.dbg("row[i+1]:" + this.rows[this.rowRealCount+1]);
@@ -676,7 +704,7 @@ var devicesView = {
     if(this.treeBox != null){
       this.treeBox.rowCountChanged(this.rowCount - 2, 2);
     }
-    
+
   },
 
   openAll: function(){
@@ -712,18 +740,22 @@ var devicesView = {
       }
     }
     if(parent > -1){
-      this.emails[parent] = content.size;
+      this.emails[this.rows[parent]] = content.length;
       var lastChild = parent + 1;
       while (lastChild <= this.rowRealCount && this.parent[lastChild] != -1 ){
         lastChild++;
       }
       lastChild--;
-      for(var r = 0; r + parent <= lastChild && r < content.length; r++){
-        this.rows[r + parent] = content[r];
+      Logger.dbg("Last child:"+lastChild);
+      for(var r = 0; r + parent < lastChild && r < content.length; r++){
+        this.rows[r + parent + 1] = content[r];
+        this.treeBox.invalidateRow(r + parent + 1);
       }
       var added = (content.length - lastChild + parent);
+      Logger.dbg("Added:" + added);
       //shift
-      if(((r + parent) != this.rowRealCount - 1) && added != 0){
+      if(((r + parent + 1) != this.rowRealCount - 1) && added != 0){
+        Logger.dbg("In loop r + parent + 1 :" + (r + parent + 1)+ " rowRealCount:"+this.rowRealCount);
         let i;
         if(added > 0){
           for(i = this.rowRealCount - 1; i > lastChild; i--){
@@ -750,9 +782,10 @@ var devicesView = {
       }
       //just add
       for(var i = r; i < content.length; i++){
-        this.rows[i + parent] = content[i];
-        this.parent[i + parent] = parent;
-        this.closedNo[i + parent] = 0;
+        this.treeBox.invalidateRow(i + parent + 1);
+        this.rows[i + parent + 1] = content[i];
+        this.parent[i + parent + 1] = parent;
+        this.closedNo[i + parent + 1] = 0;
       }
       this.rowRealCount += added;
       this.rowCount += added;
@@ -766,6 +799,7 @@ var devicesView = {
   },
 
   changeIdentityText: function(identity, text){//assume we have only one child
+    Logger.log("Changing identity text id:"+identity + " text:"+text);
     var realParent = this.rowRealCount - 1;
     var parent = this.rowCount - 1;
     if(this.parent[realParent] != -1){
@@ -781,8 +815,8 @@ var devicesView = {
       }
     }
     if(parent > -1){
-      this.rows[realParent] = text;
-      this.treeBox.invalidateRow(parent);
+      this.rows[realParent + 1] = text;
+      this.treeBox.invalidateRow(parent + 1);
     }
   },
 
@@ -822,10 +856,10 @@ function fillDevices(languagepack){
     for each(identity in addresses){
       var ap = Pwmgr.getAp(identity);
       if(ap != undefined && ap.length > 1){
-        devicesView.addIdentity(identity, languagepack.getString("info_waiting"));
+        devicesView.addIdentity(identity, CWrapper.languagepack.getString("info_waiting"));
       }
       else{
-        devicesView.addIdentity(identity, languagepack.getString("not_signedup"));
+        devicesView.addIdentity(identity, CWrapper.languagepack.getString("not_signedup"));
         Logger.dbg("Account " + identity + " no ap");
       }
     }
@@ -834,20 +868,21 @@ function fillDevices(languagepack){
       var ap = Pwmgr.getAp(identity);
       if(ap != undefined && ap.length > 1){
         try{
-          CWrapper.post("getDevices", [identity, device], function(status, devices, newAp){
-            Logger.dbg("*********Callback identity:" + identity );
+          Logger.dbg("Getting devices for identity:" + identity+ " AP:" + ap );
+          CWrapper.post("getDevices", [identity, device, ap], function(status, devices, newAp, id){
+            Logger.dbg("***filling devices for identity:" + id );
             if(status == 0 && newAp && newAp.length > 1){
-              Pwmgr.setAp(identity, newAp);
+              Pwmgr.setAp(id, newAp);
             }
             else if(status == 12){//Error response from server
               Logger.dbg("Outdated AP, status:" + status);
-              Pwmgr.setAp(identity, "");
+              Pwmgr.setAp(id, "");
             }
             if(devices.length > 0){
-              devicesView.setIdentityContent(identity, devices);
+              devicesView.setIdentityContent(id, devices);
             }
             else{
-              devicesView.changeIdentityText(identity,languagepack.getString("no_devices"));
+              devicesView.changeIdentityText(id, CWrapper.languagepack.getString("no_devices"));
             }
           });
         }
@@ -856,7 +891,7 @@ function fillDevices(languagepack){
           //for getDevices this is not a critical error => catch it
           Logger.error("CWrapper exception (" + identity + "," + device + "):\n" +
                        err + "\n\n" );
-          devicesView.changeIdentityText(identity,languagepack.getString("info_error") + " " + err);
+          devicesView.changeIdentityText(identity, CWrapper.languagepack.getString("info_error") + " " + err);
         }
       }
     }
@@ -864,14 +899,14 @@ function fillDevices(languagepack){
   else{
     Logger.dbg("No device stored in preferences");
     for each(identity in addresses){
-      devicesView.addIdentity(identity, languagepack.getString("no_device_set"));
+      devicesView.addIdentity(identity, CWrapper.languagepack.getString("no_device_set"));
     }
   }
   Logger.dbg("Setting devices view");
   document.getElementById("tree_devices").view = devicesView;
 }
 
-function fillKeys(languagepack){
+function fillKeys(){
   //set date for last update
   document.getElementById("tree_keys_updated").value = new Date().toISOString();
 
@@ -888,32 +923,32 @@ function fillKeys(languagepack){
 
   //check all identities
   for each(let identity in addresses){
-    var keys = CWrapper.getInfoKeys(identity, true);
-    if(keys == null || keys.length <= 0){
-      //just a warning, might be correct if there is no keypurse etc.
-      Logger.log("Error: Keypurse for " + identity + " is empty/length <= 0: " + keys);
-
-      //leave identity/key-row empty
-    }
-    else{
-      Logger.dbg("Keypurse (" + identity + "): " + keys);
-      var item = document.createElement("treeitem");
-      item.setAttribute("container", "true");
-      item.setAttribute("open", "true");
-      var row = document.createElement("treerow");
-      var cell = document.createElement("treecell");
-      cell.setAttribute("label", identity);
-      row.appendChild(cell);
-      item.appendChild(row);
-
-      //add keys as sub-tree (= children)
-      var subtree = document.createElement("treechildren");
-      for each(let key in keys){
-        Utils.treeAppendRow(subtree, key, document, false, languagepack);
+    CWrapper.post("getInfoKeys", [identity, true], function(status, keys){
+      if(keys == null || keys.length <= 0){
+        //just a warning, might be correct if there is no keypurse etc.
+        Logger.log("Error: Keypurse for " + identity + " is empty/length <= 0: " + keys);
+        //leave identity/key-row empty
       }
-      item.appendChild(subtree);
-      tree.appendChild(item);
-    }
+      else{
+        Logger.dbg("Keypurse (" + identity + "): " + keys);
+        var item = document.createElement("treeitem");
+        item.setAttribute("container", "true");
+        item.setAttribute("open", "true");
+        var row = document.createElement("treerow");
+        var cell = document.createElement("treecell");
+        cell.setAttribute("label", identity);
+        row.appendChild(cell);
+        item.appendChild(row);
+
+        //add keys as sub-tree (= children)
+        var subtree = document.createElement("treechildren");
+        for each(let key in keys){
+          Utils.treeAppendRow(subtree, key, document, false, CWrapper.languagepack);
+        }
+        item.appendChild(subtree);
+        tree.appendChild(item);
+      }
+    });
   }
 }
 
@@ -941,7 +976,6 @@ function treeAppend(tree, id, string, container, op=false){
 */
 
 function removeSelectedDevices(){
-  var lang = document.getElementById('lang_file');
   //nsITreeSelection: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsITreeSelection
   //nsITreeView: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsITreeView#getCellText%28%29
   var start = new Object();
@@ -952,7 +986,7 @@ function removeSelectedDevices(){
 	return;
   }
   //ask user if they really want to remove the devices
-  if(!Logger.promptService.confirm(null, "Trango", lang.getString("prompt_remove_device"))){
+  if(!Logger.promptService.confirm(null, "Trango", CWrapper.languagepack.getString("prompt_remove_device"))){
     return;
   }
 
@@ -987,31 +1021,32 @@ function removeSelectedDevices(){
 
       //remove the devices
       if(devicesView.emails[parent] > 0){
-        removeDevices(parent, elements, lang, false); //doNotPrompt = false => DO prompt
-        //update list
-        fillDevices(lang);
+        removeDevices(parent, elements, false); //doNotPrompt = false => DO prompt
       }
     }
   }
 }
 
-function removeDevices(identity, devices, lang, doNotPrompt){
+function removeDevices(identity, devices,  doNotPrompt){
   Logger.dbg("removeDevices: " + identity + " " + devices);
 
   //call C to remove devices
   var status = CWrapper.removeDevices(identity, Prefs.getPref("machineID"), devices,
-                                      devicesView.emails[identity], doNotPrompt);
-  if(status != 0){
-    //error
-    Logger.error("CWrapper exception removeDevice (" + identity + "," + devices + "): " + status);
-    Dialogs.info(
-//     Logger.infoPopup(
-      lang.getString("remove_device_failed") +
-        "\n(" + identity + ": " + devices + ")\n" +
-        lang.getString(CWrapper.getErrorStr(status))
-    );
-  }
-
+                                      devicesView.emails[identity], doNotPrompt,
+    function(status){
+      if(status != 0){
+        //error
+        Logger.error("CWrapper exception removeDevice (" + identity + "," + devices + "): " + status);
+        Dialogs.error(
+          //     Logger.infoPopup(
+          CWrapper.languagepack.getString("remove_device_failed") +
+            "\n(" + identity + ": " + devices + ")\n" +
+            CWrapper.languagepack.getString(CWrapper.getErrorStr(status))
+        );
+        //update list
+      }
+      fillDevices();
+    });
   //DONE in CWrapper: (remDev) remove ap from Pwmgr too if this device was deleted too.
 }
 
@@ -1024,11 +1059,11 @@ function removeSelectedKeys(){
   //nsITreeView: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsITreeView#getCellText%28%29
   var selected = document.getElementById("tree_keys").view.selection;
   if(selected.getRangeCount() <= 0){
-	//no keys selected
-	return;
+  //no keys selected
+  return;
   }
   //ask user if they really want to remove the devices
-  if(!Logger.promptService.confirm(null, "Trango", lang.getString("prompt_remove_key"))){
+  if(!Logger.promptService.confirm(null, "Trango", CWrapper.languagepack.getString("prompt_remove_key"))){
     return;
   }
 
@@ -1059,9 +1094,16 @@ function removeSelectedKeys(){
       }
     }
   }
-  if(elements.length>0){
-    CWrapper.removeKeys(elements);
-    CWrapper.exportKeyPurse(Prefs.getPref("keyPursePath"), ""); //TODO: shouldn't that have password?
-    fillKeys(document.getElementById('lang_file'));
+
+  if(elements.length > 0){
+    CWrapper.post("removeKeys", [elements], function(){
+      Logger.dbg("Filling keys after remeving selected Keys()");
+      fillKeys(document.getElementById('lang_file'));
+      CWrapper.post("exportKeyPurse" [Prefs.getPref("keyPursePath"), ""], function(success){
+        if(!success){
+          Dialogs.error(CWrapper.languagepack.getString("bak_keypurse_fail"));
+        }
+      }); //TODO: shouldn't that have password?
+    });
   }
 }

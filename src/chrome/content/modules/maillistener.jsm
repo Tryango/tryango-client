@@ -318,7 +318,8 @@ var MailListener = new function() {
           this.askUserToBackup();
         }
         else if(status == 18){//ANG_ID_ALREADY_EXISTS
-          Logger.dbg("Added ap but no need to sumbit new key for identity: " + identity);
+//           Pwmgr.setAp(identity, newHexAp);
+          Logger.dbg("Added ap but no need to sumbit new key for identity: " + identity + " got ap:" + hexAp +  " new ap:" + Pwmgr.getAp(identity));
           Dialogs.info(MailListener.languagepack.getString("signup_done") + " (" + identity + ")");
           MailListener._runningGetDev = false;
         }

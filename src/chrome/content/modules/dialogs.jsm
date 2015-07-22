@@ -138,7 +138,7 @@ Dialogs._showMessage= function(message, priorityNum){
     let priority;
     switch(priorityNum){
     case 0:
-      priority = box.PRIORITY_INFO_HIGH;
+      priority = box.PRIORITY_INFO_MEDIUM;
       break;
     case 1:
       priority = box.PRIORITY_WARNING_MEDIUM;
