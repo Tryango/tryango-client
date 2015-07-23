@@ -7,6 +7,29 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.0 FATAL_ERROR)
 cmake_policy(VERSION 3.0)
 SET( PROJECT_NAME tryango )
 PROJECT( ${PROJECT_NAME} CXX C)
+
+include(FindThreads) #set up e.g. CMAKE_THREAD_LIBS_INIT
+include(CheckTypeSize)
+include(CheckIncludeFile)
+include(CheckCXXCompilerFlag)
+include(ExternalProject)
+
+CHECK_CXX_COMPILER_FLAG("-std=c++11" CXX11)
+if (NOT CXX11)
+    MESSAGE(FATAL_ERROR "C++ compiler doesn't support C++11")
+endif()
+
+CHECK_INCLUDE_FILES("inttypes.h" HAVE_INTTYPES_H)
+CHECK_INCLUDE_FILES("netinet/in.h" HAVE_NETINET_IN_H)
+
+if(HAVE_INTTYPES_H)
+    ADD_DEFINITIONS("-DHAVE_INTTYPES_H")
+endif()
+
+if(HAVE_NETINET_IN_H)
+  ADD_DEFINITIONS("-DHAVE_NETINET_IN_H")
+endif()
+  
 IF(WIN32)
   OPTION(${PROJECT_NAME}_build_tests "Build tests for ${PROJECT_NAME}." OFF)
   OPTION(${PROJECT_NAME}_windows_tests "Build tests for ${PROJECT_NAME} for windows." ON)
@@ -20,6 +43,36 @@ ELSE(WIN32)
 ENDIF(WIN32)
 OPTION(${PROJECT_NAME}_static_zlib "Include zlib statically for ${PROJECT_NAME}." ON)
 OPTION(${PROJECT_NAME}_static_bzip2 "Include bzip2 statically for ${PROJECT_NAME}." ON)
+OPTION(${PROJECT_NAME}_static_protobuf "Include protobuf statically for ${PROJECT_NAME}." ON)
+
+IF(WIN32 OR ${PROJECT_NAME}_static_protobuf)
+  SET(protobuf_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/ThirdParty/protobuf)
+  EXTERNALPROJECT_ADD(
+      protobuf
+      PREFIX ${protobuf_PREFIX}
+      URL "https://github.com/google/protobuf/releases/download/v2.6.0/protobuf-2.6.0.tar.bz2"
+      URL_MD5 "78253c509a055dab316a21e754cb278a"
+      CONFIGURE_COMMAND CXX=${CMAKE_CXX_COMPILER} CC=${CMAKE_C_COMPILER} ${protobuf_PREFIX}/src/protobuf/configure --prefix=${protobuf_PREFIX} --enable-shared=no
+      BUILD_COMMAND $(MAKE)
+      INSTALL_COMMAND $(MAKE) install
+      BUILD_IN_SOURCE 1
+  )
+  INCLUDE_DIRECTORIES(${protobuf_PREFIX}/include)
+  SET(PROTOBUF_LITE_LIBRARIES ${protobuf_PREFIX}/lib/libprotobuf-lite.a)
+  SET(PROTOBUF_GENERATOR ${protobuf_PREFIX}/bin/protoc)
+ELSE()
+  FIND_PACKAGE(Protobuf REQUIRED)
+  IF(NOT PROTOBUF_FOUND)
+      MESSAGE(FATAL_ERROR "Could not find PROTOBUF library! Install appropriate package e.g. libprotobuf-dev")
+  ENDIF()
+  
+  FIND_PROGRAM(PROTOBUF_GENERATOR protoc PATHS ${PROTOBUF_SRC_ROOT_FOLDER}/vsprojects/Release)
+  IF(NOT PROTOBUF_GENERATOR)
+      MESSAGE(FATAL_ERROR "Could not find PROTOBUF compiler \"protoc\"! Install appropriate package e.g. protobuf-compiler")
+  ENDIF()
+ENDIF()
+
+
 # ---------- Testing
 IF(${PROJECT_NAME}_build_tests)
   MESSAGE(STATUS "TESTING ENABLED" )
@@ -28,12 +81,12 @@ ELSE()
   MESSAGE(STATUS "TESTING DISABLED" )
 ENDIF (${PROJECT_NAME}_build_tests)
 
-if(NOT APPLE)
-#     CHECK_INCLUDE_FILE(pthread.h HAVE_LIBPTHREAD)
-  FIND_PACKAGE(Threads) #set up e.g. CMAKE_THREAD_LIBS_INIT
-ELSE()
-  SET(HAVE_LIBPTHREAD YES)
-ENDIF()
+# if(NOT APPLE)
+# #     CHECK_INCLUDE_FILE(pthread.h HAVE_LIBPTHREAD)
+#   FIND_PACKAGE(Threads)
+# ELSE()
+#   SET(HAVE_LIBPTHREAD YES)
+# ENDIF()
 #
 # Find OpenSSL
 #
@@ -73,7 +126,7 @@ ENDIF()
 # STRING(REGEX REPLACE "\\.[0-9]+$" ".0" THUNDERBIRD_MIN_VERSION ${XUL_VERSION})
 # STRING(REGEX REPLACE "\\.[0-9]+$" ".*" THUNDERBIRD_MAX_VERSION ${XUL_VERSION})
 SET ( THUNDERBIRD_MIN_VERSION 30.0) #should be the earliest version we tested
-SET ( THUNDERBIRD_MAX_VERSION 36.*)
+SET ( THUNDERBIRD_MAX_VERSION 38.*)
 MESSAGE(STATUS "Building for Thunderbird from ${THUNDERBIRD_MIN_VERSION} to ${THUNDERBIRD_MAX_VERSION}")
 
 # PKG_SEARCH_MODULE( NSS REQUIRED nss)
@@ -101,15 +154,6 @@ Please install Python or specify the PYTHON_EXECUTABLE CMake variable.")
 ENDIF()
 
 SET(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
-FIND_PACKAGE(Protobuf REQUIRED)
-IF(NOT PROTOBUF_FOUND)
-    MESSAGE(FATAL_ERROR "Could not find PROTOBUF library! Install appropriate package e.g. libprotobuf-dev")
-ENDIF()
-
-FIND_PROGRAM(PROTOC_COMMAND protoc PATHS ${PROTOBUF_SRC_ROOT_FOLDER}/vsprojects/Release)
-IF(NOT PROTOC_COMMAND)
-    MESSAGE(FATAL_ERROR "Could not find PROTOBUF compiler \"protoc\"! Install appropriate package e.g. protobuf-compiler")
-  ENDIF()
   
 FIND_PROGRAM(LZZ_COMMAND lzz)
 IF(NOT LZZ_COMMAND)

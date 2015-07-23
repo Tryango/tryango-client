@@ -105,5 +105,5 @@ SET(XPI_SOURCES "-C" "${CMAKE_SOURCE_DIR}" LICENSE ${XPI_SOURCES})
 ADD_CUSTOM_TARGET(xpi ALL
   COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/cmake/pack.py
     "${CMAKE_BINARY_DIR}/${XPI_OUT}.xpi"
-    ${XPI_SOURCES} "-C" "${CMAKE_CURRENT_BINARY_DIR}" "components/protobuf.txt" "components/$<TARGET_FILE_NAME:tryango-client>"
+    ${XPI_SOURCES} "-C" "${CMAKE_CURRENT_BINARY_DIR}" "components/$<TARGET_FILE_NAME:tryango-client>"
     DEPENDS ${XPI_DEPS} tryango-client copy certificate)

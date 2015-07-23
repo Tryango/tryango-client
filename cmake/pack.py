@@ -33,17 +33,7 @@ def main(argv):
                 changeDir = False
                 os.chdir(arg)
             else:
-                # to include protobuf library
-                if os.path.basename(arg).find("protobuf.txt") > -1:
-                    if os.name != 'nt':  # on windows we link protobuf-lite statically
-                        with open(arg, "rt") as fin:
-                            for line in fin:
-                                files = glob.glob(
-                                    os.path.join(os.path.dirname(arg), line))
-                    else:
-                        files = []
-                else:
-                    files = glob.glob(arg)
+                files = glob.glob(arg)
                 for f in files:
                     zip.write(f)
     zip.close()

@@ -67,12 +67,26 @@ IF("${CMAKE_CXX_COMPILER_ID}" MATCHES "[Cc]lang"
 ENDIF()
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__STDC_LIMIT_MACROS")
 MESSAGE(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
-PROTOBUF_GENERATE_CPP(PROTO_SRC PROTO_HDR "tryango.proto")
+
+IF(WIN32 OR ${PROJECT_NAME}_static_protobuf)
+  SET(PROTO_SRC "${CMAKE_CURRENT_BINARY_DIR}/tryango.pb.cc")
+  SET(PROTO_HDR "${CMAKE_CURRENT_BINARY_DIR}/tryango.pb.h")
+  ADD_CUSTOM_COMMAND(
+      DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tryango.proto
+      COMMAND ${PROTOBUF_GENERATOR}
+      ARGS -I${CMAKE_CURRENT_SOURCE_DIR} --cpp_out=${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/tryango.proto
+      OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/tryango.pb.cc"
+             "${CMAKE_CURRENT_BINARY_DIR}/tryango.pb.h"
+      COMMENT "Running C++ compiler on tryango.proto"
+      VERBATIM 
+  )
+ELSE()
+  PROTOBUF_GENERATE_CPP(PROTO_SRC PROTO_HDR "tryango.proto")
+ENDIF()
 
 #message("extra cxx flags ${CMAKE_CXX_FLAGS}")
 # INCLUDE_DIRECTORIES(${XUL_INCLUDE_DIRS})
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}) #some header files are generated
-INCLUDE_DIRECTORIES(${PROTOBUF_INCLUDE_DIR})
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR})
 INCLUDE_DIRECTORIES(${OPENSSL_INCLUDE_DIR})
 
@@ -92,6 +106,18 @@ ELSE()
   INCLUDE_DIRECTORIES(${ZLIB_INCLUDE_DIRS})
   SET(ZLIB_SRC "")
 ENDIF()
+# IF(WIN32 OR ${PROJECT_NAME}_static_protobuf)
+#   INCLUDE_DIRECTORIES("protobuf-lite")
+#   FILE(GLOB PROTOBUF_SRC "protobuf-lite/*.cc")
+#   SET(PROTOBUF_LITE_LIBRARIES "")
+#   ADD_DEFINITIONS(-DHAVE_ZLIB)
+# ELSE()
+#   INCLUDE_DIRECTORIES(${PROTOBUF_INCLUDE_DIR})
+#   SET(PROTOBUF_SRC "")
+# ENDIF()
+# Enable ExternalProject CMake module
+
+
 
 ADD_LIBRARY(tryango-client SHARED  ${PROTO_SRC} ${LIBRARY_SRC}
   ${CPP_SRC} ${BZIP2_SRC} ${ZLIB_SRC} pgp/bufferFilter.cpp tryango.def)
@@ -108,7 +134,8 @@ IF(WIN32)
     TARGET_LINK_LIBRARIES(tryango-client ${PROTOBUF_LITE_LIBRARIES} ${OPENSSL_LIBRARIES} )
   ENDIF(MINGW)
 ELSE(WIN32)
-  TARGET_LINK_LIBRARIES(tryango-client ${PROTOBUF_LITE_LIBRARIES} ${OPENSSL_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${BZIP2_LIBRARIES} ${ZLIB_LIBRARIES})
+  TARGET_LINK_LIBRARIES(tryango-client ${PROTOBUF_LIBRARIES} ${OPENSSL_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${BZIP2_LIBRARIES} ${ZLIB_LIBRARIES})
+#     SET_TARGET_PROPERTIES(tryango-client PROPERTIES LINK_FLAGS "-static -lz")
 ENDIF(WIN32)
 
 SET_TARGET_PROPERTIES(tryango-client PROPERTIES LINKER_LANGUAGE CXX)
@@ -143,8 +170,6 @@ IF( ${PROJECT_NAME}_build_tests )
     FILE(WRITE ${CMAKE_BINARY_DIR}/gtest.patch "")
     message(STATUS "Creating gtest.patch")
   ENDIF()
-  # Enable ExternalProject CMake module
-  INCLUDE(ExternalProject)
   # Set the build type if it isn't already
   IF(NOT CMAKE_BUILD_TYPE)
     SET(CMAKE_BUILD_TYPE Release)
@@ -153,13 +178,14 @@ IF( ${PROJECT_NAME}_build_tests )
   ################################
   # Add GTest
   ################################
-  SET_DIRECTORY_PROPERTIES(PROPERTIES EP_PREFIX ${CMAKE_BINARY_DIR}/ThirdParty)
+  SET(googleTest_PREFIX ${CMAKE_BINARY_DIR}/ThirdParty/googletest)
+  SET_DIRECTORY_PROPERTIES(PROPERTIES EP_PREFIX ${googleTest_PREFIX})
   EXTERNALPROJECT_ADD(
       googletest
       SVN_REPOSITORY http://googletest.googlecode.com/svn/trunk/
       SVN_REVISION -r 660
       TIMEOUT 10
-      PATCH_COMMAND svn patch ${CMAKE_BINARY_DIR}/gtest.patch ${CMAKE_BINARY_DIR}/ThirdParty/src/googletest
+      PATCH_COMMAND svn patch ${CMAKE_BINARY_DIR}/gtest.patch ${googleTest_PREFIX}/src/googletest
       # Force separate output paths for debug and release builds to allow easy
       # identification of correct lib in subsequent TARGET_LINK_LIBRARIES commands
       CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}

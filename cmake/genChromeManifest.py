@@ -19,34 +19,28 @@ def main(argv):
     if len(argv) != 4:
         help()
         sys.exit(2)
-    protobufLib = ""
-    if os.name != 'nt':  # on windows we link protobuf-lite statically
-        if distutils.spawn.find_executable("ldd") != None:
-            for line in subprocess.check_output(["ldd", argv[0]]).split('\n'):
-                if(line.find("protobuf-lite") > -1):
-                    protobufLib = line.strip().split()[2]
-        elif distutils.spawn.find_executable("otool") != None: # for MacOS
-            for line in subprocess.check_output(["otool", "-L", argv[0]]).split('\n'):
-                if(line.find("protobuf-lite") > -1):
-                    protobufLib = line.strip().split()[0]
+    #protobufLib = ""
+    #if os.name != 'nt':  # on windows we link protobuf-lite statically
+        #if distutils.spawn.find_executable("ldd") != None:
+            #for line in subprocess.check_output(["ldd", argv[0]]).split('\n'):
+                #if(line.find("protobuf-lite") > -1):
+                    #protobufLib = line.strip().split()[2]
+        #elif distutils.spawn.find_executable("otool") != None: # for MacOS
+            #for line in subprocess.check_output(["otool", "-L", argv[0]]).split('\n'):
+                #if(line.find("protobuf-lite") > -1):
+                    #protobufLib = line.strip().split()[0]
 
-        if (protobufLib != ""):
-            shutil.copy(protobufLib, os.path.dirname(argv[0]))
-            print "Copying " + protobufLib + " to " + os.path.dirname(argv[0])
-            protoFile = os.path.join(os.path.dirname(argv[0]), "protobuf.txt")
-            with open(protoFile, "wt") as prout:
-                prout.write(os.path.basename(protobufLib))
+        #if (protobufLib != ""):
+            #shutil.copy(protobufLib, os.path.dirname(argv[0]))
+            #print "Copying " + protobufLib + " to " + os.path.dirname(argv[0])
+            #protoFile = os.path.join(os.path.dirname(argv[0]), "protobuf.txt")
+            #with open(protoFile, "wt") as prout:
+                #prout.write(os.path.basename(protobufLib))
     print "Generating " + argv[2]
     with open(argv[2], "wt") as fout:
         with open(argv[1], "rt") as fin:
             for line in fin:
-                if os.name != 'nt':
-                    protoLine = "resource  	protobuf 					components/" +\
-                      os.path.basename(protobufLib) + "  abi=@ABI@"
-                else:
-                    protoLine = ""
                 fout.write(line.
-                           replace("@PROTOBUF_LINE@", protoLine).
                            replace("@ABI@", argv[3]).
                            replace("@TRYANGO_FILE@",
                                    os.path.basename(argv[0])))
