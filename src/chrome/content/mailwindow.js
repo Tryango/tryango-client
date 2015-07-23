@@ -397,13 +397,16 @@ var MailWindow = new function(){
             message = this.languagepack.getString(CWrapper.getErrorStr(ret.status)) + "\n" +
               this.languagepack.getString("mail_send_unsigned");
           }
+          if(this.encrypt){
+            message += " " + this.languagepack.getString(CWrapper.getString("mail_send_still_encrypted"));
+          }
           if(Logger.promptService.confirm(null, "Tryango", message)){
             document.getElementById("menu-sign").removeAttribute("checked");
             document.getElementById("button-sign").removeAttribute("checked");
             this.sign = false;
           }
           else{
-            return 0;
+            return 1;
           }
         }
       }
