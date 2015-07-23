@@ -376,7 +376,7 @@ var Client = {
                                      , password);
     //error check
     var decrypted = "";
-    if((ctypes.uint32_t(0)<resultSize)){
+    if(0 < parseInt(resultSize.value)){
       if(status == 0 || status > this.getMaxErrNum()){ //ANG_OK
         decrypted = result.readString();
       }
@@ -394,7 +394,7 @@ var Client = {
     var status = this.c_verifySignature(result.address(), resultSize.address(),
                                   c_mailBody, c_sender);
     var cleanMail = "";
-    if((ctypes.uint32_t(0) < resultSize)){
+    if(0 < parseInt(resultSize.value)){
       if(status == 0 || status > this.getMaxErrNum()){ //ANG_OK
         cleanMail = result.readString();
       }
@@ -477,7 +477,7 @@ var Client = {
                                          , c_data.length
                                          , password);
     var keyIdStr;
-    if((ctypes.uint32_t(0)<keyIdSize)){
+    if(0 < parseInt(keyIdSize.value)){
       keyIdStr = keyId.readString();
       this.freeString(keyId);
     }
@@ -498,7 +498,7 @@ var Client = {
                                    , c_sender
                                    , c_password);
     var keyIdStr;
-    if((ctypes.uint32_t(0) < keyIdSize)){
+    if(0 < parseInt(keyIdSize.value)){
       keyIdStr = keyId.readString();
       this.freeString(keyId);
     }
@@ -549,7 +549,8 @@ var Client = {
                                       , c_message
                                       , c_password);
     var encrKey;
-    if((ctypes.uint32_t(0)<resultSize)){
+
+    if(0 < parseInt(resultSize.value)){
       if(status == 0 || status > this.getMaxErrNum()){ //ANG_OK
         encrKey = result.readString();  //TODO: we should return an object instead of this "hack". E.g. return {str: "bla", i: 0};
       }
@@ -579,7 +580,7 @@ var Client = {
                                      , encrypt);
     //error check
     var encrypted = "";
-    if((ctypes.uint32_t(0) < resultSize)){
+    if(0 < parseInt(resultSize.value)){
       if(status == 0 || status > this.getMaxErrNum()){ //ANG_OK
         encrypted = result.readString();
       }
@@ -610,7 +611,7 @@ var Client = {
     let resultSize = new ctypes.uint32_t;
     var message = "";
     let status = this.c_getServerInfo(result.address(), resultSize.address());
-    if((ctypes.uint32_t(0) < resultSize)){
+    if(0 < parseInt(resultSize.value)){
       if(status == 0 || status > this.getMaxErrNum()){ //ANG_OK
         message = result.readString();
       }
@@ -628,7 +629,7 @@ var Client = {
     let status = this.c_getDevices(result.address(), resultSize.address(), c_hexAp, identity, device);
     var next = result;
     var newHexAp = "";
-    if(status == 0 && (ctypes.uint32_t(0) < resultSize)){
+    if(status == 0 && 0 < parseInt(resultSize.value)){
       newHexAp = c_hexAp.readString();
       for (var i = 0; (ctypes.uint32_t(i) < resultSize); i++){
         var str = next.contents.readString();
@@ -696,8 +697,9 @@ var Client = {
     var status = this.c_getInfoKeys(result.address(), resultSize.address(), identity, fromKeypurse);
     //iterate over results
     var next = result;
-    if(status == 0 && (ctypes.uint32_t(0) < resultSize)){
-      for (var i = 0; (ctypes.uint32_t(i) < resultSize); i++){
+    var rS = parseInt(resultSize.value);
+    if(status == 0 && 0 < rS){
+      for (var i = 0; i < rS; i++){
         //copy strings and free them
         var str = next.contents.readString();
 //         this.freeString(next.contents);

@@ -935,7 +935,7 @@ function fillKeys(){
         //leave identity/key-row empty
       }
       else{
-        Logger.dbg("Keypurse (" + identity + "): " + keys);
+        Logger.dbg("Keypurse (" + identity + "): " + keys );
         var item = document.createElement("treeitem");
         item.setAttribute("container", "true");
         item.setAttribute("open", "true");

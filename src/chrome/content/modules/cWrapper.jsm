@@ -72,7 +72,7 @@ var CWrapper = {
      this.run({method:method, args:args}, callback);
    }
    else{
-     Logger.dbg("pushing to queue:"+ "method:"+method+ " args:" + args + " callback:" + callback);
+     Logger.dbg("pushing to queue:"+ "method:"+method+ " args:" + args);
      this._queue.push({method:method, args:args, callback:callback});
    }
   },

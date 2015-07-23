@@ -92,17 +92,22 @@ class KeyDb{
 //helper function
   void removeId(SecretKeyPair* pPair, std::string id)
   {
+    std::cout<<"removeKey: removing id:"<<id<<std::endl;
     DbType::iterator it;
     it = userIdDb.find(PktDo::stripId(id));
     if(it != userIdDb.end()){
       KeyList list = it->second;
       KeyList::iterator entry = std::find(list.begin(), list.end(), pPair);
-      if((*entry) != NULL){
+      std::cout<<"removeKey: removing id:"<<id<<std::endl;
+      if(entry != list.end() && (*entry) != NULL){
+        std::cout<<"removeKey from list: "<<*entry<<"list.end()"<<*list.end()<<" list size:"<<list.size()<<std::endl;
         list.erase(entry);
         userIdDb[PktDo::stripId(id)] = list;
+        std::cout<<"removeKey: list size after removing:"<<list.size()<<std::endl;
       }
       if(list.size()<1){
         userIdDb.erase(PktDo::stripId(id));
+        std::cout<<"removeKey erase"<<std::endl;
       }
     }
   }
@@ -285,6 +290,8 @@ class KeyDb{
       return ANG_NO_ENTRIES;
     }
     *noKeys = kl.size();
+    std::cout<<"getKeysInfo:list size:"<<kl.size()<<" id:"<<id<<std::endl;
+
     *keysInfo = (char**) malloc((*noKeys)*sizeof(char*));
     for (uint32_t i = 0; i < (*noKeys); i++){
       std::string info = getKeyInfo(kl.at((*noKeys) - (i + 1)));
@@ -298,7 +305,10 @@ class KeyDb{
 
   void removeKey(const std::string& fingerprint)
   {
-    if(fingerprint.length() != 20) return;
+    if(fingerprint.length() != 20){
+      std::cout<<"removeKey: wrong Fingerprint:"<<string_to_hex(fingerprint)<<std::endl;
+      return;
+    }
     KeyList kl = getKeysById(fingerprint.substr(12, 8));
     Confi_Status status = ANG_OK;
     for(unsigned int i = 0; i < kl.size() && status == ANG_OK; i++){
