@@ -238,7 +238,7 @@ INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}/test")
 # Unit Tests
 ################################
   # Add test of angSsl
-  ADD_EXECUTABLE( sslTest test/sslTest.cc angSsl.cpp logger.cpp angCommon.cpp)
+  ADD_EXECUTABLE( sslTest test/sslTest.cc angSsl.cpp logger.cpp angCommon.cpp angPipe.cpp)
 
   TARGET_LINK_LIBRARIES(sslTest gtest_main ${PYTHON_LIBRARIES} ${OPENSSL_LIBRARIES})
   ADD_TEST( sslTest sslTest )

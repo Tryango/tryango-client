@@ -17,6 +17,7 @@
 // include logger
 #include "logger.h"
 #include "angCommon.h"
+#include "angPipe.h"
 #end
 
 //code from temp/nss-3.17/nss/cmd/tstclnt

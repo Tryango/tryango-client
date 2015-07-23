@@ -37,6 +37,10 @@ class SslTest : public ::testing::Test {
   }
 };
 
+TEST_F(SslTest,cmpPipe){
+  ASSERT_TRUE(CmdPiper::hasGpg());
+}
+
 TEST_F(SslTest,hexToString){
   std::string input("48656c6c6f");
   ASSERT_TRUE(hex_to_string(input)=="Hello");
