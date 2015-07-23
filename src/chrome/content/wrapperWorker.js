@@ -303,7 +303,7 @@ var Client = {
 //           , ctypes.default_abi //binary interface type
 //           , ctypes.uint32_t     //return type
 //           );
-// 
+//
 //    this.setV = this.client.declare("setV"// method name
 //           , ctypes.default_abi //binary interface type
 //           , ctypes.void_t        //return type

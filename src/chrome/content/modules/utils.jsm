@@ -567,6 +567,7 @@ var devicesView = {
   rowCount : 1,          //number of rows minus closed rows
   rowRealCount : 1,      //number of rows including closed ones
   treeBox: null,         //treeBox that needs to be notified of row changes etc.
+  canOpen: false,
 
   rowTranslate: function(row){
     return row - this.closedNo[row];
@@ -622,6 +623,7 @@ var devicesView = {
   },
 
   toggleOpenState: function(row){
+    if(!this.canOpen) return;
     var realRow = this.rowTranslate(row);
     var rowNo = 1; //assuming each identity has at least info row
     if(this.emails[this.rows[realRow]] > 0){
@@ -705,28 +707,28 @@ var devicesView = {
 
   },
 
-  openAll: function(){
-    var lastParent = 0;
-    this.parent[lastParent] = -1; //first cell must be a parent
-    for(var i = 0; i < this.rowRealCount; i++){
-      this.isopen[i] = true;
-      if(this.parent[i] == -1){
-        lastParent = i;
-      }
-      else{
-        this.parent[i] = lastParent;
-      }
-      this.closedNo[i] = 0;
-    }
-    var added = this.rowRealCount - this.rowCount;
-    this.rowCount = this.rowRealCount;
-    if(added != 0 && this.treeBox != null){
-      this.treeBox.rowCountChanged(this.rowCount - added, added);
-    }
-  },
+//   openAll: function(){
+//     var lastParent = 0;
+//     this.parent[lastParent] = -1; //first cell must be a parent
+//     for(var i = 0; i < this.rowRealCount; i++){
+//       this.isopen[i] = true;
+//       if(this.parent[i] == -1){
+//         lastParent = i;
+//       }
+//       else{
+//         this.parent[i] = lastParent;
+//       }
+//       this.closedNo[i] = 0;
+//     }
+//     var added = this.rowRealCount - this.rowCount;
+//     this.rowCount = this.rowRealCount;
+//     if(added != 0 && this.treeBox != null){
+//       this.treeBox.rowCountChanged(this.rowCount - added, added);
+//     }
+//   },
 
   setIdentityContent: function(identity, content){
-    this.openAll();
+//     this.openAll();
     var parent = this.rowRealCount - 1;
     if(this.parent[parent] != -1){
       parent = this.parent[parent];
@@ -738,22 +740,23 @@ var devicesView = {
       }
     }
     if(parent > -1){
+//       Logger.dbg("content length:"+content.length + " rowRealCount:"+this.rowRealCount);
       this.emails[this.rows[parent]] = content.length;
       var lastChild = parent + 1;
-      while (lastChild <= this.rowRealCount && this.parent[lastChild] != -1 ){
+      while (lastChild < this.rowRealCount && this.parent[lastChild] != -1 ){
         lastChild++;
       }
       lastChild--;
-      Logger.dbg("Last child:"+lastChild);
+//       Logger.dbg("Last child:" + lastChild);
       for(var r = 0; r + parent < lastChild && r < content.length; r++){
         this.rows[r + parent + 1] = content[r];
         this.treeBox.invalidateRow(r + parent + 1);
       }
       var added = (content.length - lastChild + parent);
-      Logger.dbg("Added:" + added);
+//       Logger.dbg("Added:" + added);
       //shift
       if(((r + parent + 1) != this.rowRealCount - 1) && added != 0){
-        Logger.dbg("In loop r + parent + 1 :" + (r + parent + 1)+ " rowRealCount:"+this.rowRealCount);
+//         Logger.dbg("In loop r + parent + 1 :" + (r + parent + 1)+ " rowRealCount:"+this.rowRealCount);
         let i;
         if(added > 0){
           for(i = this.rowRealCount - 1; i > lastChild; i--){
@@ -848,6 +851,7 @@ function fillDevices(languagepack){
   devicesView.rows = [];
   devicesView.rowCount = 0;
   devicesView.rowRealCount = 0;
+  devicesView.canOpen = false;
 
   var identity;
   if(device){
@@ -898,6 +902,7 @@ function fillDevices(languagepack){
   }
   Logger.dbg("Setting devices view");
   document.getElementById("tree_devices").view = devicesView;
+  CWrapper.post("synchStub", [], function(){devicesView.canOpen = true});
 }
 
 function fillKeys(){
