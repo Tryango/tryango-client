@@ -235,7 +235,9 @@ extern "C"{
       return ANG_NO_AP;
     }
     uint32_t status = client.getDevices(result, resultSize, ap, identity, std::string(device));
-    memcpy(hexAp, string_to_hex(ap).c_str(), 2 * HASH_SIZE);
+    if(status == 0){
+      memcpy(hexAp, string_to_hex(ap).c_str(), 2 * HASH_SIZE);
+    }
     std::cout<<"End of getDevices status"<<status<<" resultSize:"<<*resultSize<<std::endl;
     return status;
   }
@@ -256,10 +258,10 @@ extern "C"{
 
     //request to server
     uint32_t status = client.removeDevices(ap, identity, device, devices, devicesSize);
-
-    //update ap
-    memcpy(hexAp, string_to_hex(ap).c_str(), 2 * HASH_SIZE);
-
+    if(status == 0){
+      //update ap
+      memcpy(hexAp, string_to_hex(ap).c_str(), 2 * HASH_SIZE);
+    }
     return status;
   }
 

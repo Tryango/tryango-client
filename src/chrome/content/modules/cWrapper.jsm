@@ -589,13 +589,12 @@ var CWrapper = {
         }
       }
       CWrapper.post("removeDevices", [identity, device, devices], function(newHexAp, status, id){
-        if(status == 0){
-          //update nonce and store it securely
-          Pwmgr.setAp(id, newHexAp);
-        }
-        else if(status == 12){//ap is outdated so we remove it - what about server down?
+        if(status == 12){//ap is outdated so we remove it - what about server down?
           Logger.dbg("Outdated AP, status: " + status);
           Pwmgr.setAp(id, "");
+        }
+        else if(newHexAp.length >2){
+          Pwmgr.setAp(id, newHexAp);
         }
         callback(status);
       });
@@ -626,7 +625,7 @@ var CWrapper = {
           this.getSignPassword(identity, function(success, password){
             if(success){
               CWrapper.post("revokeKey",[identity, device, password], function(newHexAp, status){
-                if(status == 0){ //ANG_OK is 0
+                if(newHexAp.length >2){
                   Pwmgr.setAp(identity, newHexAp);
                 }
                 callback(status);

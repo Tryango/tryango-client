@@ -866,15 +866,11 @@ function fillDevices(languagepack){
       var ap = Pwmgr.getAp(identity);
       if(ap != undefined && ap.length > 1){
         try{
-          Logger.dbg("Getting devices for identity:" + identity+ " AP:" + ap );
-          CWrapper.post("getDevices", [identity, device], function(newAp, status, devices, id){
+          Logger.dbg("Getting devices for identity:" + identity);
+          CWrapper.post("getDevices", [identity, device], function(newHexAp, status, devices, id){
             Logger.dbg("***filling devices for identity:" + id );
-            if(status == 0 && newAp && newAp.length > 1){
-              Pwmgr.setAp(id, newAp);
-            }
-            else if(status == 12){//Error response from server
-              Logger.dbg("Outdated AP, status:" + status);
-              Pwmgr.setAp(id, "");
+            if(newHexAp.length > 2){
+              Pwmgr.setAp(id, newHexAp);
             }
             if(devices.length > 0){
               devicesView.setIdentityContent(id, devices);

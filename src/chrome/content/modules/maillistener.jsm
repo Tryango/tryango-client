@@ -278,21 +278,19 @@ var MailListener = new function() {
       //ap will be added in CWrapper.post - current one may get outdated
       CWrapper.post("submitKey", [identity, device], function(newHexAp, status){
         MailListener._dosendEmail = false;
-        if(status == 0){
+        if(newHexAp.length > 2){
           Pwmgr.setAp(identity, newHexAp);
+        }
+              
+        if(status == 0){
           Logger.dbg("Added identity: " + identity);
           try{
             var ap = Pwmgr.getAp(identity);
             if(ap != undefined && ap.length > 1){
               CWrapper.post("getDevices", [identity, device], function(newAp, status, devices){
-                if(status == 0 && newAp && newAp.length > 1){
-                  Pwmgr.setAp(identity, newAp);
+                if(newHexAp.length > 2){
+                  Pwmgr.setAp(identity, newHexAp);
                 }
-                else if(status == 12 || status == 22){//Error response from server || ANG_NO_AP
-                  Logger.dbg("Outdated AP, status:" + status);
-                  Pwmgr.setAp(identity, "");
-                }
-
                 if(status == 0 && devices.length > 1){
                   MailListener._dosendEmail = true;
                 }
@@ -319,8 +317,7 @@ var MailListener = new function() {
           this.askUserToBackup();
         }
         else if(status == 18){//ANG_ID_ALREADY_EXISTS
-          Pwmgr.setAp(identity, newHexAp);
-          Logger.dbg("Added ap but no need to sumbit new key for identity: " + identity + " got ap:" + hexAp +  " new ap:" + Pwmgr.getAp(identity));
+          Logger.dbg("Added ap but no need to sumbit new key for identity: " + identity + " got ap:" + newHexAp +  " new ap:" + Pwmgr.getAp(identity));
           Dialogs.info(MailListener.languagepack.getString("signup_done") + " (" + identity + ")");
           MailListener._runningGetDev = false;
         }

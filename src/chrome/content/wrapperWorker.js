@@ -629,8 +629,10 @@ var Client = {
     let status = this.c_getDevices(result.address(), resultSize.address(), c_hexAp, identity, device);
     var next = result;
     var newHexAp = "";
-    if(status == 0 && 0 < parseInt(resultSize.value)){
+    if(status == 0 || status == 15){ //ANG_NO_ENTRIES
       newHexAp = c_hexAp.readString();
+    }
+    if(status == 0 && 0 < parseInt(resultSize.value)){
       for (var i = 0; (ctypes.uint32_t(i) < resultSize); i++){
         var str = next.contents.readString();
         this.freeString(next.contents);
@@ -656,7 +658,7 @@ var Client = {
     }
     var status = this.c_removeDevices(c_hexAp, identity, device, c_devices, ctypes.uint32_t(devices.length));
     var newHexAp = "";
-    if(!removeAp){
+    if(!removeAp && status == 0){
       newHexAp = c_hexAp.readString();
     }
     return {method: "removeDevices", args:[newHexAp, status,  identity]};
@@ -678,13 +680,16 @@ var Client = {
       return {method: "submitKey", args: [newHexAp, status]};
     }
     else{
-      return {method: "submitKey", args: [22, ""]}; //ANG_NO_AP
+      return {method: "submitKey", args: [newHexAp, 22]}; //ANG_NO_AP
     }
   },
 
   revokeKey: function(hexAp, identity, device, password){
     var status =  this.c_revokeKey(hexAp, identity, device, password);
-    var newHexAp = hexAp.readString();
+    var newHexAp = "";
+    if(status == 0){
+      newHexAp = hexAp.readString();
+    }
     return {method: "revokeKey", args: [newHexAp, status]};
   },
 

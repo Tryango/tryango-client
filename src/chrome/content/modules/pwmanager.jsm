@@ -109,9 +109,11 @@ var Pwmgr = new function()
 
   this.setAp = function(identity, ap){
     if(ap!=""){
+//       Logger.dbg("Storing ap for identity:" + identity + " ap:" + ap);
       this.storeEncValue("tryango-ap_" + identity, ap);
     }
     else{
+//       Logger.dbg("Removing ap for identity:" + identity);
       this.storeEncValue("tryango-ap_" + identity, "*");
     }
   }
