@@ -390,15 +390,15 @@ var MailWindow = new function(){
         else{
           let message;
           if(ret.status == 37){ //key has expired
-            message = sender + " - " + this.languagepack.getString("sec_expired") + ".\n" +
-              this.languagepack.getString("mail_send_unsigned");
+            message = sender + " - " + CWrapper.languagepack.getString("sec_expired") + ".\n" +
+              CWrapper.languagepack.getString("mail_send_unsigned");
           }
           else{
-            message = this.languagepack.getString(CWrapper.getErrorStr(ret.status)) + "\n" +
-              this.languagepack.getString("mail_send_unsigned");
+            message = CWrapper.languagepack.getString(CWrapper.getErrorStr(ret.status)) + "\n" +
+              CWrapper.languagepack.getString("mail_send_unsigned");
           }
           if(this.encrypt){
-            message += " " + this.languagepack.getString(CWrapper.getString("mail_send_still_encrypted"));
+            message += " " + CWrapper.languagepack.getString("mail_send_still_encrypted");
           }
           if(Logger.promptService.confirm(null, "Tryango", message)){
             document.getElementById("menu-sign").removeAttribute("checked");
@@ -432,12 +432,12 @@ var MailWindow = new function(){
           if(status != 0){
             let message;
             if(status == 31){ //key has expired
-              message = recipient + " - " + this.languagepack.getString("pub_expired") + ".\n" +
-                this.languagepack.getString("mail_send_unencrypted");
+              message = recipient + " - " + CWrapper.languagepack.getString("pub_expired") + ".\n" +
+                CWrapper.languagepack.getString("mail_send_unencrypted");
             }
             else{
-              message = recipient + " " + this.languagepack.getString("not_with_CM") + "\n" +
-                this.languagepack.getString("mail_send_unencrypted");
+              message = recipient + " " + CWrapper.languagepack.getString("not_with_CM") + "\n" +
+                CWrapper.languagepack.getString("mail_send_unencrypted");
             }
             if(Logger.promptService.confirm(null, "Tryango", message)){
               Logger.dbg("User requests unencrypted email since " + recipient + " is not with CM or key has expired");
