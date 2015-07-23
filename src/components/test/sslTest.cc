@@ -55,7 +55,8 @@ TEST_F(SslTest,Connect){
   ASSERT_TRUE(iret==0);
   pthread_cond_wait (&confParams.serverStarted, &confParams.mutex);
   std::string buffer("test");
-  ASSERT_TRUE(ssl.send(buffer)==-1);
+  int written = ssl.send(buffer);
+  ASSERT_TRUE(written == -2);
   ASSERT_FALSE(ssl.connect("localhost",confParams.port)==ANG_OK);
   ASSERT_FALSE(ssl.initCertificate("certificateSome.pem"));
   ASSERT_TRUE(ssl.initCertificate("certificate.pem"));

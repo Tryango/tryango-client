@@ -14,10 +14,10 @@
 #include <vector>
 #end
 class CmdPiper{
-
  public:
+  static std::string command = "gpg";
   static int runCmd(std::string& output, char* const cmd[], const std::string& input){
-#if !defined(_MSC_VER)  
+#if !defined(_MSC_VER)
     int p1[2], p2[2];//, p3[2];
     int n;
     pid_t pid;
@@ -83,10 +83,11 @@ class CmdPiper{
 
   static bool hasGpg(){
 #if !defined(_MSC_VER)
-    const char *cmd[] = {"gpg2", "--version", NULL};
+    const char *cmd[] = {command.c_str(), "--version", NULL};
     std::string output;
     int result = CmdPiper::runCmd(output, (char**)cmd, "");
-    return result == 0;
+    std::cout<<"Has gpg result:"<<result<<std::endl;
+    return (result == 0) && output.substr(0, 3) == "gpg";
 #else
     return false;//Not implemented for windows
 #endif
@@ -94,19 +95,19 @@ class CmdPiper{
 
 
   static int getSecretKey(std::string& output, std::string user){
-    const char *cmd[] = {"gpg2", "--armor", "--export-secret-key", user.c_str(), NULL};
+    const char *cmd[] = {command.c_str(), "--armor", "--export-secret-key", user.c_str(), NULL};
     return CmdPiper::runCmd(output, (char**)cmd, "");
   }
 
 
   static int getPublicKey(std::string& output, std::string user){
-    const char *cmd[] = {"gpg2", "--armor", "--export", user.c_str(), NULL};
+    const char *cmd[] = {command.c_str(), "--armor", "--export", user.c_str(), NULL};
     return CmdPiper::runCmd(output, (char**)cmd, "");
   }
 
 
   static int importKey(std::string key){
-    const char *cmd[] = {"gpg2", "--import", NULL };
+    const char *cmd[] = {command.c_str(), "--import", NULL };
     std::string output;
     int status = CmdPiper::runCmd(output, (char**)cmd, key);
     return status;
@@ -114,7 +115,7 @@ class CmdPiper{
 
 
   static int importPrivateKey(std::string key){
-    const char *cmd[] = {"gpg2", "--allow-secret-key-import" ,"--import", NULL };
+    const char *cmd[] = {command.c_str(), "--allow-secret-key-import" ,"--import", NULL };
     std::string output;
     int status = CmdPiper::runCmd(output, (char**)cmd, key);
     return status;
@@ -124,7 +125,7 @@ class CmdPiper{
   static int deleteKey(std::string user){
     std::string output;
     //gpg --delete-key --batch --yes pkordy@gmail.com
-    const char *cmd[] = {"gpg2", "--delete-key", "--batch", "--yes", user.c_str() ,NULL };
+    const char *cmd[] = {command.c_str(), "--delete-key", "--batch", "--yes", user.c_str() ,NULL };
     int status = CmdPiper::runCmd(output, (char**)cmd, "");
     return status;
   }
@@ -144,7 +145,7 @@ class CmdPiper{
   /*  gpg --digest-algo sha256 --default-key pkordy@gmail.com --clearsign */
   static int signMsg(std::string &output, const std::string user,
                      const std::string message){
-   const char *cmd[] = {"gpg2", "--digest-algo", "sha256",
+   const char *cmd[] = {command.c_str(), "--digest-algo", "sha256",
                         "--default-key", user.c_str(), "--clearsign"  ,NULL };
     int status = CmdPiper::runCmd(output, (char**)cmd, message);
     return status;
@@ -152,7 +153,7 @@ class CmdPiper{
 
 
   static int verifySignature(const std::string sender, const std::string message){
-    const char *cmd[] = {"gpg2", "--verify",NULL };
+    const char *cmd[] = {command.c_str(), "--verify",NULL };
     std::string output;
     int status = CmdPiper::runCmd(output, (char**)cmd, message);
     return status;
@@ -161,7 +162,7 @@ class CmdPiper{
 
   static int encryptMsg(std::string &output, const std::vector<std::string>& users, const std::string message){
     std::vector<char*> cmdVector;
-    cmdVector.push_back((char*)"gpg2");
+    cmdVector.push_back((char*)command.c_str());
     cmdVector.push_back((char*)"--encrypt");
     cmdVector.push_back((char*)"--armor");
     cmdVector.push_back((char*)"--trust-model");
@@ -182,7 +183,7 @@ class CmdPiper{
   static int encryptSignMsg(std::string &output, const std::vector<std::string>& users, const std::string sender,
                             const std::string message){
     std::vector<char*> cmdVector;
-    cmdVector.push_back((char*)"gpg2");
+    cmdVector.push_back((char*)command.c_str());
     cmdVector.push_back((char*)"--encrypt");
     cmdVector.push_back((char*)"--armor");
     cmdVector.push_back((char*)"--sign");
@@ -207,7 +208,7 @@ class CmdPiper{
 
   static int decryptMsg(std::string &output, const std::string& user, const std::string message){
     std::cout<<"running decrypt:"<<std::endl;
-    const char *cmd[] = {"gpg2", "--decrypt", "--batch",  NULL };
+    const char *cmd[] = {command.c_str(), "--decrypt", "--batch",  NULL };
     int status = CmdPiper::runCmd(output, (char**)cmd,  message);
     std::cout<<"status decrypt:"<<status<<" ouput:"<<output<<std::endl;
     return status;

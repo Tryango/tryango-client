@@ -358,6 +358,9 @@ function importKeyPageCreate(){
       if(success){
         document.getElementById("ang_btn_gpg").removeAttribute("hidden");
       }
+      else{
+        document.getElementById("ang_btn_gpg").setAttribute("hidden", "true");
+      }
     });
   }
   //hide tables
