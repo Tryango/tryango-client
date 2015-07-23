@@ -5,7 +5,7 @@ Components.utils.import("resource://gre/modules/Services.jsm");  //load resource
 Components.utils.import("resource://gre/modules/FileUtils.jsm"); //for proofs.log file
 Components.utils.import("resource://tryango_modules/pwmanager.jsm");
 Components.utils.import("resource://tryango_modules/logger.jsm");
-Components.utils.import("resource://gre/modules/PromiseWorker.jsm");
+// Components.utils.import("resource://gre/modules/PromiseWorker.jsm");
 Components.utils.import("resource://gre/modules/osfile.jsm");
 
 //ATTENTION: DO NOT INCLUDE prefs.jsm HERE. CYCLIC DEPENDENCY!
