@@ -451,16 +451,14 @@ function infoOnLoad(){
     //no output, already done in settings.js
     return;
   }
+  //fill keys from keypurse - first as it does not need connect to server
+  fillKeys();
 
   //fill status
   fillStatus();
 
   //fill random checking if advancedOptions is set
   fillAudit();
-
-  //fill keys from keypurse
-  Logger.dbg("Filling keys from infoOnLoad()");
-  fillKeys();
 
   //fill devices (might return an error => do it last)
   fillDevices();
@@ -869,7 +867,7 @@ function fillDevices(languagepack){
       if(ap != undefined && ap.length > 1){
         try{
           Logger.dbg("Getting devices for identity:" + identity+ " AP:" + ap );
-          CWrapper.post("getDevices", [identity, device, ap], function(status, devices, newAp, id){
+          CWrapper.post("getDevices", [identity, device], function(newAp, status, devices, id){
             Logger.dbg("***filling devices for identity:" + id );
             if(status == 0 && newAp && newAp.length > 1){
               Pwmgr.setAp(id, newAp);
@@ -908,20 +906,27 @@ function fillDevices(languagepack){
 
 function fillKeys(){
   //set date for last update
-  document.getElementById("tree_keys_updated").value = new Date().toISOString();
+  document.getElementById("tree_keys_updated").value = CWrapper.languagepack.getString("wizard_importKeyPage_lbl_waiting");
+
 
   //get tree
   var tree = document.getElementById("tree_keys_content");
   //clear tree
-  //ATTENTION: the tree is altered while iterating over it, thus "normal" iterators break!
-  while(tree.childNodes.length != 0){
-    tree.removeChild(tree.childNodes[0]);
-  }
+//   while(tree.childNodes.length != 0){
+//     tree.removeChild(tree.childNodes[0]);
+//   }
 
   //get addresses
   var addresses = Utils.getEmailAddresses();
 
   //check all identities
+  CWrapper.post("synchStub", [], function(status, keys){
+  //ATTENTION: the tree is altered while iterating over it, thus "normal" iterators break!
+    while(tree.childNodes.length != 0){
+      tree.removeChild(tree.childNodes[0]);
+    }
+  });
+
   for each(let identity in addresses){
     CWrapper.post("getInfoKeys", [identity, true], function(status, keys){
       if(keys == null || keys.length <= 0){
@@ -949,6 +954,10 @@ function fillKeys(){
         tree.appendChild(item);
       }
     });
+    CWrapper.post("synchStub", [], function(status, keys){
+      document.getElementById("tree_keys_updated").value = new Date().toISOString();
+    });
+
   }
 }
 
@@ -1099,7 +1108,7 @@ function removeSelectedKeys(){
     CWrapper.post("removeKeys", [elements], function(){
       Logger.dbg("Filling keys after remeving selected Keys()");
       fillKeys(document.getElementById('lang_file'));
-      CWrapper.post("exportKeyPurse" [Prefs.getPref("keyPursePath"), ""], function(success){//TODO: shouldn't that have password?
+      CWrapper.post("exportKeyPurse", [Prefs.getPref("keyPursePath"), ""], function(success){//TODO: shouldn't that have password?
         if(!success){
           Dialogs.error(CWrapper.languagepack.getString("bak_keypurse_fail"));
         }

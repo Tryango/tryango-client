@@ -328,6 +328,10 @@ var Client = {
 
   },
 
+  synchStub: function(){
+    return {method: "synchStub", args: []};
+  },
+
   getMaxErrNum: function(){ //set it equal to ANG_UNKNOWN_ERROR - messages above are signature errors
     return 32;
   },
@@ -399,7 +403,7 @@ var Client = {
     return {method: "verifySignature", args:[status, cleanMail]};
   },
 
-  signup: function (identity, device, hexAp){
+  signup: function (hexAp, identity, device){
     var status = this.c_signup(identity, device, hexAp);
     return {method: "signup", args: [status]};
   },
@@ -600,7 +604,7 @@ var Client = {
 
     return {method: "encryptSignAttachment", args: [status, isLast]};
   },
-    
+
   getServerInfo: function(){
     let result = new ctypes.char.ptr;
     let resultSize = new ctypes.uint32_t;
@@ -616,7 +620,7 @@ var Client = {
 //     return st + " " + myArray.readString();
   },
 
-  getDevices: function(identity, device, hexAp){
+  getDevices: function(hexAp, identity, device){
     let devices = [];
     var c_hexAp = ctypes.char.array()(hexAp);
     var result = new ctypes.char.ptr.ptr;
@@ -634,7 +638,7 @@ var Client = {
       }
       this.freeString(ctypes.cast(result, ctypes.char.ptr));
     }
-    return {method: "getDevices", args:[status, devices, newHexAp, identity]};
+    return {method: "getDevices", args:[newHexAp, status, devices, identity]};
   },
 
   removeDevices: function(hexAp, identity, device, devices){
@@ -654,7 +658,7 @@ var Client = {
     if(!removeAp){
       newHexAp = c_hexAp.readString();
     }
-    return {method: "removeDevices", args:[status, newHexAp, identity]};
+    return {method: "removeDevices", args:[newHexAp, status,  identity]};
   },
 
   synchronizeSK: function(identity){
@@ -670,7 +674,7 @@ var Client = {
       if(status == 0){ //ANG_OK is 0
         newHexAp = c_hexAp.readString();
       }
-      return {method: "submitKey", args: [status, newHexAp]};
+      return {method: "submitKey", args: [newHexAp, status]};
     }
     else{
       return {method: "submitKey", args: [22, ""]}; //ANG_NO_AP
@@ -680,7 +684,7 @@ var Client = {
   revokeKey: function(hexAp, identity, device, password){
     var status =  this.c_revokeKey(hexAp, identity, device, password);
     var newHexAp = hexAp.readString();
-    return {method: "revokeKey", args: [status, newHexAp]};
+    return {method: "revokeKey", args: [newHexAp, status]};
   },
 
   getInfoKeys: function(identity, fromKeypurse){
@@ -695,9 +699,9 @@ var Client = {
     if(status == 0 && (ctypes.uint32_t(0) < resultSize)){
       for (var i = 0; (ctypes.uint32_t(i) < resultSize); i++){
         //copy strings and free them
-	      var str = next.contents.readString();
-// 	      this.freeString(next.contents);
-	      next = next.increment();
+        var str = next.contents.readString();
+//         this.freeString(next.contents);
+        next = next.increment();
 //  Structure of result (separated by "\x1F"
 //  0 Sign/Main key id
 //  1          timestamp as the number of seconds since 00:00:00 UTC on January 1, 1970
@@ -728,7 +732,7 @@ var Client = {
         }
         row['userIds'] = emails;
 
-	      output.push(row);
+        output.push(row);
       }
     }
 //     else if(status == 15){   // ANG_NO_ENTRIES
@@ -741,26 +745,37 @@ var Client = {
 //     }
 
     return {method: "getInfoKeys", args:[status, output]};
-  },
-
-// to remove ---V        
-  msg: function(){
-    return "tralaal";
   }
 }
-// to remove ---^        
 
 
 self.onmessage = function(e){
                    //   c.console.log("one*********************************************");
-                   //   Logger.log("test**************************************************");
-                   var result = Client[e.data.method](...e.data.args);
-                   self.postMessage(result);
-                 }
+//                      Logger.log("onMessage@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@:"+ e.data);
+  try{
+    var result = Client[e.data.method](...e.data.args);
+    self.postMessage(result);
+  }
+  catch(error){
+//   var stack = e.stack.replace(/^[^\(]+?[\n$]/gm, '')
+//       .replace(/^\s+at\s+/gm, '')
+//       .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+//       .split('\n');
+    var errorMsg = "";
+    if(e.data.method){
+      errorMsg = "called method:" + e.data.method + "\n";
+    }
+    if(e.data.args){
+      errorMsg += "args:" + e.data.args + "\n";
+    }
+
+    self.postMessage(errorMsg + error.stack + error);
+  }
+}
 
 
 self.onerror = function(e) {
           //   c.console.log("two*********************************************");
           self.postMessage(e);
-        }
+}
 //self.addEventListener("message", msg => self.handleMessage(msg));

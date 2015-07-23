@@ -275,7 +275,8 @@ var MailListener = new function() {
     MailListener._dosendEmail = false;
     if(hexAp != undefined && hexAp.length > 1){
       MailListener._runningGetDev = true;
-      CWrapper.post("submitKey", [hexAp, identity, device], function(status, newHexAp){
+      //ap will be added in CWrapper.post - current one may get outdated
+      CWrapper.post("submitKey", [identity, device], function(newHexAp, status){
         MailListener._dosendEmail = false;
         if(status == 0){
           Pwmgr.setAp(identity, newHexAp);
@@ -283,11 +284,11 @@ var MailListener = new function() {
           try{
             var ap = Pwmgr.getAp(identity);
             if(ap != undefined && ap.length > 1){
-              CWrapper.post("getDevices", [identity, device, ap], function(status, devices, newAp){
+              CWrapper.post("getDevices", [identity, device], function(newAp, status, devices){
                 if(status == 0 && newAp && newAp.length > 1){
                   Pwmgr.setAp(identity, newAp);
                 }
-                else if(status == 12){//Error response from server
+                else if(status == 12 || status == 22){//Error response from server || ANG_NO_AP
                   Logger.dbg("Outdated AP, status:" + status);
                   Pwmgr.setAp(identity, "");
                 }

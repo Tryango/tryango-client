@@ -630,7 +630,7 @@ function doSignup(email){
 
   //pass email address to c
   //TODO: append machineID with random string
-  CWrapper.post("signup", [email, Prefs.getPref("machineID"), token],
+  CWrapper.post("signup", [token, email, Prefs.getPref("machineID") ],
     function(status){
       if(status != 0){
         var strbundle = document.getElementById("strings");

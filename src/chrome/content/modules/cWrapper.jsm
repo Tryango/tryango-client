@@ -50,24 +50,41 @@ var CWrapper = {
   _port: -1,
   libraryLoaded: false,
 
+  run: function(toRun, callback){
+    CWrapper._state = CState["running"];
+    CWrapper._callback = callback;
+    if(CWrapper.hasAp(toRun.method)){
+      var hexAp = Pwmgr.getAp(toRun.args[0]); //assuming identity is the first parameter
+      if(hexAp == undefined || hexAp.length < 2){
+        //we need to set ap to a fake one to get error
+        hexAp = "FFFF";
+      }
+      toRun.args = [hexAp].concat(toRun.args);
+      Logger.dbg("adding ap:" + hexAp + " to method:"+toRun.method + " new args:"+toRun.args);
+    }
+//     Logger.dbg("Running 2 method:"+toRun.method+ " args:" + toRun.args + " callback:" + toRun.callback);
+    CWrapper.angWorker.postMessage({method:toRun.method, args:toRun.args}); //TODO - dynamically update ap in params
+  },
+
   post:function(method, args, callback){
    Logger.dbg("+++++++++++++++++++++++post:"+method +" args:"+args +" callback:"+ callback);
    if(this._state == CState["idle"]){
-     Logger.dbg("post running");
-     this._state = CState["running"];
-     this._callback = callback;
-     this.angWorker.postMessage({method:method, args:args});
+     this.run({method:method, args:args}, callback);
    }
    else{
-     Logger.dbg("pushing to queue");
+     Logger.dbg("pushing to queue:"+ "method:"+method+ " args:" + args + " callback:" + callback);
      this._queue.push({method:method, args:args, callback:callback});
    }
   },
 
   handleMsg: function(e){
-//TODO - remove --v
-    if(!e.data || !e.data.method){
-      Logger.error('-----------------------error incoming from worker, event type:'+ e.type + e.toString());
+    if(!e.data.method){
+      Logger.error('Exception in worker:'+ e.data);
+    }
+
+//TODO - remove spam--v
+    if(!e.data){
+      Logger.error('-----------------------error incoming from worker, event type:'+ e + e.type);
     }
     else{
       Logger.dbg('--------------------------------incoming message from worker, msg1:'+ e.data.method + " args:"+ e.data.args);
@@ -75,23 +92,37 @@ var CWrapper = {
         Logger.dbg("Library OK loaded.");
       }
     }
-//TODO - remove --^
+//TODO - remove spam --^
+
     if(CWrapper._state == CState["running"]){
-      var oldCallback = CWrapper._callback;
-      if(CWrapper._queue.isEmpty()){
-        CWrapper._state = CState["idle"];
+      var toRun;
+      if(!CWrapper._queue.isEmpty()){
+        toRun  = CWrapper._queue.pop();
+//         Logger.dbg("Popping queue 1"+ "method:"+toRun.method+ " args:" + toRun.args + " callback:" + toRun.callback);
       }
       else{
-        var toRun  = CWrapper._queue.pop();
-        CWrapper._callback = toRun.callback;
-        CWrapper.angWorker.postMessage({method:toRun.method, args:toRun.args}); //TODO - dynamically update ap in params
+        toRun = null;
       }
+      var oldCallback = CWrapper._callback;
       if(oldCallback != null && e.data && e.data.args){
         Logger.dbg("************************** calling callback with args:" + e.data.args);
         oldCallback(...e.data.args);
       }
       else{
         Logger.dbg("***************************** no callback - calling is null or no args");
+      }
+
+      if(CWrapper._queue.isEmpty() && toRun == null){
+        Logger.dbg("Idling");
+        CWrapper._state = CState["idle"];
+      }
+      else{
+        if(toRun == null){
+          toRun  = CWrapper._queue.pop();
+//           Logger.dbg("Popping queue 2"+ "method:"+toRun.method+ " args:" + toRun.args + " callback:" + toRun.callback);
+        }
+//         Logger.dbg("Running 1 method:"+toRun.method+ " args:" + toRun.args + " callback:" + toRun.callback);
+        CWrapper.run({method:toRun.method, args:toRun.args}, toRun.callback);
       }
     }
     else{
@@ -100,8 +131,21 @@ var CWrapper = {
     Logger.log('====================================end incoming message from worker state:' + CWrapper._state);
   },
 
+  hasAp: function(method){
+    switch(method){
+//       case "submit":- we do not add submit as it fresh token and not (yet) ap
+      case "submitKey":
+      case "revokeKey":
+      case "getDevices":
+      case "removeDevices":
+        return true;
+      default:
+        return false;
+    }
+  },
 
   _initSynchronusInterface: function(){
+
     this.c_getServer = this.client.declare("getServer"
           , ctypes.default_abi  //binary interface type
           , ctypes.void_t       //return type
@@ -544,7 +588,7 @@ var CWrapper = {
          });
         }
       }
-      CWrapper.post("removeDevices", [hexAp, identity, device, devices], function(status, newHexAp, id){
+      CWrapper.post("removeDevices", [identity, device, devices], function(newHexAp, status, id){
         if(status == 0){
           //update nonce and store it securely
           Pwmgr.setAp(id, newHexAp);
@@ -581,7 +625,7 @@ var CWrapper = {
         else{
           this.getSignPassword(identity, function(success, password){
             if(success){
-              CWrapper.post("revokeKey",[hexAp, identity, device, password], function(status, newHexAp){
+              CWrapper.post("revokeKey",[identity, device, password], function(newHexAp, status){
                 if(status == 0){ //ANG_OK is 0
                   Pwmgr.setAp(identity, newHexAp);
                 }
