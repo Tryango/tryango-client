@@ -102,13 +102,6 @@ var Client = {
           , ctypes.char.ptr    //param 3
           );
 
-   this.c_getHostName = this.client.declare("getHostName"// method name
-          , ctypes.default_abi //binary interface type
-          , ctypes.void_t      //return type
-          , ctypes.char.ptr
-          , ctypes.uint32_t    //param 2
-          );
-
    this.c_generateRsaKeys = this.client.declare("generateRsaKeys"// method name
           , ctypes.default_abi //binary interface type
           , ctypes.bool        //return type

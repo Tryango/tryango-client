@@ -202,6 +202,14 @@ var CWrapper = {
           , ctypes.char.ptr     //param 5 - char* sender
           , ctypes.char.ptr     //param 6 - char* password
           );
+
+   this.c_getHostName = this.client.declare("getHostName"// method name
+          , ctypes.default_abi //binary interface type
+          , ctypes.void_t      //return type
+          , ctypes.char.ptr
+          , ctypes.uint32_t    //param 2
+          );
+
     Logger.dbg("Initialized Synch library");
 
 //     this.getV = this.client.declare("getV"// method name
