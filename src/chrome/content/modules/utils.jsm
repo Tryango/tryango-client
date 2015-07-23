@@ -750,7 +750,9 @@ var devicesView = {
 //       Logger.dbg("Last child:" + lastChild);
       for(var r = 0; r + parent < lastChild && r < content.length; r++){
         this.rows[r + parent + 1] = content[r];
-        this.treeBox.invalidateRow(r + parent + 1);
+        if(this.treeBox){
+          this.treeBox.invalidateRow(r + parent + 1);
+        }
       }
       var added = (content.length - lastChild + parent);
 //       Logger.dbg("Added:" + added);
@@ -783,7 +785,9 @@ var devicesView = {
       }
       //just add
       for(var i = r; i < content.length; i++){
-        this.treeBox.invalidateRow(i + parent + 1);
+        if(this.treeBox){
+          this.treeBox.invalidateRow(i + parent + 1);
+        }
         this.rows[i + parent + 1] = content[i];
         this.parent[i + parent + 1] = parent;
         this.closedNo[i + parent + 1] = 0;
@@ -817,7 +821,9 @@ var devicesView = {
     }
     if(parent > -1){
       this.rows[realParent + 1] = text;
-      this.treeBox.invalidateRow(parent + 1);
+      if(this.treeBox){
+        this.treeBox.invalidateRow(parent + 1);
+      }
     }
   },
 
@@ -828,7 +834,9 @@ var devicesView = {
     this.rows[0] = text;
     this.parent[0] = -1;
     this.closedNo[0] = 0;
-    this.treeBox.invalidateRow(0);
+    if(this.treeBox){
+      this.treeBox.invalidateRow(0);
+    }
     this.emails = {};
   }
 
