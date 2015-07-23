@@ -25,8 +25,8 @@ var MailWindow = new function(){
   this.RECIPIENTSFIELD_PREFIX = "addressCol2#";
   // generate a unique ID for each window (not automatically done!)
   // use miliseconds of time for it
+  Logger.dbg("Previous id:"+this.id);
   this.id = "id" + Date.now();
-
   // variables
   this.encrypt = null;
   this.sign = null;
@@ -37,7 +37,7 @@ var MailWindow = new function(){
    */
   this.onload = function(event){
     // log
-    Logger.log("mailwindow " + this.id + " onload");
+    Logger.dbg("mailwindow " + this.id + " onload");
 
     // language pack
     this.languagepack = document.getElementById("lang_file");
@@ -65,7 +65,7 @@ var MailWindow = new function(){
   }
 
   this.reload = function(){
-    Logger.log("Reloading prefs of window " + this.id);
+    Logger.dbg("Reloading prefs of window " + this.id);
 
     //reload encrypt from prefs
     this.encrypt = Prefs.getPref("encryptMessages");
@@ -445,7 +445,7 @@ var MailWindow = new function(){
               document.getElementById("menu-encrypt").removeAttribute("checked");
               document.getElementById("button-encrypt").removeAttribute("checked");
               ///send email
-              MailWindow._justSend = true;
+              delete gMsgCompose.domWindow.tryEncrypt;
               SendMessage();
               Logger.dbg("********erasing password");
               MailWindow._password = "";
@@ -494,7 +494,7 @@ var MailWindow = new function(){
                 ){
                 Logger.dbg("User requests to send email/attachments unencrypted");
                 //send unencrypted
-                MailWindow._justSend = true;
+                delete gMsgCompose.domWindow.tryEncrypt;
                 SendMessage();
                 Logger.dbg("********erasing password");
                 MailWindow._password = "";
@@ -557,7 +557,7 @@ var MailWindow = new function(){
            Logger.dbg("got empty message from encrypt");
            return;
          }
-         MailWindow._justSend = true;
+         delete gMsgCompose.domWindow.tryEncrypt;
          SendMessage();
          Logger.dbg("********erasing password");
          MailWindow._password = "";
@@ -572,7 +572,7 @@ var MailWindow = new function(){
         mailBody = "----TRYANGO START----" + mailBody + "----TRYANGO END----";
       }
       MailWindow._replaceBody(mailBody, origMailBody);
-      MailWindow._justSend = true;
+      delete gMsgCompose.domWindow.tryEncrypt;
       SendMessage();
       Logger.dbg("********erasing password");
       MailWindow._password = "";
@@ -616,13 +616,13 @@ var MailWindow = new function(){
 }
 /*
  * StateListener: this class listens to events on a specific compose-window. This is needed
- *		  for initialisation of EVERY compose-window (not ALL in general) and for
- *		  getting the body of a compose-window BEFORE thunderbird adds it's stuff.
- *		  E.g. we need to decrypt encrypted emails first! ("reply to" an encrypted email)
+ * for initialisation of EVERY compose-window (not ALL in general) and for
+ * getting the body of a compose-window BEFORE thunderbird adds it's stuff.
+ * E.g. we need to decrypt encrypted emails first! ("reply to" an encrypted email)
  *
  * Documentation:
- *	https://developer.mozilla.org/en-US/docs/User:codegroover/Compose_New_Message
- *	https://stackoverflow.com/questions/7414032/thunderbird-extension-load-event-seems-to-occur-only-once
+ *  https://developer.mozilla.org/en-US/docs/User:codegroover/Compose_New_Message
+ *  https://stackoverflow.com/questions/7414032/thunderbird-extension-load-event-seems-to-occur-only-once
  */
 ConfiComposeStateListener = {
 
@@ -634,6 +634,13 @@ ConfiComposeStateListener = {
 
   //after compose window started, before editing
   NotifyComposeFieldsReady: function(){
+//     for(var key in gMsgCompose.domWindow){
+//        Logger.dbg("-----key----"+key);
+//     }
+    gMsgCompose.domWindow.tryEncrypt = true;
+//     MailWindow.unencrypted.add(gMsgCompose.identity);
+//     gMsgCompose.unencrypted = true;
+
     //load preferences again
     MailWindow.reload();
     var angOnSendListener = {
@@ -825,7 +832,7 @@ ConfiComposeStateListener = {
       var status = CWrapper.post("verifySignature", [ciphertext, sender],decryptCallback);
 //         function(status, message){
 //         });
-// 
+//
 //       var status = CWrapper.verifySignature(plaintext, ciphertext, sender);
 //       if(status > 0 && status <= CWrapper.getMaxErrNum()){
 //         Logger.error("Signature failed with error:" +
@@ -1065,10 +1072,8 @@ if(typeof window != 'undefined'){ //only set-up if file is NOT imported
 
   // can use document.getElementById("msgcomposeWindow") instead of window
   window.addEventListener("compose-send-message", function(event){
-    Logger.dbg("compose-send-message justSending:" + MailWindow._justSend);
-    if(MailWindow._justSend){//to avoid infinite recursion
-      MailWindow._justSend = false;
-      Logger.dbg("compose-send-message  setting to false *************justSending:" + MailWindow._justSend);
+    if(!gMsgCompose.domWindow.tryEncrypt){
+      Logger.dbg("compose-send-message  not trying to encrypt");
       return;
     }
     var ret;
