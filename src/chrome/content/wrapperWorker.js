@@ -440,10 +440,8 @@ var Client = {
   },
 
   removeKeys: function(fingerprints){
-    Logger.dbg("to Remove keyIds length " + fingerprints.length);
     for(var i = 0; i < fingerprints.length; i++){
       var c_fingerprint = ctypes.char.array()(fingerprints[i]);
-      Logger.dbg("to Remove fingerprint " + fingerprints[i]);
       this.c_removeKey(c_fingerprint);
     }
     return {method: "removeKeys", args: []};

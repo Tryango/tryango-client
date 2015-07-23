@@ -1099,11 +1099,11 @@ function removeSelectedKeys(){
     CWrapper.post("removeKeys", [elements], function(){
       Logger.dbg("Filling keys after remeving selected Keys()");
       fillKeys(document.getElementById('lang_file'));
-      CWrapper.post("exportKeyPurse" [Prefs.getPref("keyPursePath"), ""], function(success){
+      CWrapper.post("exportKeyPurse" [Prefs.getPref("keyPursePath"), ""], function(success){//TODO: shouldn't that have password?
         if(!success){
           Dialogs.error(CWrapper.languagepack.getString("bak_keypurse_fail"));
         }
-      }); //TODO: shouldn't that have password?
+      }); 
     });
   }
 }

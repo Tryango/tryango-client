@@ -52,7 +52,7 @@ IF(WIN32 OR ${PROJECT_NAME}_static_protobuf)
       PREFIX ${protobuf_PREFIX}
       URL "https://github.com/google/protobuf/releases/download/v2.6.0/protobuf-2.6.0.tar.bz2"
       URL_MD5 "78253c509a055dab316a21e754cb278a"
-      CONFIGURE_COMMAND CXX=${CMAKE_CXX_COMPILER} CC=${CMAKE_C_COMPILER} ${protobuf_PREFIX}/src/protobuf/configure --prefix=${protobuf_PREFIX} --enable-shared=no
+      CONFIGURE_COMMAND CXX=${CMAKE_CXX_COMPILER} CC=${CMAKE_C_COMPILER} ${protobuf_PREFIX}/src/protobuf/configure --prefix=${protobuf_PREFIX} --disable-shared --with-pic
       BUILD_COMMAND $(MAKE)
       INSTALL_COMMAND $(MAKE) install
       BUILD_IN_SOURCE 1
