@@ -466,6 +466,8 @@ function infoOnLoad(){
 
 //helper functions
 function fillStatus(){
+  var button = document.getElementById("fillStatusBtn");
+  button.disabled = true;
   var tex_st = document.getElementById("tex_status");
   tex_st.value = CWrapper.languagepack.getString("info_waiting");
   tex_st.readOnly = true;
@@ -494,10 +496,12 @@ function fillStatus(){
         str += CWrapper.languagepack.getString("info_serverinfo") + "\n" + info; //...and display rest
       }
       tex_st.value = str;
+      button.disabled = false;
     });
   }
   else{
     tex_st.value = CWrapper.languagepack.getString("info_no_server_port");
+    button.disabled = false;
   }
 }
 
@@ -844,6 +848,8 @@ var devicesView = {
 
 
 function fillDevices(languagepack){
+  var button = document.getElementById("fillDevicesBtn");
+  button.disabled = true;
   //fill devices
   Utils.syncKeypurse();
   //set date for last update
@@ -910,10 +916,15 @@ function fillDevices(languagepack){
   }
   Logger.dbg("Setting devices view");
   document.getElementById("tree_devices").view = devicesView;
-  CWrapper.post("synchStub", [], function(){devicesView.canOpen = true});
+  CWrapper.post("synchStub", [], function(){
+    devicesView.canOpen = true
+    button.disabled = false;
+  });
 }
 
 function fillKeys(){
+  var button = document.getElementById("fillKeysBtn");
+  button.disabled = true;
   //set date for last update
   document.getElementById("tree_keys_updated").value = CWrapper.languagepack.getString("wizard_importKeyPage_lbl_waiting");
 
@@ -965,8 +976,11 @@ function fillKeys(){
     });
     CWrapper.post("synchStub", [], function(status, keys){
       document.getElementById("tree_keys_updated").value = new Date().toISOString();
+      button.disabled = false;
     });
-
+  }
+  if(addresses.length <1){
+    button.disabled = false;
   }
 }
 
@@ -992,23 +1006,15 @@ function treeAppend(tree, id, string, container, op=false){
   return item;
 }
 */
-
-function removeSelectedDevices(){
-  //nsITreeSelection: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsITreeSelection
-  //nsITreeView: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsITreeView#getCellText%28%29
+function _getDevicesToRemove(){
   var start = new Object();
   var end = new Object();
   var selected = document.getElementById("tree_devices").view.selection;
+  var toRemove = {};
   if(selected.getRangeCount() <= 0){
-	//no devices selected
-	return;
+    //no devices selected
+    return toRemove;
   }
-  //ask user if they really want to remove the devices
-  if(!Logger.promptService.confirm(null, "Trango", CWrapper.languagepack.getString("prompt_remove_device"))){
-    return;
-  }
-
-  //iterate over all selections
   var num = selected.getRangeCount();
   for(var i = 0; i < num; i++){
     //get selected indices
@@ -1034,14 +1040,31 @@ function removeSelectedDevices(){
         parent = devicesView.getCellText(parentindex, col);
         elements[0] = devicesView.getCellText(j, col);
       }
-
-	  //TODO: FIXME: this removes all devices not just the selected ones!
-
       //remove the devices
       if(devicesView.emails[parent] > 0){
-        removeDevices(parent, elements, false); //doNotPrompt = false => DO prompt
+        toRemove[parent]= elements;
       }
     }
+  }
+  return toRemove;
+}
+
+function removeSelectedDevices(){
+  //nsITreeSelection: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsITreeSelection
+  //nsITreeView: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsITreeView#getCellText%28%29
+  var toRemove = this._getDevicesToRemove();
+  Logger.dbg("remove devices size:" + Object.keys(toRemove).lengnth);
+  if(Object.keys(toRemove).length < 1){
+    //no devices selected
+    return;
+  }
+  //ask user if they really want to remove the devices
+  if(!Logger.promptService.confirm(null, "Trango", CWrapper.languagepack.getString("prompt_remove_device"))){
+    return;
+  }
+
+  for(var parent in toRemove){
+    removeDevices(parent, toRemove[parent], false); //doNotPrompt = false => DO prompt
   }
 }
 
@@ -1121,7 +1144,7 @@ function removeSelectedKeys(){
         if(!success){
           Dialogs.error(CWrapper.languagepack.getString("bak_keypurse_fail"));
         }
-      }); 
+      });
     });
   }
 }
