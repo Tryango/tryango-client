@@ -163,18 +163,18 @@ var Client = {
           , ctypes.char.ptr    //param 1 - hexFingerprint
           );
 
-   this.checkIfCanAdd = this.client.declare("checkIfCanAdd"// method name
+   this.c_checkIfCanAdd = this.client.declare("checkIfCanAdd"// method name
           , ctypes.default_abi //binary interface type
           , ctypes.uint32_t    //return type
-          , ctypes.char.ptr    //param 1 - path
-          , ctypes.char.ptr    //param 2 - password
+          , ctypes.char.ptr    //param 1 - keyStr
+          , ctypes.char.ptr    //param 2 - emayl
           );
 
-   this.importSecretKey = this.client.declare("importSecretKey"// method name
+   this.c_importSecretKey = this.client.declare("importSecretKey"// method name
           , ctypes.default_abi //binary interface type
           , ctypes.uint32_t    //return type
-          , ctypes.char.ptr    //param 1 - path
-          , ctypes.char.ptr    //param 2 - password
+          , ctypes.char.ptr    //param 1 - keyStr
+          , ctypes.char.ptr    //param 2 - email
           );
 
    this.c_exportKeyPurse = this.client.declare("exportKeyPurse"// method name
@@ -191,7 +191,7 @@ var Client = {
           , ctypes.bool        //param 2 - if to clear keypurse before import
           );
 
-   this.removeKeyPurse = this.client.declare("removeKeyPurse"// method name
+   this.c_removeKeyPurse = this.client.declare("removeKeyPurse"// method name
           , ctypes.default_abi //binary interface type
           , ctypes.bool        //return type
           , ctypes.char.ptr    //param 1 - path
@@ -426,6 +426,11 @@ var Client = {
     return {method: "importKeyPurse", args: [status]};
   },
 
+  removeKeyPurse: function(keyPursePath){
+    var success = this.c_importKeyPurse(keyPursePath);
+    return {method: "removeKeyPurse", args: [success]};
+  },
+
   exportKeyPurse: function (keyPursePath, password){
     var success = this.c_exportKeyPurse(keyPursePath, password);
     return {method: "exportKeyPurse", args: [success]};
@@ -434,6 +439,16 @@ var Client = {
   transferKeysFromInfo: function (hexFingerprint){
     var status = this.c_transferKeysFromInfo(hexFingerprint);
     return {method: "transferKeysFromInfo", args: [status]};
+  },
+
+  checkIfCanAdd: function(keyStr, email){
+    var status = this.c_checkIfCanAdd(keyStr, email);
+    return {method: "checkIfCanAdd", args: [status]};
+  },
+
+  importSecretKey: function(keyStr, email){
+    var status = this.c_importSecretKey(keyStr, email);
+    return {method: "importSecretKey", args: [status]};
   },
 
   removeKeys: function(fingerprints){

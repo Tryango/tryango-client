@@ -205,9 +205,8 @@ var Utils = new function()
         Logger.dbg("Backup prompt: YES");
 
         Logger.dbg("Export keypurse");
-        if(this.exportKeyPurse()){
+        if(Utils.exportKeyPurse()){
           Logger.dbg("exportKeyPurse done");
-
           //backup ok
           ret = true;
         }
@@ -241,12 +240,13 @@ var Utils = new function()
 
       //remove keypurse
       Logger.dbg("removing keypurse...");
-      if(!CWrapper.removeKeyPurse(Prefs.getPref("keyPursePath"))){
-        Logger.error("Could not remove keypurse: " +
-                     Prefs.getPref("keyPursePath"));
-        Dialogs.info(CWrapper.languagepack.getString("rm_keypurse_fail"));
-//         Logger.infoPopup(CWrapper.languagepack.getString("rm_keypurse_fail"));
-      }
+      CWrapper.post("removeKeyPurse", [Prefs.getPref("keyPursePath")], function(success){
+        if(!success){
+          Logger.error("Could not remove keypurse: " +
+                       Prefs.getPref("keyPursePath"));
+          Dialogs.error(CWrapper.languagepack.getString("rm_keypurse_fail"));
+        }
+      });
     }
     else{
       //no keypurse => everything good
@@ -267,6 +267,7 @@ var Utils = new function()
           removeDevices(identity, [machineID],  true); //doNotPrompt = true
         }
       }
+      CWrapper.post("synchStub", [], function(){fillDevices();});
     }
 
     return ret;
@@ -294,7 +295,6 @@ var Utils = new function()
               Logger.dbg("Done synchronising keypurse");
             }
           });
-//           let status = CWrapper.synchronizeSK(identity);
         }
       }
     }
@@ -1066,6 +1066,7 @@ function removeSelectedDevices(){
   for(var parent in toRemove){
     removeDevices(parent, toRemove[parent], false); //doNotPrompt = false => DO prompt
   }
+  CWrapper.post("synchStub", [], function(){fillDevices();});
 }
 
 function removeDevices(identity, devices,  doNotPrompt){
@@ -1086,7 +1087,6 @@ function removeDevices(identity, devices,  doNotPrompt){
         );
         //update list
       }
-      fillDevices();
     });
   //DONE in CWrapper: (remDev) remove ap from Pwmgr too if this device was deleted too.
 }

@@ -175,33 +175,34 @@ var MailListener = new function() {
     let device = Prefs.getPref("machineID");
     var sender = header.author.substring(header.author.indexOf("<") + 1,
                                            header.author.indexOf(">"));
-    if(reqDevice && (reqDevice.length > 0) &&reqDevice != device){
+    if(reqDevice && (reqDevice.length > 0) && reqDevice != device ){
       MsgHdrToMimeMessage(header, null, function (aMsgHdr, aMimeMessage) {
         // do something with aMimeMessage:
         let keyStr = aMimeMessage.coerceBodyToPlaintext();
         let start = keyStr.search("-----BEGIN PGP MESSAGE-----");
         let end = keyStr.search("-----END PGP MESSAGE-----");
-        var decryptedMail = {str : ""};
+//         var decryptedMail = {str : ""};
         if(start != -1 && end != -1){
           Logger.dbg("PGP message found");
-          var status = CWrapper.decryptMail(decryptedMail, keyStr.substr(start, end - start + 25), sender);
-          Logger.dbg("Decrypt result:" + status);
-          if(status == 0){
-            start = decryptedMail.str.search("-----BEGIN PGP MESSAGE-----");
-            end = decryptedMail.str.search("-----END PGP MESSAGE-----");
-            if(start != -1 && end != -1){
-              keyStr = decryptedMail.str.substr(start, end - start + 25);
-              status = CWrapper.checkIfCanAdd(keyStr, sender);
-              Logger.dbg("checkIfCanAdd result:"+status);
-
-              var message = MailListener.languagepack.getString("key_add_question");
-              if(status == 0 && Logger.promptService.confirm(null, "Tryango", message)){
-                status = CWrapper.importSecretKey(keyStr, sender);
-                Logger.dbg("Added key with status" + status);
-                //TODO add sending of the key
+          CWrapper.decryptMail(keyStr.substr(start, end - start + 25), sender, "", function(status, decrypted){
+            Logger.dbg("Decrypt result:" + status);
+            if(status == 0){
+              start = decrypted.search("-----BEGIN PGP MESSAGE-----");
+              end = decrypted.search("-----END PGP MESSAGE-----");
+              if(start != -1 && end != -1){
+                keyStr = decrypted.substr(start, end - start + 25);
+                CWrapper.post("checkIfCanAdd", [keyStr, sender], function(status2){
+                  Logger.dbg("checkIfCanAdd result:" + status);
+                  var message = MailListener.languagepack.getString("key_add_question");
+                  if(status2 == 0 && Logger.promptService.confirm(null, "Tryango", message)){
+                    CWrapper.post("importSecretKey", [keyStr, sender], function(status3){
+                      Logger.dbg("Added key with status" + status3);
+                    });
+                  }
+                });
               }
             }
-          }
+          });
         }
       }, true);
       return true;
