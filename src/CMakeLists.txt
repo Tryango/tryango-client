@@ -72,7 +72,7 @@ ADD_CUSTOM_COMMAND(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/chrome.manifest
 FILE(GLOB_RECURSE XPI_DEPS chrome/content/* chrome/skin/* chrome/locale/*dtd chrome/locale/*properties defaults/*)
 SET(XPI_DEPS ${XPI_DEPS} ${CMAKE_CURRENT_BINARY_DIR}/chrome.manifest ${CMAKE_CURRENT_BINARY_DIR}/install.rdf ${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/en-US/about.html ${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/en-GB/about.html)
 
-FILE(GLOB_RECURSE GLOB_TEMP RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" chrome/content/* chrome/skin/* chrome/locale/*dtd chrome/locale/*properties defaults/*)
+FILE(GLOB_RECURSE GLOB_TEMP RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" chrome/content/* chrome/skin/* chrome/locale/*dtd chrome/locale/*properties chrome/locale/*html defaults/*)
 
 ADD_CUSTOM_TARGET(copy)
 
