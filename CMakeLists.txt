@@ -50,7 +50,7 @@ OPTION(${PROJECT_NAME}_static_zlib "Include zlib statically for ${PROJECT_NAME}.
 OPTION(${PROJECT_NAME}_static_bzip2 "Include bzip2 statically for ${PROJECT_NAME}." ON)
 OPTION(${PROJECT_NAME}_static_protobuf "Include protobuf statically for ${PROJECT_NAME}." ON)
 
-IF(NOT WIN32 AND ${PROJECT_NAME}_static_protobuf)
+IF((NOT WIN32) AND ${PROJECT_NAME}_static_protobuf)
   SET(protobuf_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/ThirdParty/protobuf)
   EXTERNALPROJECT_ADD(
       protobuf
@@ -63,10 +63,10 @@ IF(NOT WIN32 AND ${PROJECT_NAME}_static_protobuf)
       BUILD_IN_SOURCE 1
   )
   INCLUDE_DIRECTORIES(${protobuf_PREFIX}/include)
+  SET(PROTOBUF_GENERATOR ${protobuf_PREFIX}/bin/protoc)
 #   IF(WIN32)
   SET(PROTOBUF_LITE_LIBRARIES ${protobuf_PREFIX}/lib/libprotobuf-lite.a)
 #     IF(MINGW)
-#       SET(PROTOBUF_GENERATOR ${protobuf_PREFIX}/bin/protoc)
 #     ELSE(MINGW)
 #     ENDIF(MINGW)
 #   ELSE(WIN32)
