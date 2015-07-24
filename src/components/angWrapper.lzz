@@ -215,13 +215,6 @@ extern "C"{
   }
 
 
-  bool useExistentTryangoKey(const char* email
-                             ){
-    //TODO: implement (adjust return type to uint32_t if needed)
-    return false;
-  }
-
-
   uint32_t getDevices(char*** result
                       , uint32_t* resultSize
                       , char* hexAp
