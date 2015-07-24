@@ -323,9 +323,9 @@ var MailListener = new function() {
           MailListener._runningGetDev = false;
         }
         else{
-          let errorStr = CWrapper.getErrorStr(result);
+          let errorStr = CWrapper.getErrorStr(status);
           let err = this.languagepack.getString("signup_failed") + ": " +
-            this.languagepack.getString(errorStr) + " (" + result + ")";
+            this.languagepack.getString(errorStr) + " (" + status + ")";
           Dialogs.error(err + "\n(" + errorStr + ")");
           MailListener._runningGetDev = false;
         }

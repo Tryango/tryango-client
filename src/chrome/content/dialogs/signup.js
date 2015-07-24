@@ -641,10 +641,9 @@ function doSignup(email){
         Logger.error("Error signing up: " + strbundle.getString(errorStr));
         Dialogs.error(strbundle.getString("signup_error") + " " + strbundle.getString(errorStr) + " (" + status + ")");
       }
-      else{
-        Logger.dbg("deleting ap for email: " + email);
-        Pwmgr.setAp(email, "");//delete ap as it is invalid since we submitted to server
-      }
+//       else{
+//         Pwmgr.setAp(email, "");//we cannot delete AP as we may have already received email from server with the new AP
+//       }
     });
 }
 
