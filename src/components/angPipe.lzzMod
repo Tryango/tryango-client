@@ -21,35 +21,55 @@ class CmdPiper{
     int p1[2], p2[2];//, p3[2];
     int n;
     pid_t pid;
+    std::cout<<"runCmb 1"<<std::endl;
     pipe(p1);
+    std::cout<<"runCmb 2"<<std::endl;
     pipe(p2);
+    std::cout<<"runCmb 3"<<std::endl;
 /*     pipe(p3); */
     if ((pid = fork()) == 0) { /* child */
+      std::cout<<"runCmb child 1"<<std::endl;
       close(p1[1]);
+      std::cout<<"runCmb child 2"<<std::endl;
       close(p2[0]);
+      std::cout<<"runCmb child 3"<<std::endl;
 /*       close(p3[0]); */
       dup2(p1[0], 0); // set stdout of the process to the write end of the pipe
+      std::cout<<"runCmb child 4"<<std::endl;
       dup2(p2[1], 1); // set stdin of the process to the read end of the pipe
+      std::cout<<"runCmb child 5"<<std::endl;
 /*       dup2(p3[1], 2); // set stderr of the process to the read end of the pipe */
       execvp(cmd[0], cmd); // execute the program.
+      std::cout<<"runCmb child 6"<<std::endl;
       close(p1[0]);
+      std::cout<<"runCmb child 7"<<std::endl;
       close(p2[1]);
+      std::cout<<"runCmb child 8"<<std::endl;
 /*       close(p3[1]); */
       exit(0);
     }
     else if (pid == -1) { /* failed */
+      std::cout<<"runCmb falied 1"<<std::endl;
       exit(-1);
     }
     else { /* parent */
+      std::cout<<"runCmb parent 1"<<std::endl;
       close(p1[0]);
+      std::cout<<"runCmb parent 2"<<std::endl;
       close(p2[1]);
+      std::cout<<"runCmb parent 3"<<std::endl;
 /*       close(p3[1]); */
       output.clear();
+      std::cout<<"runCmb parent 4"<<std::endl;
       char buf[0x101] = {0};
+      std::cout<<"runCmb parent 5"<<std::endl;
       write(p1[1], input.c_str(), input.length());
+      std::cout<<"runCmb parent 6"<<std::endl;
       close(p1[1]);          /* Reader will see EOF */
+      std::cout<<"runCmb parent 7"<<std::endl;
       do{
         n = read(p2[0], buf, 0x100);
+      std::cout<<"runCmb parent while n="<<n<<std::endl;
         if(n<0){
           output.clear();
           return -1;
@@ -61,6 +81,7 @@ class CmdPiper{
         }
       }
       while (n>0);
+      std::cout<<"runCmb parent 8"<<n<<std::endl;
       close(p2[0]);
 /*       output.append("error:"); */
 /*       do{ */
@@ -72,7 +93,9 @@ class CmdPiper{
 /*       while (n>0); */
 /*       close(p3[0]); */
       int rpid;
+      std::cout<<"runCmb parent 9"<<n<<std::endl;
       wait(&rpid);
+      std::cout<<"runCmb parent 10"<<n<<std::endl;
       return WEXITSTATUS(rpid);
     }
 #else
@@ -85,8 +108,9 @@ class CmdPiper{
 #if !defined(_MSC_VER)
     const char *cmd[] = {command.c_str(), "--version", NULL};
     std::string output;
+    std::cout<<"Before has gpg"<<std::endl;
     int result = CmdPiper::runCmd(output, (char**)cmd, "");
-//    std::cout<<"Has gpg result:"<<result<<std::endl;
+    std::cout<<"Has gpg result:"<<result<<std::endl<<output<<std::endl;
     return (result == 0) && output.substr(0, 3) == "gpg";
 #else
     return false;//Not implemented for windows
