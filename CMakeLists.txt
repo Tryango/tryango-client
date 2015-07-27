@@ -19,11 +19,6 @@ include(CheckIncludeFile)
 include(CheckCXXCompilerFlag)
 include(ExternalProject)
 
-CHECK_CXX_COMPILER_FLAG("-std=c++11" CXX11)
-if (NOT CXX11)
-    MESSAGE(FATAL_ERROR "C++ compiler doesn't support C++11")
-endif()
-
 CHECK_INCLUDE_FILES("inttypes.h" HAVE_INTTYPES_H)
 CHECK_INCLUDE_FILES("netinet/in.h" HAVE_NETINET_IN_H)
 
@@ -50,28 +45,49 @@ OPTION(${PROJECT_NAME}_static_zlib "Include zlib statically for ${PROJECT_NAME}.
 OPTION(${PROJECT_NAME}_static_bzip2 "Include bzip2 statically for ${PROJECT_NAME}." ON)
 OPTION(${PROJECT_NAME}_static_protobuf "Include protobuf statically for ${PROJECT_NAME}." ON)
 
-IF((NOT WIN32) AND ${PROJECT_NAME}_static_protobuf)
-  SET(protobuf_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/ThirdParty/protobuf)
-  EXTERNALPROJECT_ADD(
-      protobuf
-      PREFIX ${protobuf_PREFIX}
-      URL "https://github.com/google/protobuf/releases/download/v2.6.0/protobuf-2.6.0.tar.bz2"
-      URL_MD5 "78253c509a055dab316a21e754cb278a"
-      CONFIGURE_COMMAND CXX=${CMAKE_CXX_COMPILER} CC=${CMAKE_C_COMPILER} ${protobuf_PREFIX}/src/protobuf/configure --prefix=${protobuf_PREFIX} --disable-shared --with-pic
-      BUILD_COMMAND $(MAKE)
-      INSTALL_COMMAND $(MAKE) install
-      BUILD_IN_SOURCE 1
-  )
-  INCLUDE_DIRECTORIES(${protobuf_PREFIX}/include)
-  SET(PROTOBUF_GENERATOR ${protobuf_PREFIX}/bin/protoc)
-#   IF(WIN32)
-  SET(PROTOBUF_LITE_LIBRARIES ${protobuf_PREFIX}/lib/libprotobuf-lite.a)
-#     IF(MINGW)
-#     ELSE(MINGW)
-#     ENDIF(MINGW)
-#   ELSE(WIN32)
-#     SET(PROTOBUF_LITE_LIBRARIES ${protobuf_PREFIX}/lib/libprotobuf-lite.a)
-#   ENDIF(WIN32)
+IF(${PROJECT_NAME}_static_protobuf)
+  IF(WIN32)
+  
+    SET(protobuf_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/ThirdParty/protobuf)
+    EXTERNALPROJECT_ADD(
+        protobuf
+        PREFIX ${protobuf_PREFIX}
+        GIT_REPOSITORY "https://github.com/google/protobuf.git"
+        #GIT_TAG "1647e63c57e2c2216da648e967686649e42a6346"
+        PATCH_COMMAND ${CMAKE_COMMAND} -E echo "ADD_SUBDIRECTORY(cmake)" > CMakeLists.txt
+        CMAKE_CACHE_ARGS -DBUILD_TESTING:BOOL=OFF
+        CMAKE_GENERATOR "NMake Makefiles"
+        CMAKE_ARGS -Wno-dev -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+        BUILD_COMMAND nmake
+        INSTALL_COMMAND ""
+        UPDATE_COMMAND "" #disables updates of google tests
+    )
+    INCLUDE_DIRECTORIES(${protobuf_PREFIX}/src/protobuf-build/cmake/include)
+    SET(PROTOBUF_GENERATOR ${protobuf_PREFIX}/src/protobuf-build/cmake/protoc.exe)
+    SET(PROTOBUF_LITE_LIBRARIES ${protobuf_PREFIX}/src/protobuf-build/cmake/libprotobuf-lite${CMAKE_STATIC_LIBRARY_SUFFIX})   
+    ExternalProject_Add_Step(protobuf extractIncludes
+      COMMENT "Extracting includes from Protobuf."
+      COMMAND ${protobuf_PREFIX}/src/protobuf-build/cmake/extract_includes.bat
+      WORKING_DIRECTORY ${protobuf_PREFIX}/src/protobuf-build/cmake
+      DEPENDEES build
+
+    )
+  ELSE(WIN32)
+    SET(protobuf_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/ThirdParty/protobuf)
+    EXTERNALPROJECT_ADD(
+        protobuf
+        PREFIX ${protobuf_PREFIX}
+        URL "https://github.com/google/protobuf/releases/download/v2.6.0/protobuf-2.6.0.tar.bz2"
+        URL_MD5 "78253c509a055dab316a21e754cb278a"
+        CONFIGURE_COMMAND CXX=${CMAKE_CXX_COMPILER} CC=${CMAKE_C_COMPILER} ${protobuf_PREFIX}/src/protobuf/configure --prefix=${protobuf_PREFIX} --disable-shared --with-pic
+        BUILD_COMMAND $(MAKE)
+        INSTALL_COMMAND $(MAKE) install
+        BUILD_IN_SOURCE 1
+    )
+    INCLUDE_DIRECTORIES(${protobuf_PREFIX}/include)
+    SET(PROTOBUF_GENERATOR ${protobuf_PREFIX}/bin/protoc)
+    SET(PROTOBUF_LITE_LIBRARIES ${protobuf_PREFIX}/lib/libprotobuf-lite${CMAKE_STATIC_LIBRARY_SUFFIX})
+   ENDIF(WIN32)
 ELSE()
   FIND_PACKAGE(Protobuf REQUIRED)
   IF(NOT PROTOBUF_FOUND)
@@ -190,7 +206,7 @@ IF(NOT CMAKE_BUILD_TYPE)
        SET(CMAKE_BUILD_TYPE Release CACHE STRING
            "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel." FORCE)
 ENDIF(NOT CMAKE_BUILD_TYPE)
-
+message(log ${CMAKE_BUILD_TYPE})
 ADD_SUBDIRECTORY("src")
 
 
