@@ -225,6 +225,7 @@ var Prefs = new function()
         break;
       }
     }
+
     var retVal = false;
 
     // Save the preference only and if only the type is bool, int or string.

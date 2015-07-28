@@ -288,9 +288,9 @@ var MailListener = new function() {
           try{
             var ap = Pwmgr.getAp(identity);
             if(ap != undefined && ap.length > 1){
-              CWrapper.post("getDevices", [identity, device], function(newAp, status, devices){
-                if(newHexAp.length > 2){
-                  Pwmgr.setAp(identity, newHexAp);
+              CWrapper.post("getDevices", [identity, device], function(newHexAp2, status, devices){
+                if(newHexAp2.length > 2){
+                  Pwmgr.setAp(identity, newHexAp2);
                 }
                 if(status == 0 && devices.length > 1){
                   MailListener._dosendEmail = true;
