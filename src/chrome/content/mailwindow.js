@@ -483,9 +483,13 @@ var MailWindow = new function(){
     if(this.encrypt || !this.sign){
       delete gMsgCompose.domWindow.tryEncrypt;
     }
-
-    gMsgCompose.compFields.forcePlainText = true;//TODO - check if this works -check if here is enough
-
+    var mCF = gMsgCompose.compFields;//TODO - check if this works -check if here is enough
+    if(mCF.forcePlainText == false && mCF.useMultipartAlternative == false){
+      mCF.useMultipartAlternative = true;
+    }
+    // code below is taken from Thunderbird source from mail/components/compose/content/MsgComposeCommands.js:2665
+    // we cancelled send event and now after encryption/signing we send it again so the code below is ending
+    // of function GenericSendMessage(msgType) - we resume the part after returning from calling event listener
 
     let nsIMsgCompDeliverMode= Components.interfaces.nsIDocumentEncoder;
 
