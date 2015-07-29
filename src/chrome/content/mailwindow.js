@@ -522,7 +522,7 @@ var MailWindow = new function(){
       ToggleWindowLock(false);
     }
 
-  } 
+  }
 
 
   this._encryptAttachments = function(recipients, sender, password, mailBody, msg_type){
@@ -576,11 +576,7 @@ var MailWindow = new function(){
 
   this._encryptBody = function(recipients, sender, password, mailBody,  msg_type){
     var origMailBody = "";
-    if(msg_type == nsIMsgCompDeliverMode.SaveAsDraft ||
-            msg_type == nsIMsgCompDeliverMode.SaveAs ||
-            msg_type == nsIMsgCompDeliverMode.Save ||
-            msg_type == nsIMsgCompDeliverMode.AutoSaveAsDraft
-      ){
+    if(MailWindow.isDraft(msg_type){
       origMailBody = mailBody;
     }
 
@@ -668,7 +664,8 @@ var MailWindow = new function(){
           }
           catch(ex){
             editor.insertText(origMailBody);
-        }
+          }
+          SetContentAndBodyAsUnmodified();//to prevent asking for saving
           //done
           return;
         }
