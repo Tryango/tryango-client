@@ -882,10 +882,10 @@ ConfiComposeStateListener = {
     }
     else{
       //clear signature only
-
       //TODO: is this code needed? shall "reply" check the signature again? (it should already have been checked before!)
       var sender = gCurrentIdentity.email;
       var status = CWrapper.post("verifySignature", [ciphertext, sender],decryptCallback);
+    }
   },
 
 
