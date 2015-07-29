@@ -452,29 +452,52 @@ extern "C"{
       lastPos = pos;
     }
     while(pos != std::string::npos);
+/*     if(sender != NULL){ */
+/*       users.insert(PktDo::stripId(sender)); //we encrypt for ourself */
+/*     } */
+    if(users.size() < 1 && sender == NULL) {
+      return ANG_NO_KEY_PRESENT;
+    }
+
+    if(users.size() > 0) {
+      alg = MessageHandler::chooseAlg(users, pubDb);
+      if(alg == CIPHER_ALGO_NONE){
+        return ANG_NO_KEY_PRESENT;
+      }
+      for(std::string uId:users){
+        PublicKeyPair* key = pubDb->getKey(uId);
+        if(key == NULL){
+          return ANG_NO_KEY_PRESENT;
+        }
+        PKT_public_key* pkey = key->getPEKey();
+        if(pkey == NULL){
+          return ANG_NO_KEY_PRESENT;
+        }
+        keys.push_back(pkey);
+      }
+    }
+    else{
+      alg = CIPHER_ALGO_AES256;
+    }
     if(sender != NULL){
-      users.insert(PktDo::stripId(sender)); //we encrypt for ourself
-    }
-    if(users.size() < 1) {
-      return ANG_NO_KEY_PRESENT;
+      SecretKeyPair* skp = client.getKeyDb()->getCurrentKey(sender);
+      if(skp == NULL){
+        return ANG_NO_KEY_PRESENT;
+/*         PublicKeyPair* key = pubDb->getKey(sender); */
+/*         if(key == NULL){ */
+/*           return ANG_NO_KEY_PRESENT; */
+/*         } */
+      }
+      else{
+        if(skp->getSEKey() == NULL){
+          return ANG_NO_KEY_PRESENT;
+        }
+        else{
+          keys.push_back(&(skp->getSEKey()->pkey));
+        }
+      }
     }
 
-    alg = MessageHandler::chooseAlg(users, pubDb);
-    if(alg == CIPHER_ALGO_NONE){
-      return ANG_NO_KEY_PRESENT;
-    }
-
-    for(std::string uId:users){
-      PublicKeyPair* key = pubDb->getKey(uId);
-      if(key == NULL){
-        return ANG_NO_KEY_PRESENT;
-      }
-      PKT_public_key* pkey = key->getPEKey();
-      if(pkey == NULL){
-        return ANG_NO_KEY_PRESENT;
-      }
-      keys.push_back(pkey);
-    }
     return ANG_OK;
   }
 

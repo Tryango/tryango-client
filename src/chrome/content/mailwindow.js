@@ -342,6 +342,10 @@ var MailWindow = new function(){
       }
       Logger.dbg("Sending mail to: " + recipients);
     }
+    else{
+      this.sign = false; //no need to sign drafts - we avoid asking password for encrypted keys
+      Logger.dbg("Not signing as we are saving draft only");
+    }
 
     /*************************
      * get body of the email
@@ -380,6 +384,7 @@ var MailWindow = new function(){
     Logger.dbg("mailBody:\n" + mailBody); //TODO: FIXME: the code above inserts empty lines every second line when saving drafts a second time!!! (it works the first time though)
     MailWindow._password = "";
     if(this.sign){
+      Logger.dbg("Getting password as we need to sign email");
       var ret = CWrapper.synchGetSignPassword(sender);//TODO: change to asynchronous
       if(ret.status != 0){
         if(ret.status == 21){//ANG_CANCEL
@@ -406,7 +411,7 @@ var MailWindow = new function(){
             this.sign = false;
           }
           else{
-            return 1;
+            return 1;//abort
           }
         }
       }
@@ -417,6 +422,7 @@ var MailWindow = new function(){
     }
     //check encrypt and sign again since it could have changed above!
     if(!this.encrypt && !this.sign){
+      Logger.dbg("No need to encrypt or sign - returning...");
       return 0;
     }
     /************
@@ -446,7 +452,7 @@ var MailWindow = new function(){
               document.getElementById("button-encrypt").removeAttribute("checked");
               ///send email
               delete gMsgCompose.domWindow.tryEncrypt;
-              SendMessage();
+              MailWindow._lateSend(msg_type);
               Logger.dbg("********erasing password");
               MailWindow._password = "";
             }
@@ -455,19 +461,67 @@ var MailWindow = new function(){
             }
           }
           else{
-            this._encryptAttachments(recipients, sender, this._password, mailBody);
+            this._encryptAttachments(recipients, sender, this._password, mailBody, msg_type);
           }
         }.bind(this)
       );
     }
     else{
-      this._encryptAttachments(recipients, sender, this._password, mailBody);
+      this._encryptAttachments(recipients, sender, this._password, mailBody, msg_type);
     }
     return 3;//postpone sending - it will be done from callbacks
   }
 
 
-  this._encryptAttachments = function(recipients, sender, password, mailBody){
+  this._lateSend = function(msg_type){
+    gMsgCompose.compFields.forcePlainText = true;//TODO - check if this works -check if here is enough
+
+
+    let nsIMsgCompDeliverMode= Components.interfaces.nsIDocumentEncoder;
+
+    var msgWindow = Components.classes["@mozilla.org/messenger/msgwindow;1"]
+                        .createInstance(Components.interfaces.nsIMsgWindow);
+
+    var gAutoSaving = (msg_type == nsIMsgCompDeliverMode.AutoSaveAsDraft);
+    try{
+      if (!gAutoSaving)
+      ToggleWindowLock(true);
+    // If we're auto saving, mark the body as not changed here, and not
+    // when the save is done, because the user might change it between now
+    // and when the save is done.
+    else{
+      SetContentAndBodyAsUnmodified();
+    }
+    var progress = Components.classes["@mozilla.org/messenger/progress;1"]
+                             .createInstance(Components.interfaces.nsIMsgProgress);
+    if (progress){
+//       progress.registerListener(progressListener);
+      if (msg_type == nsIMsgCompDeliverMode.Save ||
+          msg_type == nsIMsgCompDeliverMode.SaveAsDraft ||
+          msg_type == nsIMsgCompDeliverMode.AutoSaveAsDraft ||
+          msg_type == nsIMsgCompDeliverMode.SaveAsTemplate){
+        gSaveOperationInProgress = true;
+      }
+      else{
+        gSendOperationInProgress = true;
+      }
+    }
+    msgWindow.domWindow = window;
+    msgWindow.rootDocShell.allowAuth = true;
+    Logger.dbg("Late sending message with msg_type: "+  msg_type);
+    gMsgCompose.SendMsg(msg_type, getCurrentIdentity(),
+                        getCurrentAccountKey(), msgWindow, progress);
+
+    }
+    catch (ex) {
+      Logger.error("Late message sending FAILED: " + ex);
+      ToggleWindowLock(false);
+    }
+
+  } 
+
+
+  this._encryptAttachments = function(recipients, sender, password, mailBody, msg_type){
     /**************
      * attachments
      */
@@ -475,7 +529,7 @@ var MailWindow = new function(){
     if(attachBucket){
       if(attachBucket.firstChild == null){
         //no attachments
-        this._encryptBody(recipients, sender, password, mailBody);
+        this._encryptBody(recipients, sender, password, mailBody, msg_type);
       }
       else{
         AttachmentManager.encryptAttachments(attachBucket
@@ -495,7 +549,7 @@ var MailWindow = new function(){
                 Logger.dbg("User requests to send email/attachments unencrypted");
                 //send unencrypted
                 delete gMsgCompose.domWindow.tryEncrypt;
-                SendMessage();
+                MailWindow._lateSend(msg_type);
                 Logger.dbg("********erasing password");
                 MailWindow._password = "";
               }
@@ -503,7 +557,7 @@ var MailWindow = new function(){
                 //user abort -- do nothing
               }
             }
-            this._encryptBody(recipients, sender, password, mailBody);
+            this._encryptBody(recipients, sender, password, mailBody, msg_type);
           }.bind(this)
         );
       }
@@ -516,11 +570,16 @@ var MailWindow = new function(){
   }
 
 
-  this._encryptBody = function(recipients, sender, password, mailBody, draft){
+  this._encryptBody = function(recipients, sender, password, mailBody,  msg_type){
     var origMailBody = "";
-    if(draft){
+    if(msg_type == nsIMsgCompDeliverMode.SaveAsDraft ||
+            msg_type == nsIMsgCompDeliverMode.SaveAs ||
+            msg_type == nsIMsgCompDeliverMode.Save ||
+            msg_type == nsIMsgCompDeliverMode.AutoSaveAsDraft
+      ){
       origMailBody = mailBody;
     }
+
     if(this.encrypt){ //we proceed in case of encryption
       Logger.dbg("calling C: encryptSignMail(...)");
       CWrapper.post("encryptSignMail", [mailBody, recipients, sender, this.sign, this.encrypt, password],
@@ -558,7 +617,7 @@ var MailWindow = new function(){
            return;
          }
          delete gMsgCompose.domWindow.tryEncrypt;
-         SendMessage();
+         MailWindow._lateSend(msg_type);
          Logger.dbg("********erasing password");
          MailWindow._password = "";
        }
@@ -573,7 +632,7 @@ var MailWindow = new function(){
       }
       MailWindow._replaceBody(mailBody, origMailBody);
       delete gMsgCompose.domWindow.tryEncrypt;
-      SendMessage();
+      MailWindow._lateSend(msg_type);
       Logger.dbg("********erasing password");
       MailWindow._password = "";
     }
