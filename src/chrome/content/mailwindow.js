@@ -447,7 +447,6 @@ var MailWindow = new function(){
               document.getElementById("menu-encrypt").removeAttribute("checked");
               document.getElementById("button-encrypt").removeAttribute("checked");
               ///send email
-              delete gMsgCompose.domWindow.tryEncrypt;
               MailWindow._lateSend(msg_type);
               Logger.dbg("********erasing password");
               MailWindow._password = "";
@@ -481,6 +480,10 @@ var MailWindow = new function(){
   }
 
   this._lateSend = function(msg_type){
+    if(this.encrypt || !this.sign){
+      delete gMsgCompose.domWindow.tryEncrypt;
+    }
+
     gMsgCompose.compFields.forcePlainText = true;//TODO - check if this works -check if here is enough
 
 
@@ -552,7 +555,6 @@ var MailWindow = new function(){
                 ){
                 Logger.dbg("User requests to send email/attachments unencrypted");
                 //send unencrypted
-                delete gMsgCompose.domWindow.tryEncrypt;
                 MailWindow._lateSend(msg_type);
                 Logger.dbg("********erasing password");
                 MailWindow._password = "";
@@ -616,7 +618,6 @@ var MailWindow = new function(){
            Logger.dbg("got empty message from encrypt");
            return;
          }
-         delete gMsgCompose.domWindow.tryEncrypt;
          MailWindow._lateSend(msg_type);
          Logger.dbg("********erasing password");
          MailWindow._password = "";
@@ -631,10 +632,8 @@ var MailWindow = new function(){
         mailBody = "----TRYANGO START----" + mailBody + "----TRYANGO END----";
       }
       MailWindow._replaceBody(mailBody, origMailBody);
-      delete gMsgCompose.domWindow.tryEncrypt;
       MailWindow._lateSend(msg_type);
-      Logger.dbg("********erasing password");
-      MailWindow._password = "";
+      //we must not erase password yet
     }
     //Logger.dbg("Message after enrcypt;"+ mailBody);
   }
@@ -992,10 +991,12 @@ ConfiComposeStateListener = {
 function AngMsgSendListener(){
   this.onStartSending =
     function(aMsgID,aMsgSize){
-    if(!MailWindow.sign || MailWindow.encrypt){ //we proceed in case of clear sign only
+    if(!MailWindow.sign || MailWindow.encrypt ){ //we proceed in case of clear sign only
 //       Logger.dbg("not signing "+ MailWindow.sign + MailWindow.encrypt);
       return;
     }
+    delete gMsgCompose.domWindow.tryEncrypt;
+
     // when this event is fired, thunderbird has assembled the
     // mail it is to send in an temporary .eml file in the temp directory
     // first fetch temp directory (has nsIFile interface)
@@ -1076,11 +1077,12 @@ function AngMsgSendListener(){
 
     let tail = body.substring(msgEnd+19);
     Logger.dbg("head:"+head);
-    Logger.dbg("calling C: clearSignMail(...) to sign only with pw:" + MailWindow._password);
+//     Logger.dbg("calling C: clearSignMail(...) to sign only with pw:" + MailWindow._password);
 //     var enc_signed_mail = {str : ""};
 
     let ret = CWrapper.synchClearSignMail(msgBody, sender, MailWindow._password);
-//     MailWindow._password = "";
+
+//     MailWindow._password = ""; //function called twice sometimes - cannot remove password
       //check errors
     if(ret.status > 0 && ret.status <= CWrapper.getMaxErrNum()){
       Logger.error("Sign falied with error: " +
