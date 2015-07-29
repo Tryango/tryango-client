@@ -880,86 +880,12 @@ ConfiComposeStateListener = {
       var ret = CWrapper.synchDecryptMail(ciphertext);
       decryptCallback(ret.status, ret.decrypted);
     }
-//       var status = CWrapper.decryptMail(plaintext, ciphertext, "");
-//       if(status > 0 && status <= CWrapper.getMaxErrNum()){
-//         Logger.error("Decrypt failed with error:" +
-//                      this.languagepack.getString(CWrapper.getErrorStr(status)));
-//         //tell user
-//         Dialogs.error(this.languagepack.getString("mail_dec_failed") + " Error: " +
-//                      this.languagepack.getString(CWrapper.getErrorStr(status)));
-//         return;
-//       }
-//       plaintext = plaintext.str;
     else{
       //clear signature only
 
       //TODO: is this code needed? shall "reply" check the signature again? (it should already have been checked before!)
       var sender = gCurrentIdentity.email;
       var status = CWrapper.post("verifySignature", [ciphertext, sender],decryptCallback);
-//         function(status, message){
-//         });
-//
-//       var status = CWrapper.verifySignature(plaintext, ciphertext, sender);
-//       if(status > 0 && status <= CWrapper.getMaxErrNum()){
-//         Logger.error("Signature failed with error:" +
-//                      this.languagepack.getString(CWrapper.getErrorStr(status)));
-//         //tell user
-//         Dialogs.error(this.languagepack.getString("mail_dec_failed") + " Error: " +
-//                      this.languagepack.getString(CWrapper.getErrorStr(status)));
-//         return;
-//       }
-//       plaintext = ciphertext;
-    }
-
-    //write decrypted email back
-//     Logger.dbg("write decrypted email back");
-// 	  Logger.dbg("email:\n" + plaintext);
-//     editor.beginningOfDocument();
-//     editor.selectAll(); //replace everything (easier than handling ranges in thunderbird!)
-//     var mailEditor;
-//     try{
-//       mailEditor = editor.QueryInterface(Components.interfaces.nsIEditorMailSupport);
-//     }
-//     catch(ex){
-//       Logger.err("Could not load mailEditor");
-//       mailEditor = null; //no insertTextWithQuoatations
-//     }
-// 
-//     //insert head
-//     if(head){
-//       if(mailEditor){
-//         mailEditor.insertTextWithQuotations(head);
-//       }
-//       else{
-//         editor.insertText(head);
-//       }
-//     }
-// 
-//     //TODO: FIXME: we drop the header and the bgcolor in <body ...> here!
-//     //strip body out of email
-// // 	Logger.dbg("plaintext: " + plaintext);
-//     var match = plaintext.match(/<body[^>]*>([\s\S]*)<\/body>/i)
-//     if(match && match.length == 2){ // 2 cause "match" is an array: ["<body...> email </body>", "email"]
-//       plaintext = match[1];
-//     }
-// 
-//     //insert decrypted text as quotation (if it is not a draft!)
-//     //nsIEditorMailSupport: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsIEditorMailSupport#insertTextWithQuotations%28%29
-//     if(mailEditor && !draft){
-//       mailEditor.insertAsCitedQuotation(plaintext, "", true);
-//     }else{
-//       editor.insertText(plaintext);
-//       Logger.dbg("inserted email:\n" + editor.outputToString('text/plain', flags));
-//     }
-// 
-//     //insert tail
-//     if(tail){
-//       if(mailEditor){
-//         mailEditor.insertTextWithQuotations(tail);
-//       }else{
-//         editor.insertText(tail);
-//       }
-//     }
   },
 
 
@@ -975,22 +901,6 @@ ConfiComposeStateListener = {
   }
 }
 
-// function readFile(file){
-//   var data = "";
-//   var fstream = Components.classes["@mozilla.org/network/file-input-stream;1"].createInstance(Components.interfaces.nsIFileInputStream);
-//   var cstream = Components.classes["@mozilla.org/intl/converter-input-stream;1"].createInstance(Components.interfaces.nsIConverterInputStream);
-//   fstream.init(file, -1, 0, 0);
-//   cstream.init(fstream, "UTF-8", 0, 0);
-//   let (str = {}) {
-//     let read = 0;
-//     do {
-//       read = cstream.readString(0xffffffff, str);
-//       data += str.value;
-//     } while (read != 0);
-//   }
-//   cstream.close();
-//   return data;
-// }
 
 function AngMsgSendListener(){
   this.onStartSending =
