@@ -276,11 +276,7 @@ var MailWindow = new function(){
        msg_type == nsIMsgCompDeliverMode.Later){
       //normal send => continue
     }
-    else if(msg_type == nsIMsgCompDeliverMode.SaveAsDraft ||
-            msg_type == nsIMsgCompDeliverMode.SaveAs ||
-            msg_type == nsIMsgCompDeliverMode.Save ||
-            msg_type == nsIMsgCompDeliverMode.AutoSaveAsDraft
-           ){
+    else if(this.isDraft(msg_type)){
       //encrypt/decrypt drafts
       //draft => continue
       draft = true;
@@ -472,6 +468,17 @@ var MailWindow = new function(){
     return 3;//postpone sending - it will be done from callbacks
   }
 
+  this.isDraft = function(msg_type){
+    if (msg_type == nsIMsgCompDeliverMode.Save ||
+        msg_type == nsIMsgCompDeliverMode.SaveAsDraft ||
+        msg_type == nsIMsgCompDeliverMode.AutoSaveAsDraft ||
+        msg_type == nsIMsgCompDeliverMode.SaveAsTemplate){
+      return true;
+    }
+    else{
+      return false;
+    }
+  }
 
   this._lateSend = function(msg_type){
     gMsgCompose.compFields.forcePlainText = true;//TODO - check if this works -check if here is enough
@@ -495,11 +502,8 @@ var MailWindow = new function(){
     var progress = Components.classes["@mozilla.org/messenger/progress;1"]
                              .createInstance(Components.interfaces.nsIMsgProgress);
     if (progress){
-//       progress.registerListener(progressListener);
-      if (msg_type == nsIMsgCompDeliverMode.Save ||
-          msg_type == nsIMsgCompDeliverMode.SaveAsDraft ||
-          msg_type == nsIMsgCompDeliverMode.AutoSaveAsDraft ||
-          msg_type == nsIMsgCompDeliverMode.SaveAsTemplate){
+      progress.registerListener(progressListener);
+      if (MailWindow.isDraft(msg_type)){
         gSaveOperationInProgress = true;
       }
       else{
@@ -817,7 +821,7 @@ ConfiComposeStateListener = {
 
 
     function decryptCallback(status, decrypted){
-      if(status == 0 && decrypted.length > 0){
+      if((status == 0 || CWrapper.getMaxErrNum() <= status) && decrypted.length > 0){
         Logger.dbg("write decrypted email back");
         editor.beginningOfDocument();
         editor.selectAll(); //replace everything (easier than handling ranges in thunderbird!)
@@ -861,12 +865,15 @@ ConfiComposeStateListener = {
         if(tail){
           if(mailEditor){
             mailEditor.insertTextWithQuotations(tail);
-          }else{
+          }
+          else{
             editor.insertText(tail);
           }
         }
       }
-      //write decrypted email back
+      else{
+        Logger.error("Decrypting failed with status:"+status);
+      }
     }
 
     if(blockType == "MESSAGE"){

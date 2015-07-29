@@ -833,6 +833,7 @@ var CWrapper = {
                                      , c_mailBody
                                      , ""
                                      , ret.password);
+      Logger.dbg("Synch decrypting mail returned with status:" + status);
       var decrypted = "";
       if((ctypes.uint32_t(0)<resultSize)){
         if(status == 0 || status > this.getMaxErrNum()){ //ANG_OK
