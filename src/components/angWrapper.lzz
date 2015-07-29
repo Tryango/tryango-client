@@ -210,8 +210,9 @@ extern "C"{
   bool generateRsaKeys(char* userId
                        , char* password
                        , uint32_t size
+                       , uint64_t validity
                        ){
-    return client.generateRsaKeys(PktDo::stripId(std::string(userId)), std::string(password), size);
+    return client.generateRsaKeys(PktDo::stripId(std::string(userId)), std::string(password), size, (time_t)validity);
   }
 
 

@@ -317,6 +317,8 @@ function comparePw(){
   var label = document.getElementById("ang_pw_nomatch");
   var vspace = document.getElementById("ang_vspace");
   var wizard = getWizard();
+  var passwordOk = false;
+  var dateOk = false;
   //check if password matches
   if(!pw2.hasAttribute("disabled") &&
      (pw1.value != pw2.value)){
@@ -324,14 +326,29 @@ function comparePw(){
     //=> disallow continue, show label
     label.removeAttribute("hidden");
     vspace.setAttribute("hidden", "true");
-    wizard.canAdvance = false;
-  }else{
+    passwordOk = false;
+  }
+  else{
     //passwords match or pw2 is disabled
     //=> allow continue, hide label
     vspace.removeAttribute("hidden");
     label.setAttribute("hidden", "true");
-    wizard.canAdvance = true;
+    passwordOk = true;
   }
+  var checkbox = document.getElementById("ang_datepickerbox");
+  if(checkbox.hasAttribute("checked")){
+    dateOk = true;
+  }
+  else{
+    var now = new Date();
+    let datebox = document.getElementById("ang_datepicker");
+    if(now < datebox.dateValue){
+      dateOk = true;
+    }
+  }
+
+  wizard.canAdvance = passwordOk && dateOk;
+
 }
 
 function setDateVisibility(){
@@ -341,9 +358,11 @@ function setDateVisibility(){
   //show datebox if checkbox set
   if(checkbox.hasAttribute("checked")){
     datebox.setAttribute("disabled", "true");
-  }else{
+  }
+  else{
     datebox.removeAttribute("disabled");
   }
+  comparePw();
 }
 
 
@@ -657,8 +676,15 @@ function generateKey(){
   if (keySize == 0){
     keySize = 1024;
   }
+  var validity = 0;
+  var checkbox = document.getElementById("ang_datepickerbox");
+  if(!checkbox.hasAttribute("checked")){
+    let datebox = document.getElementById("ang_datepicker");
+    var now = new Date().now;
+    validity = parseInt((datebox.dateValue.getTime() - Date.now()) / 100);
+  }
   //create key
-  CWrapper.post("generateRsaKeys", [email, password, keySize], function(success){
+  CWrapper.post("generateRsaKeys", [email, password, keySize, validity], function(success){
     if(success){
       CWrapper.post("exportKeyPurse", [Prefs.getPref("keyPursePath"), ""], function(success2){
         if(success2){
@@ -689,10 +715,22 @@ function importKey(email){
   }
   var fingerprint = tree.view.getCellText(index, col);
 
+  var checkbox = document.getElementById("ang_datepickerbox");
+  var datebox = document.getElementById("ang_datepicker");
+  //show datebox if checkbox set
+  if(checkbox.hasAttribute("checked")){
+    datebox.setAttribute("disabled", "true");
+  }
+  else{
+    datebox.removeAttribute("disabled");
+  }
+
+
   //import key
   var status = CWrapper.post("transferKeysFromInfo", [fingerprint],
     function(status){
       if(status == 0){
+
         CWrapper.post("exportKeyPurse",[Prefs.getPref("keyPursePath"), ""],//TODO: change "" to password here too?
           function(success){
             if(success){

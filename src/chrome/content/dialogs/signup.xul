@@ -163,7 +163,11 @@
                   label="&wizard.createKeyPage.noexpire;"
                   />
         <spacer type="block" width="15" />
-        <datepicker id="ang_datepicker" type="popup" value="getTodayPlusYear();" disabled="true"/>
+        <datepicker id="ang_datepicker" type="popup"
+                    value="getTodayPlusYear();"
+                    disabled="true"
+                    onchange='comparePw();'
+                    />
       </hbox>
       <hbox align="left">
       <label id="ang_adv_size" value="&wizard.createKeyPage.keysize;" />

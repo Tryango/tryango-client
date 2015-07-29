@@ -165,6 +165,7 @@
         </button>
         <!-- remove button -->
         <button label="&settings.buttonremove;"
+                id="removeKeysBtn"
                 width="100"
                 oncommand="removeSelectedKeys();">
         </button>

@@ -725,7 +725,10 @@ ConfiComposeStateListener = {
     //TODO: FIXME: temporary solution - it would be good to get the xheader "X-Mozilla-Draft-Info: internal/draft;"
     //check if message is a draft by checking where it is stored (URI)
     //=> if it is a draft, the folder Draft should be included
-    var draft = gMsgCompose.originalMsgURI.match(/Draft/g) != null;
+//     Logger.log("Draft id:"+gMsgCompose.compFields.draftId);
+//     Logger.log("Message id:"+gMsgCompose.compFields.messageId);
+//     var draft = gMsgCompose.originalMsgURI.match(/Draft/g) != null;
+    var draft = (gMsgCompose.compFields.draftId && gMsgCompose.compFields.draftId.length >0);
     Logger.dbg("draft: " + draft);
 
     //called after email body is loaded (with quotations in the beginning!)
@@ -767,55 +770,58 @@ ConfiComposeStateListener = {
       Logger.error("block type not a valid PGP block");
       return;
     }
+//     if(draft){
+// 
+//     }
+//     else{
+      var beginIndex = beginIndexObj.value;
+      var endIndex   = endIndexObj.value;
 
-    var beginIndex = beginIndexObj.value;
-    var endIndex   = endIndexObj.value;
+      var head = body.substr(0, beginIndex);
+      var tail = body.substr(endIndex + 1);
 
-    var head = body.substr(0, beginIndex);
-    var tail = body.substr(endIndex + 1);
+      //get ciphertext from "BEGIN PGP" on
+      var ciphertext = body.substr(beginIndex, endIndex - beginIndex + 1);
+      var indentRegexp;
+      if (indent) {
+        // MULTILINE MATCHING ON
+        RegExp.multiline = true;
 
-    //get ciphertext from "BEGIN PGP" on
-    var ciphertext = body.substr(beginIndex, endIndex - beginIndex + 1);
-    var indentRegexp;
-    if (indent) {
-      // MULTILINE MATCHING ON
-      RegExp.multiline = true;
+        if (indent == "> ") {
+          // replace ">> " with "> > " to allow correct quoting
+          ciphertext = ciphertext.replace(/^>>/g, "> >");
+        }
 
-      if (indent == "> ") {
-        // replace ">> " with "> > " to allow correct quoting
-        ciphertext = ciphertext.replace(/^>>/g, "> >");
-      }
-
-      // Delete indentation
-      indentRegexp = new RegExp("^"+indent, "g");
-
-      ciphertext = ciphertext.replace(indentRegexp, "");
-      //tail     =     tail.replace(indentRegexp, "");
-
-      if (indent.match(/[ \t]*$/)) {
-        indent = indent.replace(/[ \t]*$/g, "");
-        indentRegexp = new RegExp("^"+indent+"$", "g");
+        // Delete indentation
+        indentRegexp = new RegExp("^"+indent, "g");
 
         ciphertext = ciphertext.replace(indentRegexp, "");
+        //tail     =     tail.replace(indentRegexp, "");
+
+        if (indent.match(/[ \t]*$/)) {
+          indent = indent.replace(/[ \t]*$/g, "");
+          indentRegexp = new RegExp("^"+indent+"$", "g");
+
+          ciphertext = ciphertext.replace(indentRegexp, "");
+        }
+
+
+        // Handle blank indented lines
+        ciphertext = ciphertext.replace(/^[ \t]*>[ \t]*$/g, "");
+        //tail     =     tail.replace(/^[ \t]*>[ \t]*$/g, "");
+
+        // Trim leading space in tail
+        tail = tail.replace(/^\s*\n/, "\n");
+
+        // MULTILINE MATCHING OFF
+        RegExp.multiline = false;
       }
 
-
-      // Handle blank indented lines
-      ciphertext = ciphertext.replace(/^[ \t]*>[ \t]*$/g, "");
-      //tail     =     tail.replace(/^[ \t]*>[ \t]*$/g, "");
-
-      // Trim leading space in tail
-      tail = tail.replace(/^\s*\n/, "\n");
-
-      // MULTILINE MATCHING OFF
-      RegExp.multiline = false;
-    }
-
-    if (tail.search(/\S/) < 0) {
-      // No non-space characters in tail; delete it
-      tail = "";
-    }
-
+      if (tail.search(/\S/) < 0) {
+        // No non-space characters in tail; delete it
+        tail = "";
+      }
+//     }
     //decrypt email
     Logger.dbg("decrypting email...");
 
@@ -833,7 +839,6 @@ ConfiComposeStateListener = {
           Logger.error("Could not load mailEditor");
           mailEditor = null; //no insertTextWithQuoatations
         }
-
         //insert head
         if(head){
           if(mailEditor){
@@ -855,7 +860,16 @@ ConfiComposeStateListener = {
         //insert decrypted text as quotation
         //nsIEditorMailSupport: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsIEditorMailSupport#insertTextWithQuotations%28%29
         if(mailEditor){
-          mailEditor.insertAsCitedQuotation(decrypted, "", true);
+          if(draft){
+            Logger.dbg("insertAsQuotation");
+            mailEditor.insertTextWithQuotations(decrypted);
+//             mailEditor.insertAsQuotation(decrypted, "", true);
+//             editor.insertText(decrypted);
+          }
+          else{
+            Logger.dbg("insertAsCitedQuotation");
+            mailEditor.insertAsCitedQuotation(decrypted, "", true);
+          }
         }
         else{
           editor.insertText(decrypted);

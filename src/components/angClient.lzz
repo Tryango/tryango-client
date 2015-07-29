@@ -205,9 +205,10 @@ class ConfiClient
 
   inline bool generateRsaKeys(const std::string& userId
                               , const std::string& password
-                              , uint32_t size=4096
+                              , const uint32_t size = 4096
+                              , const time_t validity = 0
                               ){
-    const bool result = keyDb.generateRsaKeys(userId, password,  size);
+    const bool result = keyDb.generateRsaKeys(userId, password,  size, validity);
     log("Generating keys for identity: " + userId + " was "+(result?"successful":"unsuccessful") + ".");
     return result;
   }

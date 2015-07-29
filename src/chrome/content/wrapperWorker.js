@@ -108,6 +108,7 @@ var Client = {
           , ctypes.char.ptr    // param 1 userId
           , ctypes.char.ptr    // param 2 - password
           , ctypes.uint32_t    //param 3 - size of the keys
+          , ctypes.uint64_t    //param 3 - validity of the keys
           );
 
    this.c_getDevices = this.client.declare("getDevices"// method name
@@ -416,8 +417,8 @@ var Client = {
     return {method: "hasGpg", args: [success]};
   },
 
-  generateRsaKeys: function (userId, password, keySize){
-    var success = this.c_generateRsaKeys(userId, password, keySize);
+  generateRsaKeys: function (userId, password, keySize, validity){
+    var success = this.c_generateRsaKeys(userId, password, keySize, validity);
     return {method: "generateRsaKeys", args: [success]};
   },
 

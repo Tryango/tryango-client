@@ -485,9 +485,9 @@ class KeyDb{
     return ANG_OK;
   }
 
-  bool generateRsaKeys(const std::string& userId, const std::string& password, uint32_t size=4096){
+  bool generateRsaKeys(const std::string& userId, const std::string& password, const uint32_t size=4096, const time_t validity = 0){
     SecretKeyPair* key = new SecretKeyPair;
-    if(key->generateRsaKeys(userId, password, size)){
+    if(key->generateRsaKeys(userId, password, size, validity)){
       bool status = addKey(key);
       KeyList list = (userIdDb[userId]);
     //List is sorted by date

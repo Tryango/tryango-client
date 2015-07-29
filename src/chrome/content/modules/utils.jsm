@@ -366,7 +366,8 @@ var Utils = new function()
       //expired dates red
       if(expire.getTime() < Date.now()){
         cell.setAttribute("properties", "redCell");
-      }else{
+      }
+      else{
         cell.setAttribute("properties", "greenCell");
       }
     }
@@ -1092,6 +1093,9 @@ function removeDevices(identity, devices,  doNotPrompt){
 }
 
 function removeSelectedKeys(){
+  var button = document.getElementById("removeKeysBtn");
+  button.disabled = true;
+
   var lang = document.getElementById('lang_file');
   var start = new Object();
   var end = new Object();
