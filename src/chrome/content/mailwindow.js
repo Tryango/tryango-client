@@ -576,7 +576,7 @@ var MailWindow = new function(){
 
   this._encryptBody = function(recipients, sender, password, mailBody,  msg_type){
     var origMailBody = "";
-    if(MailWindow.isDraft(msg_type){
+    if(MailWindow.isDraft(msg_type)){
       origMailBody = mailBody;
     }
 
