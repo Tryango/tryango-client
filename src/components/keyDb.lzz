@@ -455,12 +455,12 @@ class KeyDb{
     std::vector<PACKET> packets;
     Confi_Status status;
     status = PacketParser::parsePackets(packets, keyData);
-    if(status==ANG_OK){
+    if(status == ANG_OK){
       if (clearOld){
         clearDb();
       }
       status = addPackets(packets, filterId);
-      if(status!=ANG_OK){
+      if(status != ANG_OK){
         std::cout<<"Error while adding parsed packets, status:"<<status<<std::endl;
       }
     }
@@ -470,7 +470,6 @@ class KeyDb{
 
   Confi_Status readFromFile(const std::string& fileName, bool clearOld, const std::string& filterId)
   {
-    std::cout<<"readefromfile:"<<fileName<<std::endl;
     std::ifstream file (fileName, std::ios::in|std::ios::binary|std::ios::ate);
     if (file.is_open()){
       std::streampos size;
@@ -484,6 +483,7 @@ class KeyDb{
       return status;
     }
     else{
+      std::cout<<"Could not open file:"<<fileName<<std::endl;
       return ANG_PARSE_ERROR;
     }
     return ANG_OK;
