@@ -294,11 +294,11 @@ class KeyDb{
     *noKeys = kl.size();
     std::cout<<"getKeysInfo:list size:"<<kl.size()<<" id:"<<id<<std::endl;
 
-    *keysInfo = (char**) malloc((*noKeys)*sizeof(char*));
+    *keysInfo = (char**) malloc((*noKeys) * sizeof(char*));
     for (uint32_t i = 0; i < (*noKeys); i++){
       std::string info = getKeyInfo(kl.at((*noKeys) - (i + 1)));
-      (*keysInfo)[i] = (char*) malloc((info.size() + 1)*sizeof(char));
-      memcpy((*keysInfo)[i], info.c_str(), info.size()*sizeof(char));
+      (*keysInfo)[i] = (char*) malloc((info.size() + 1) * sizeof(char));
+      memcpy((*keysInfo)[i], info.c_str(), info.size() * sizeof(char));
       //watch out! info.size()+1 is one character after the last character!
       (*keysInfo)[i][info.size()]='\0';
     }
@@ -341,9 +341,11 @@ class KeyDb{
       if(userIdDb[uId].size() > 0){
         SecretKeyPair* skp = getCurrentKey(uId);
         if (skp == NULL){
+          std::cout<<"No current secret key for identity:" << userId << std::endl;
           return ANG_NO_KEY_PRESENT;
         }
         if (skp->hasSExpired()){
+          std::cout<<"Expired secret key for identity:" << userId << std::endl;
           return ANG_SIGKEY_EXPIRED;//37
         }
         fingerprint = skp->getSSKey()->pkey.fingerprint;
@@ -352,6 +354,9 @@ class KeyDb{
           return status;
         }
       }
+    }
+    else{
+      std::cout<<"No secret keys for identity:" << userId << std::endl;
     }
     return ANG_NO_KEY_PRESENT;
   }

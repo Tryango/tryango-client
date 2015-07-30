@@ -412,7 +412,6 @@ var CWrapper = {
     var keyIdSize = new ctypes.uint32_t;
     var c_password = ctypes.char.array()(password);
     var c_sender = ctypes.char.array()(sender);
-    Logger.log("checking pk Synchr for keyid:" + keyId + " and sender:" + sender);
     var status = this.c_checkPassword(keyId.address()
                                    , keyIdSize.address()
                                    , c_sender

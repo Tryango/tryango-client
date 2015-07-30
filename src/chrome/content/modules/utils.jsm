@@ -117,15 +117,21 @@ var Utils = new function()
       var res = fp.show();
       if(res == nsIFilePicker.returnOK || res == nsIFilePicker.returnReplace){
         CWrapper.post("importKeyPurse", [fp.file.path, false], function(status){
-        if(status == 0){
-          Utils.syncKeypurse();
-          Dialogs.info(CWrapper.languagepack.getString("imp_keypurse_ok"));
-        }
+          if(status == 0){
+            Utils.syncKeypurse();
+            CWrapper.post("exportKeyPurse", [Prefs.getPref("keyPursePath"), ""], function(success){ //TODO: password?
+              if(status == 0){
+                Dialogs.info(CWrapper.languagepack.getString("imp_keypurse_ok"));
+              }
+              else{
+                Dialogs.error(CWrapper.languagepack.getString("wizard_importKeyPage_errorWritingKP"));
+              }
+            });
+          }
           else{
             Dialogs.error(CWrapper.languagepack.getString("imp_keypurse_fail"));
           }
         });
-
       }
 
     }
