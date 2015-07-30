@@ -105,28 +105,28 @@ var Utils = new function()
       Dialogs.error(CWrapper.languagepack.getString("imp_keypurse_fail"));
     }
     else{
-    var fp = Components.classes["@mozilla.org/filepicker;1"].createInstance(
+      var fp = Components.classes["@mozilla.org/filepicker;1"].createInstance(
       Components.interfaces.nsIFilePicker);
     //filters:
-    fp.appendFilter("Keypurses", "*.purse; *.gpg; *.pgp; *.asc; *,txt"); //only key purses
-    fp.appendFilter("All files", "*");
-    fp.init(this.window, CWrapper.languagepack.getString("sel_keypurse_imp"),
-            Components.interfaces.nsIFilePicker.modeOpen);
-
-    //check result
-    var res = fp.show();
-    if(res != Components.interfaces.nsIFilePicker.returnCancel){
-      CWrapper.post("importKeyPurse", [Prefs.getPref("keyPursePath"), true], function(status){
+      fp.appendFilter("Keypurses", "*.purse; *.gpg; *.pgp; *.asc; *,txt"); //only key purses
+      fp.appendFilter("All files", "*");
+      var nsIFilePicker = Components.interfaces.nsIFilePicker;
+      fp.init(this.window, CWrapper.languagepack.getString("sel_keypurse_imp"), nsIFilePicker.modeOpen);
+      
+      //check result
+      var res = fp.show();
+      if(res == nsIFilePicker.returnOK || res == nsIFilePicker.returnReplace){
+        CWrapper.post("importKeyPurse", [fp.file.path, false], function(status){
         if(status == 0){
           Utils.syncKeypurse();
           Dialogs.info(CWrapper.languagepack.getString("imp_keypurse_ok"));
         }
-        else{
-          Dialogs.error(CWrapper.languagepack.getString("imp_keypurse_fail"));
-        }
-      });
+          else{
+            Dialogs.error(CWrapper.languagepack.getString("imp_keypurse_fail"));
+          }
+        });
 
-    }
+      }
 
     }
   }
