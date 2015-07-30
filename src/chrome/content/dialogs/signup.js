@@ -689,6 +689,7 @@ function generateKey(){
       CWrapper.post("exportKeyPurse", [Prefs.getPref("keyPursePath"), ""], function(success2){
         if(success2){
           Logger.dbg("Keypurse saved");
+          CWrapper.keyPurseNeedsBackup = true;
         }
         else{
           //error saving keypurse

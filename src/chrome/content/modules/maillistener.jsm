@@ -384,15 +384,19 @@ var MailListener = new function() {
   };
 
   this.askUserToBackup = function(){
-    if(Logger.promptService.confirm(null, "Tryango",
-                                    this.languagepack.getString("prompt_user_backup"))){
-      //backup
-      Logger.dbg("backing up keys");
-      Utils.exportKeyPurse(this.languagepack);
-    }
-    else{
-      //no backup
-      Logger.log("user refused to do a backup of Tryango credentials");
+    //ask user to do backup only if we generated new key - otherwise user have key in some form
+    if(CWrapper.keyPurseNeedsBackup){
+      if(Logger.promptService.confirm(null, "Tryango",
+                                      this.languagepack.getString("prompt_user_backup"))){
+        //backup
+        Logger.dbg("backing up keys");
+        Utils.exportKeyPurse(this.languagepack);
+      }
+      else{
+        //no backup
+        Logger.log("user refused to do a backup of Tryango credentials");
+      }
+      delete CWrapper.keyPurseNeedsBackup;
     }
   };
 
