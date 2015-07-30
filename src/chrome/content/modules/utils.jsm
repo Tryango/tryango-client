@@ -683,9 +683,14 @@ var devicesView = {
   isSeparator: function(row){ return false; },
   isSorted: function(){ return false; },
   getImageSrc: function(row,col){ return null; },
-  getRowProperties: function(row,props){},
-  getCellProperties: function(row,col,props){},
-  getColumnProperties: function(colid,col,props){},
+  getRowProperties: function(row){ },
+  getCellProperties: function(row, col){
+    if(this.rows[row] == Prefs.getPref("machineID")){
+      return 'redCell';
+    }
+    else return '';
+  },
+  getColumnProperties: function(colid,col){return ''},
   cycleCell: function(idx, column) {},
   cycleHeader: function(col, elem) {},
 
@@ -741,10 +746,12 @@ var devicesView = {
   setIdentityContent: function(identity, content){
 //     this.openAll();
     var parent = this.rowRealCount - 1;
+    Logger.log("last parent:" + parent + " identity:"+identity);
     if(this.parent[parent] != -1){
       parent = this.parent[parent];
     }
     while(parent > -1 && identity != this.rows[parent]){
+      Logger.log("next step parent:" + parent + 'row[parent'+ this.rows[parent]);
       parent--;
       if(parent > 0 && this.parent[parent] != -1){
         parent = this.parent[parent];
