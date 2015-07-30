@@ -746,12 +746,12 @@ var devicesView = {
   setIdentityContent: function(identity, content){
 //     this.openAll();
     var parent = this.rowRealCount - 1;
-    Logger.log("last parent:" + parent + " identity:"+identity);
+    Logger.dbg("last parent:" + parent + " identity:"+identity);
     if(this.parent[parent] != -1){
       parent = this.parent[parent];
     }
     while(parent > -1 && identity != this.rows[parent]){
-      Logger.log("next step parent:" + parent + 'row[parent'+ this.rows[parent]);
+      Logger.dbg("next step parent:" + parent + 'row[parent'+ this.rows[parent]);
       parent--;
       if(parent > 0 && this.parent[parent] != -1){
         parent = this.parent[parent];
@@ -781,10 +781,10 @@ var devicesView = {
         if(added > 0){
           for(i = this.rowRealCount - 1; i > lastChild; i--){
             this.rows[i + added] = this.rows[i];
-            this.parent[i + added] = this.parent[i];
-            if(this.parent[i] > lastChild + 1){
-              this.parent[i] += added;
-            }
+            this.parent[i + added] = this.parent[i] + added;
+//             if(this.parent[i] > lastChild + 1){
+//               this.parent[i] += added;
+//             }
             this.isopen[i + added] = true;
             this.closedNo[i + added] = 0;
           }
@@ -792,10 +792,10 @@ var devicesView = {
         else{
           for(i = lastChild + 1; i < (this.rowRealCount + added); i++){
             this.rows[i] = this.rows[i - added];
-            this.parent[i] = this.parent[i - added];
-            if(this.parent[i] > lastChild + 1){
-              this.parent[i] += added;
-            }
+            this.parent[i] = this.parent[i - added] + added;
+//             if(this.parent[i] > lastChild + 1){
+//               this.parent[i] += added;
+//             }
             this.isopen[i] = true;
             this.closedNo[i] = 0;
           }
