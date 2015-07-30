@@ -781,10 +781,10 @@ var devicesView = {
         if(added > 0){
           for(i = this.rowRealCount - 1; i > lastChild; i--){
             this.rows[i + added] = this.rows[i];
-            this.parent[i + added] = this.parent[i] + added;
-//             if(this.parent[i] > lastChild + 1){
-//               this.parent[i] += added;
-//             }
+            this.parent[i + added] = this.parent[i];
+            if(this.parent[i] > 0){
+              this.parent[i] += added;
+            }
             this.isopen[i + added] = true;
             this.closedNo[i + added] = 0;
           }
@@ -792,10 +792,10 @@ var devicesView = {
         else{
           for(i = lastChild + 1; i < (this.rowRealCount + added); i++){
             this.rows[i] = this.rows[i - added];
-            this.parent[i] = this.parent[i - added] + added;
-//             if(this.parent[i] > lastChild + 1){
-//               this.parent[i] += added;
-//             }
+            this.parent[i] = this.parent[i - added];
+            if(this.parent[i] > 0){
+              this.parent[i] += added;
+            }
             this.isopen[i] = true;
             this.closedNo[i] = 0;
           }
