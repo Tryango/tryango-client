@@ -8,6 +8,7 @@ Components.utils.import("resource://gre/modules/NetUtil.jsm");
 // explanation for "resource://" see chrome.manifest
 Components.utils.import("resource://tryango_modules/logger.jsm");
 Components.utils.import("resource://tryango_modules/cWrapper.jsm");
+Components.utils.import("resource://tryango_modules/dialogs.jsm");
 
 //exports
 var EXPORTED_SYMBOLS = ["AttachmentManager"]
