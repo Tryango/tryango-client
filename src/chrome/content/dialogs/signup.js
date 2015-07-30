@@ -419,6 +419,7 @@ function importKeyPageCreate(){
     document.getElementById("info_key_tree").setAttribute("hidecolumnpicker", "true");
 
     //open file dialog straight away (only simple setup)
+    onInfoFile();
 //     CWrapper.post("synchStub", [], function(){onInfoFile()});
   }
 }
@@ -536,10 +537,6 @@ function fillInfoTable(email, type){
           Utils.treeAppendRow(treeList, keys[i], document, false);
         }
       }
-      //check length, if only 1 key & simple setup => proceed
-      if(!advSetup && keys.length == 1 ){
-        getWizard().advance(null); //null for next page
-      }
 
       if(treeList.childNodes.length != 0){
         //adjust label to show gpg/file
@@ -550,6 +547,10 @@ function fillInfoTable(email, type){
         //default selection
         var tree = document.getElementById("info_key_tree");
         tree.view.selection.select(0);
+      }
+      //check length, if only 1 key & simple setup => proceed
+      if(!advSetup && keys.length == 1 ){
+        getWizard().advance(null); //null for next page
       }
     }
     else if(status == 15){//no entries
@@ -708,10 +709,10 @@ function importKey(email){
   //identify key
   var tree = document.getElementById("info_key_tree");
 //   if(tree.columns){
-//     var col = tree.columns.key_id;
+    var col = tree.columns.key_id;
 //   }
 //   else{
-    var col = document.getElementById("key_treecols"); 
+//     var col = document.getElementById("key_treecols"); 
 //   }
   var index = tree.view.getParentIndex(tree.currentIndex);
   Logger.dbg("Transfering of RSA keys");
