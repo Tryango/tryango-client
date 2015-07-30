@@ -681,7 +681,7 @@ function generateKey(){
   if(!checkbox.hasAttribute("checked")){
     let datebox = document.getElementById("ang_datepicker");
     var now = new Date().now;
-    validity = parseInt((datebox.dateValue.getTime() - Date.now()) / 100);
+    validity = parseInt((datebox.dateValue.getTime() - Date.now()) / 1000);
   }
   //create key
   CWrapper.post("generateRsaKeys", [email, password, keySize, validity], function(success){
