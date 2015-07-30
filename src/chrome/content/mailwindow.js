@@ -483,6 +483,7 @@ var MailWindow = new function(){
     if(this.encrypt || !this.sign){
       delete gMsgCompose.domWindow.tryEncrypt;
     }
+
     var mCF = gMsgCompose.compFields;//TODO - check if this works -check if here is enough
     if(mCF.forcePlainText == false && mCF.useMultipartAlternative == false){
       mCF.useMultipartAlternative = true;
@@ -490,7 +491,6 @@ var MailWindow = new function(){
     // code below is taken from Thunderbird source from mail/components/compose/content/MsgComposeCommands.js:2665
     // we cancelled send event and now after encryption/signing we send it again so the code below is ending
     // of function GenericSendMessage(msgType) - we resume the part after returning from calling event listener
-
     let nsIMsgCompDeliverMode= Components.interfaces.nsIDocumentEncoder;
 
     var msgWindow = Components.classes["@mozilla.org/messenger/msgwindow;1"]
@@ -646,6 +646,7 @@ var MailWindow = new function(){
   this._replaceBody = function(newBody, origMailBody){
     //change body to enc_signed_mail
     var editor = GetCurrentEditor();
+	editor.beginningOfDocument();
     editor.selectAll();
     try{
       var mailEditor = editor.QueryInterface(Components.interfaces.nsIEditorMailSupport);
@@ -654,25 +655,28 @@ var MailWindow = new function(){
     catch(ex){
       editor.insertText(newBody);
     }
-    if(origMailBody.length > 0){
+    if(origMailBody && origMailBody.length > 0){
       //add callback when message is saved as draft
       MailListener.addDraftCallback(
         function(){
           Logger.dbg("in draftCallback");
-        //reset editor window to original message
+          //reset editor window to original message
           editor.selectAll();
+		  //TODO: fixme: html drafts?
           try{
             var mailEditor = editor.QueryInterface(Components.interfaces.nsIEditorMailSupport);
             mailEditor.insertTextWithQuotations(origMailBody);
+			Logger.dbg("draftCallback: re-inserted HTML email");
           }
           catch(ex){
             editor.insertText(origMailBody);
+			Logger.dbg("draftCallback: re-inserted text email");
           }
           SetContentAndBodyAsUnmodified();//to prevent asking for saving
           //done
           return;
         }
-    );
+      );
     }
  }
 
@@ -771,7 +775,7 @@ ConfiComposeStateListener = {
       return;
     }
 //     if(draft){
-// 
+//
 //     }
 //     else{
       var beginIndex = beginIndexObj.value;
