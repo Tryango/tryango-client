@@ -716,7 +716,7 @@ ConfiComposeStateListener = {
                 // thunderbird sends a notification right before the mail gets assembled
                 // doing stuff in the compose window is tricky as they reuse compose windows
                 // subject is a reference to the compose window
-                subject.gMsgCompose.addMsgSendListener(new AngMsgSendListener());
+              subject.gMsgCompose.addMsgSendListener(new AngMsgSendListener());
             }
     };
     var observerService = Components.classes["@mozilla.org/observer-service;1"]
@@ -726,6 +726,9 @@ ConfiComposeStateListener = {
 
 
   NotifyComposeBodyReady: function(){
+	//recheck colours of recipients
+	MailWindow.recheckRecipientColours();
+
     //TODO: FIXME: temporary solution - it would be good to get the xheader "X-Mozilla-Draft-Info: internal/draft;"
     //check if message is a draft by checking where it is stored (URI)
     //=> if it is a draft, the folder Draft should be included
@@ -733,7 +736,9 @@ ConfiComposeStateListener = {
 //     Logger.log("Message id:"+gMsgCompose.compFields.messageId);
 //     var draft = gMsgCompose.originalMsgURI.match(/Draft/g) != null;
     var draft = (gMsgCompose.compFields.draftId && gMsgCompose.compFields.draftId.length >0);
-    Logger.dbg("draft: " + draft);
+	if(draft){
+      Logger.dbg("draft");
+	}
 
     //called after email body is loaded (with quotations in the beginning!)
     //nsIEditor: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/NsIEditor
