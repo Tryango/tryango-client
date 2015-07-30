@@ -195,11 +195,11 @@
       <hbox flex="1">
         <spacer type="block" width="20"/>
         <button label="&wizard.importKeyPage.importFile;"
-                oncommand="onInfoFile();"/>
+                oncommand="onKeyFile();"/>
         <spacer type="block" width="10"/>
         <button id="ang_btn_gpg"
                 label="&wizard.importKeyPage.importGpg;"
-                oncommand="onInfoGpg();"
+                oncommand="onKeyGpg();"
                 hidden="true"/>
       </hbox>
 

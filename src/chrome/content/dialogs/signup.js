@@ -419,13 +419,13 @@ function importKeyPageCreate(){
     document.getElementById("info_key_tree").setAttribute("hidecolumnpicker", "true");
 
     //open file dialog straight away (only simple setup)
-    onInfoFile();
-//     CWrapper.post("synchStub", [], function(){onInfoFile()});
+    onKeyFile();
+//     CWrapper.post("synchStub", [], function(){onKeyFile()});
   }
 }
 
 
-function onInfoGpg(){
+function onKeyGpg(){
   //variables
   var languagepack = document.getElementById("lang_file");
   var email = document.getElementById("signup_email").selectedItem.value;
@@ -441,7 +441,7 @@ function onInfoGpg(){
     }
     else if(status == 0){
       //fill the table
-      fillInfoTable(email, "Gpg");
+      fillKeyTable(email, "Gpg");
       //check if tree is//  empty
 //       if(document.getElementById("info_key_list").childNodes.length != 0){
 //         //adjust label to show gpg
@@ -465,7 +465,7 @@ function onInfoGpg(){
 }
 
 
-function onInfoFile(){
+function onKeyFile(){
   //use filepicker to open file
   var fp = Components.classes["@mozilla.org/filepicker;1"].createInstance(
     Components.interfaces.nsIFilePicker);
@@ -496,7 +496,7 @@ function onInfoFile(){
         Dialogs.error(languagepack.getString("imp_keys_fail"));
       }
       else if(status == 0){
-        fillInfoTable(email, "File");
+        fillKeyTable(email, "File");
       }
       else{
         //else: no entries
@@ -509,8 +509,8 @@ function onInfoFile(){
 }
 
 
-function fillInfoTable(email, type){
-  Logger.dbg("fillInfoTable " + email);
+function fillKeyTable(email, type){
+  Logger.dbg("fillKeyTable " + email);
 
   //set appropriate text visibility
   var lbl = document.getElementById("ang_lbl_importKeyFeedback");
@@ -533,23 +533,23 @@ function fillInfoTable(email, type){
       for (var i = 0; i < keys.length; i++) {
         expire = new Date(keys[i].signExpire);
         //only display keys if they are not expired or advanced setup is on
-        if(advSetup || (keys[i].signExpire == 0) || (expire.getTime() < Date.now()) ){
+        if(advSetup || (keys[i].signExpire == 0) || (expire.getTime() > Date.now()) ){
           Utils.treeAppendRow(treeList, keys[i], document, false);
         }
       }
+      var table = document.getElementById("ang_table_importkeys");
 
       if(treeList.childNodes.length != 0){
         //adjust label to show gpg/file
 	      lbl.value = languagepack.getString("wizard_importKeyPage_lbl_loaded" + type + (advSetup?"_advanced":"_simple"));
         //show table (ATTENTION: this is needed to access tree.view apparently!)
-        var table = document.getElementById("ang_table_importkeys");
         table.removeAttribute("hidden");
         //default selection
         var tree = document.getElementById("info_key_tree");
         tree.view.selection.select(0);
       }
       //check length, if only 1 key & simple setup => proceed
-      if(!advSetup && keys.length == 1 ){
+      if(!advSetup && treeList.childNodes.length == 1 ){
         getWizard().advance(null); //null for next page
       }
     }
@@ -709,7 +709,7 @@ function importKey(email){
   //identify key
   var tree = document.getElementById("info_key_tree");
 //   if(tree.columns){
-    var col = tree.columns.key_id;
+  var col = tree.columns.key_id;
 //   }
 //   else{
 //     var col = document.getElementById("key_treecols"); 
