@@ -460,6 +460,9 @@ class KeyDb{
         clearDb();
       }
       status = addPackets(packets, filterId);
+      if(status!=ANG_OK){
+        std::cout<<"Error while adding parsed packets, status:"<<status<<std::endl;
+      }
     }
     return status;
   }
