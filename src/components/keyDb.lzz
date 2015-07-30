@@ -470,6 +470,7 @@ class KeyDb{
 
   Confi_Status readFromFile(const std::string& fileName, bool clearOld, const std::string& filterId)
   {
+    std::cout<<"Reading keypurse from file:"<<fileName<<std::endl;
     std::ifstream file (fileName, std::ios::in|std::ios::binary|std::ios::ate);
     if (file.is_open()){
       std::streampos size;
