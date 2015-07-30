@@ -683,9 +683,14 @@ var devicesView = {
   isSeparator: function(row){ return false; },
   isSorted: function(){ return false; },
   getImageSrc: function(row,col){ return null; },
-  getRowProperties: function(row,props){},
-  getCellProperties: function(row,col,props){},
-  getColumnProperties: function(colid,col,props){},
+  getRowProperties: function(row){ },
+  getCellProperties: function(row, col){
+    if(this.rows[row] == Prefs.getPref("machineID")){
+      return 'redCell';
+    }
+    else return '';
+  },
+  getColumnProperties: function(colid,col){return ''},
   cycleCell: function(idx, column) {},
   cycleHeader: function(col, elem) {},
 
@@ -775,8 +780,8 @@ var devicesView = {
           for(i = this.rowRealCount - 1; i > lastChild; i--){
             this.rows[i + added] = this.rows[i];
             this.parent[i + added] = this.parent[i];
-            if(this.parent[i] > lastChild + 1){
-              this.parent[i] += added;
+            if(this.parent[i + added] != -1){
+              this.parent[i + added] += added;
             }
             this.isopen[i + added] = true;
             this.closedNo[i + added] = 0;
@@ -786,8 +791,8 @@ var devicesView = {
           for(i = lastChild + 1; i < (this.rowRealCount + added); i++){
             this.rows[i] = this.rows[i - added];
             this.parent[i] = this.parent[i - added];
-            if(this.parent[i] > lastChild + 1){
-              this.parent[i] += added;
+            if(this.parent[i + added]  != -1){
+              this.parent[i + added] += added;
             }
             this.isopen[i] = true;
             this.closedNo[i] = 0;
