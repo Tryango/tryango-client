@@ -812,6 +812,8 @@ ConfiComposeStateListener = {
 
     //get ciphertext from "BEGIN PGP" on
     var ciphertext = body.substr(beginIndex, endIndex - beginIndex + 1);
+
+	//format email a bit...
     var indentRegexp;
     if (indent) {
       // MULTILINE MATCHING ON
@@ -835,10 +837,10 @@ ConfiComposeStateListener = {
         ciphertext = ciphertext.replace(indentRegexp, "");
       }
 
-
       // Handle blank indented lines
       ciphertext = ciphertext.replace(/^[ \t]*>[ \t]*$/g, "");
       tail = tail.replace(/^[ \t]*>[ \t]*$/g, "");
+	  head = head.replace(/^[ \t]*>[ \t]*$/g, ""); //TODO: maybe also delete the \n?
 
       // Trim leading space in tail
       tail = tail.replace(/^\s*\n/, "\n");
