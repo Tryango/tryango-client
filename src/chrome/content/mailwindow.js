@@ -377,7 +377,7 @@ var MailWindow = new function(){
       Logger.error("Could not get message body:\n" + ex);
       return -1;
     }
-    Logger.dbg("mailBody:\n" + mailBody); //TODO: FIXME: the code above inserts empty lines every second line when saving drafts a second time!!! (it works the first time though)
+    Logger.dbg("mailBody:\n" + mailBody); //TODO: FIXME: double-empty-line-bug: the code above ("get body of the email") inserts empty lines every second line when saving drafts a second time!!! (it works the first time though)
     MailWindow._password = "";
     if(this.sign){
       Logger.dbg("Getting password as we need to sign email");
@@ -645,40 +645,68 @@ var MailWindow = new function(){
 
   this._replaceBody = function(newBody, origMailBody){
     //change body to enc_signed_mail
-    var editor = GetCurrentEditor();
-	editor.beginningOfDocument();
-    editor.selectAll();
-    try{
-      var mailEditor = editor.QueryInterface(Components.interfaces.nsIEditorMailSupport);
-      mailEditor.insertTextWithQuotations(newBody);
-    }
-    catch(ex){
-      editor.insertText(newBody);
-    }
+	this.replaceEmail(newBody, true, true);
     if(origMailBody && origMailBody.length > 0){
       //add callback when message is saved as draft
       MailListener.addDraftCallback(
         function(){
           Logger.dbg("in draftCallback");
-          //reset editor window to original message
-          editor.selectAll();
-		  //TODO: fixme: html drafts?
-          try{
-            var mailEditor = editor.QueryInterface(Components.interfaces.nsIEditorMailSupport);
-            mailEditor.insertTextWithQuotations(origMailBody);
-			Logger.dbg("draftCallback: re-inserted HTML email");
-          }
-          catch(ex){
-            editor.insertText(origMailBody);
-			Logger.dbg("draftCallback: re-inserted text email");
-          }
+          //reset editing window to original message
+		  this.replaceEmail(origMailBody);
           SetContentAndBodyAsUnmodified();//to prevent asking for saving
           //done
           return;
-        }
+        }.bind(this)
       );
     }
  }
+
+  // --- Helpers ---
+
+  //tries to write an email back as HTML email; if it fails it writes the email as text
+  this.replaceEmail = function(newBody, replace = true, puretext = false){
+	//init
+	var editor = GetCurrentEditor();
+	if(replace){
+	  editor.beginningOfDocument();
+      editor.selectAll();
+	}
+	//replace
+	if(puretext){
+	  editor.insertText(newBody);
+	}else{
+	  try{
+		//write as html
+		var htmlEditor = editor.QueryInterface(Components.interfaces.nsIHTMLEditor);
+		htmlEditor.insertHTML(newBody);
+      }
+      catch(ex){
+		//on error, write text
+		editor.insertText(newBody);
+      }
+	}
+  }
+
+  //tries to insert an email as text with quotations; if it fails it writes the email as text
+  this.replaceEmailWithQuotations = function(newBody, replace = true){
+	//init
+    var editor = GetCurrentEditor();
+	if(replace){
+	  editor.beginningOfDocument();
+      editor.selectAll();
+	}
+	//replace
+    try{
+	  //write as text with quotations
+      var mailEditor = editor.QueryInterface(Components.interfaces.nsIEditorMailSupport);
+	  mailEditor.insertAsCitedQuotation(newBody, "", true);
+	  //TODO: is that needed for pure-text citations? mailEditor.insertTextWithQuotations(newBody); html drafts? => editor.getEditorType() => text/plain or html/plain
+    }
+    catch(ex){
+	  //on error, write text
+      editor.insertText(newBody);
+    }
+  }
 
 }
 /*
@@ -729,12 +757,8 @@ ConfiComposeStateListener = {
 	//recheck colours of recipients
 	MailWindow.recheckRecipientColours();
 
-    //TODO: FIXME: temporary solution - it would be good to get the xheader "X-Mozilla-Draft-Info: internal/draft;"
-    //check if message is a draft by checking where it is stored (URI)
-    //=> if it is a draft, the folder Draft should be included
-//     Logger.log("Draft id:"+gMsgCompose.compFields.draftId);
-//     Logger.log("Message id:"+gMsgCompose.compFields.messageId);
-//     var draft = gMsgCompose.originalMsgURI.match(/Draft/g) != null;
+    //TODO: it would be good to get the xheader "X-Mozilla-Draft-Info: internal/draft;"
+    //check if message is a draft by checking where its ID
     var draft = (gMsgCompose.compFields.draftId && gMsgCompose.compFields.draftId.length >0);
 	if(draft){
       Logger.dbg("draft");
@@ -779,58 +803,55 @@ ConfiComposeStateListener = {
       Logger.error("block type not a valid PGP block");
       return;
     }
-//     if(draft){
-//
-//     }
-//     else{
-      var beginIndex = beginIndexObj.value;
-      var endIndex   = endIndexObj.value;
 
-      var head = body.substr(0, beginIndex);
-      var tail = body.substr(endIndex + 1);
+    var beginIndex = beginIndexObj.value;
+    var endIndex   = endIndexObj.value;
 
-      //get ciphertext from "BEGIN PGP" on
-      var ciphertext = body.substr(beginIndex, endIndex - beginIndex + 1);
-      var indentRegexp;
-      if (indent) {
-        // MULTILINE MATCHING ON
-        RegExp.multiline = true;
+    var head = body.substr(0, beginIndex); //head might be "email send by ... 2015-01-01 at 19:00"
+    var tail = body.substr(endIndex + 1); //cut tail too if there is one
 
-        if (indent == "> ") {
-          // replace ">> " with "> > " to allow correct quoting
-          ciphertext = ciphertext.replace(/^>>/g, "> >");
-        }
+    //get ciphertext from "BEGIN PGP" on
+    var ciphertext = body.substr(beginIndex, endIndex - beginIndex + 1);
+    var indentRegexp;
+    if (indent) {
+      // MULTILINE MATCHING ON
+      RegExp.multiline = true;
 
-        // Delete indentation
-        indentRegexp = new RegExp("^"+indent, "g");
+	  //remove first level of quotations
+      if (indent == "> ") {
+        // replace ">> " with "> > " to allow correct quoting
+        ciphertext = ciphertext.replace(/^>>/g, "> >");
+      }
 
+      //delete indentation
+      indentRegexp = new RegExp("^"+indent, "g");
+      ciphertext = ciphertext.replace(indentRegexp, "");
+      //tail     =     tail.replace(indentRegexp, "");
+
+	  //delete spacing at line end
+      if (indent.match(/[ \t]*$/)) {
+        indent = indent.replace(/[ \t]*$/g, "");
+        indentRegexp = new RegExp("^"+indent+"$", "g");
         ciphertext = ciphertext.replace(indentRegexp, "");
-        //tail     =     tail.replace(indentRegexp, "");
-
-        if (indent.match(/[ \t]*$/)) {
-          indent = indent.replace(/[ \t]*$/g, "");
-          indentRegexp = new RegExp("^"+indent+"$", "g");
-
-          ciphertext = ciphertext.replace(indentRegexp, "");
-        }
-
-
-        // Handle blank indented lines
-        ciphertext = ciphertext.replace(/^[ \t]*>[ \t]*$/g, "");
-        //tail     =     tail.replace(/^[ \t]*>[ \t]*$/g, "");
-
-        // Trim leading space in tail
-        tail = tail.replace(/^\s*\n/, "\n");
-
-        // MULTILINE MATCHING OFF
-        RegExp.multiline = false;
       }
 
-      if (tail.search(/\S/) < 0) {
-        // No non-space characters in tail; delete it
-        tail = "";
-      }
-//     }
+
+      // Handle blank indented lines
+      ciphertext = ciphertext.replace(/^[ \t]*>[ \t]*$/g, "");
+      tail = tail.replace(/^[ \t]*>[ \t]*$/g, "");
+
+      // Trim leading space in tail
+      tail = tail.replace(/^\s*\n/, "\n");
+
+      // MULTILINE MATCHING OFF
+      RegExp.multiline = false;
+    }
+
+    if (tail.search(/\S/) < 0) {
+      // No non-space characters in tail; delete it
+      tail = "";
+    }
+
     //decrypt email
     Logger.dbg("decrypting email...");
 
@@ -838,59 +859,34 @@ ConfiComposeStateListener = {
     function decryptCallback(status, decrypted){
       if((status == 0 || CWrapper.getMaxErrNum() <= status) && decrypted.length > 0){
         Logger.dbg("write decrypted email back");
-        editor.beginningOfDocument();
-        editor.selectAll(); //replace everything (easier than handling ranges in thunderbird!)
-        var mailEditor;
-        try{
-          mailEditor = editor.QueryInterface(Components.interfaces.nsIEditorMailSupport);
-        }
-        catch(ex){
-          Logger.error("Could not load mailEditor");
-          mailEditor = null; //no insertTextWithQuoatations
-        }
-        //insert head
-        if(head){
-          if(mailEditor){
-            mailEditor.insertTextWithQuotations(head);
-          }
-          else{
-            editor.insertText(head);
-          }
-        }
 
-        //TODO: FIXME: we drop the header and the bgcolor in <body ...> here!
+        //TODO: we drop the header and the bgcolor in <body ...> here!
         //strip body out of email
-        // 	Logger.dbg("plaintext: " + plaintext);
         var match = decrypted.match(/<body[^>]*>([\s\S]*)<\/body>/i)
         if(match && match.length == 2){ // 2 cause "match" is an array: ["<body...> email </body>", "email"]
           decrypted= match[1];
         }
 
-        //insert decrypted text as quotation
-        //nsIEditorMailSupport: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsIEditorMailSupport#insertTextWithQuotations%28%29
-        if(mailEditor){
-          if(draft){
-            Logger.dbg("insertAsQuotation");
-            mailEditor.insertTextWithQuotations(decrypted);
-//             mailEditor.insertAsQuotation(decrypted, "", true);
-//             editor.insertText(decrypted);
-          }
-          else{
-            Logger.dbg("insertAsCitedQuotation");
-            mailEditor.insertAsCitedQuotation(decrypted, "", true);
-          }
-        }
-        else{
-          editor.insertText(decrypted);
-        }
+        if(draft){
+		  //draft not quoted
+		  MailWindow.replaceEmail(decrypted);
+        }else{
+          if(head){
+			//insert head ("mail send by ... on 2015-01-01...") without quotations
+			Logger.dbg("head: " + head);
+			MailWindow.replaceEmail(head, true, true);
 
-        //insert tail
-        if(tail){
-          if(mailEditor){
-            mailEditor.insertTextWithQuotations(tail);
-          }
-          else{
-            editor.insertText(tail);
+			//non-drafts (=replies) should quote the original mail
+			MailWindow.replaceEmailWithQuotations(decrypted, false);
+          }else{
+			//non-drafts (=replies) should quote the original mail
+			MailWindow.replaceEmailWithQuotations(decrypted, true);
+		  }
+
+          if(tail){
+			//insert tail (mostly empty lines?) without quotations similar to head
+			Logger.dbg("tail: " + tail);
+			MailWindow.replaceEmail(tail, false);
           }
         }
       }
@@ -905,7 +901,6 @@ ConfiComposeStateListener = {
     }
     else{
       //clear signature only
-      //TODO: is this code needed? shall "reply" check the signature again? (it should already have been checked before!)
       var sender = gCurrentIdentity.email;
       var status = CWrapper.post("verifySignature", [ciphertext, sender],decryptCallback);
     }

@@ -161,8 +161,6 @@ var MailListener = new function() {
       this.submitKey(identity);
     }
     else{
-      //TODO: FIXME: why is this done at msgAdded and not just at onMsgDisplay? (or rather: why is the email decrypted in searchNewKey!? it is done twice for every gmail account whenever an email is received!)
-      //TODO: is this the "new" protocol for distributing keys? then please add a comment explaining it
       // Disable until implemented
 //       if(!this.searchNewKey(header, identity)){
 //         this.searchOldKey(header, identity);
@@ -283,7 +281,7 @@ var MailListener = new function() {
         if(newHexAp.length > 2){
           Pwmgr.setAp(identity, newHexAp);
         }
-              
+
         if(status == 0){
           Logger.dbg("Added identity: " + identity);
           try{
@@ -343,7 +341,7 @@ var MailListener = new function() {
   };
 
   this._tryToSendEmail = function(identity){
-    //disable it for the time being..
+    //TODO: disable it for the time being..
     return;
     Logger.dbg(" Try to send ");
     if(MailListener._runningGetDev){
@@ -649,7 +647,7 @@ var MailListener = new function() {
     }
     else{
       Logger.error("Could not get message header!");
-      MailListener.updateToolBar(-5); //hide toolbar - if we cannot get message header then message is e. g. welcome page of Thunderbird 
+      MailListener.updateToolBar(-5); //hide toolbar - if we cannot get message header then message is e. g. welcome page of Thunderbird
     }
   };
 
