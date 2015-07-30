@@ -746,12 +746,10 @@ var devicesView = {
   setIdentityContent: function(identity, content){
 //     this.openAll();
     var parent = this.rowRealCount - 1;
-    Logger.dbg("last parent:" + parent + " identity:"+identity + " parent[parent]:"+ this.parent[parent]);
     if(this.parent[parent] != -1){
       parent = this.parent[parent];
     }
     while(parent > -1 && identity != this.rows[parent]){
-      Logger.dbg("next step parent:" + parent + 'row[parent'+ this.rows[parent]);
       parent--;
       if(parent > 0 && this.parent[parent] != -1){
         parent = this.parent[parent];
