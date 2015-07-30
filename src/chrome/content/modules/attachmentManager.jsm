@@ -130,22 +130,7 @@ var AttachmentManager = new function()
 
             //decrypt the file
             Logger.dbg("decrypting attachment " + this.path);
-            var status = CWrapper.decryptAndSaveAttachment(data, this.path, this.sender);
-            if(status > CWrapper.getMaxErrNum()){
-              //signature failed
-              Dialogs.info(this.languagepack.getString(CWrapper.getErrorStr(status)) +
-                               ":\n\t" + this.path);
-            }
-            else if(status != 0){
-              //error => tell user
-              Dialogs.info(this.languagepack.getString("att_dec_failed") + " " + this.path +
-                               "\n(" + this.languagepack.getString(CWrapper.getErrorStr(status)) +
-                               ")");
-            }
-            else{
-              //debug output
-              Logger.dbg("Attachment " + this.path + " decryption/signature ok or cancelled");
-            }
+            CWrapper.decryptAndSaveAttachment(data, this.path, this.sender);
           },
 
           onDataAvailable: function(aRequest, aSupports, aInputStream, offset, count){

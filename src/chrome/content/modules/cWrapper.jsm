@@ -7,6 +7,7 @@ Components.utils.import("resource://tryango_modules/pwmanager.jsm");
 Components.utils.import("resource://tryango_modules/logger.jsm");
 // Components.utils.import("resource://gre/modules/PromiseWorker.jsm");
 Components.utils.import("resource://gre/modules/osfile.jsm");
+Components.utils.import("resource://tryango_modules/dialogs.jsm");
 
 //ATTENTION: DO NOT INCLUDE prefs.jsm HERE. CYCLIC DEPENDENCY!
 //constant
@@ -201,6 +202,16 @@ var CWrapper = {
           , ctypes.char.ptr     //param 3 - char* mailBody
           , ctypes.char.ptr     //param 5 - char* sender
           , ctypes.char.ptr     //param 6 - char* password
+          );
+
+   this.c_decryptAndSaveAttachment = this.client.declare("decryptAndSaveAttachment"
+          , ctypes.default_abi //binary interface type
+          , ctypes.uint32_t    //return type - Confi_Status
+          , ctypes.uint8_t.ptr //param 1 - char* data
+          , ctypes.uint32_t    //param 2 - length of data
+          , ctypes.char.ptr    //param 3 - char* filepath
+          , ctypes.char.ptr    //param 4 - char* sender
+          , ctypes.char.ptr    //param 5 - char* password
           );
 
    this.c_getHostName = this.client.declare("getHostName"// method name
@@ -871,26 +882,44 @@ var CWrapper = {
     //variables
 //     Logger.dbg(this.promptPassword(sender, ""));
 
-    var c_data = ctypes.uint8_t.array()(data.length)
-    for(var i = 0; i< data.length;i++){
-      c_data[i] = data.charCodeAt(i);
-    }
 //     var c_data = ctypes.char.array()(data.split(''));
-//     Logger.dbg(data);
+    Logger.dbg("decrypt attachment data:" + data );
     var c_filepath = ctypes.char.array()(filepath);
     var c_sender = ctypes.char.array()(sender);
     Logger.dbg("decrypting attachment with size of data:" + data.length);
     var pass = {value : ""};
-    if(this.getDataPassword(pass, c_data, data.length)){
-      var c_password = ctypes.char.array()(pass.value);
-      Logger.dbg("password:"+pass.value);
-      //query
-      return this.c_decryptAndSaveAttachment(c_data, c_data.length, c_filepath, c_sender, c_password);
-    }
-    else{
-      return 21; //ANG_NO_KEY_PRESENT - should we return wrong password instead? or nothing?
-    }
-    return 0;
+    this.getDataPassword(data, function(success, password){
+      if(success){
+        var c_data = ctypes.uint8_t.array()(data.length)
+        for(var i = 0; i< data.length;i++){
+          c_data[i] = data.charCodeAt(i);
+        }
+        var c_password = ctypes.char.array()(password);
+        Logger.dbg("password:"+ password);
+        //query
+        var status = CWrapper.c_decryptAndSaveAttachment(c_data, c_data.length, c_filepath, c_sender, c_password);
+        if(status > CWrapper.getMaxErrNum()){
+          //signature failed
+          Dialogs.error(CWrapper.languagepack.getString(CWrapper.getErrorStr(status)) +
+                      ":\n\t" + filepath);
+        }
+        else if(status != 0){
+          //error => tell user
+          Dialogs.error(CWrapper.languagepack.getString("att_dec_failed") + " " + filepath +
+                       "\n(" + CWrapper.languagepack.getString(CWrapper.getErrorStr(status)) +
+                       ")");
+        }
+        else{
+          //debug output
+          Logger.dbg("Attachment " + filepath + " decryption/signature ok or cancelled");
+        }
+
+      }
+      else{
+        Dialogs.error(CWrapper.languagepack.getString(CWrapper.getErrorStr(21)) + ":\n\t" + filepath);
+         //ANG_NO_KEY_PRESENT - should we return wrong password instead? or nothing?
+      }
+    });
   },
 
   closeLibrary : function(){
