@@ -163,9 +163,10 @@ var MailListener = new function() {
     else{
       //TODO: FIXME: why is this done at msgAdded and not just at onMsgDisplay? (or rather: why is the email decrypted in searchNewKey!? it is done twice for every gmail account whenever an email is received!)
       //TODO: is this the "new" protocol for distributing keys? then please add a comment explaining it
-      if(!this.searchNewKey(header, identity)){
-        this.searchOldKey(header, identity);
-      }
+      // Disable until implemented
+//       if(!this.searchNewKey(header, identity)){
+//         this.searchOldKey(header, identity);
+//       }
     }
   };
 

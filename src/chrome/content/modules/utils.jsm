@@ -1151,4 +1151,7 @@ function removeSelectedKeys(){
       });
     });
   }
+  CWrapper.post("synchStub", [], function(){
+    button.disabled = false;
+  });
 }
