@@ -246,7 +246,7 @@ class PublicKeyDb{
         return false;
       }
       time_t expire = key->expirePeriod + key->timestamp;
-      if(date > expire){
+      if(date < expire){
         return false;
       }
     }
