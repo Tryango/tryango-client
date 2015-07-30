@@ -343,6 +343,8 @@ var MailListener = new function() {
   };
 
   this._tryToSendEmail = function(identity){
+    //disable it for the time being..
+    return;
     Logger.dbg(" Try to send ");
     if(MailListener._runningGetDev){
       let mediator = Components.classes['@mozilla.org/appshell/window-mediator;1']

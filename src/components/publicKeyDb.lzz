@@ -276,7 +276,7 @@ class PublicKeyDb{
     if (lastAccess.find(id) == lastAccess.end() ) {
       fresh = false;
     }
-    else if((now - lastAccess.at(id)) > 10){
+    else if((now - lastAccess.at(id)) > 30){
       fresh = false;
     }
 

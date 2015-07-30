@@ -409,10 +409,11 @@ class KeyDb{
   bool writeToFile(const std::string& fileName)
   {
     bool result = true;
-    if(userIdDb.size() <= 0 ){
-      std::cout<<"Not exporting - empty database"<<std::endl;
-      return false; // empty database
-    }
+    //Exporting even if key database is empty
+/*     if(userIdDb.size() <= 0 ){ */
+/*       std::cout<<"Not exporting - empty database"<<std::endl; */
+/*       return false; // empty database */
+/*     } */
     std::ofstream myfile;
     myfile.open(fileName);
     if(!myfile.is_open()){
