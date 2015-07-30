@@ -419,7 +419,7 @@ function importKeyPageCreate(){
     document.getElementById("info_key_tree").setAttribute("hidecolumnpicker", "true");
 
     //open file dialog straight away (only simple setup)
-    onInfoFile();
+//     CWrapper.post("synchStub", [], function(){onInfoFile()});
   }
 }
 
@@ -706,8 +706,13 @@ function generateKey(){
 
 function importKey(email){
   //identify key
-  var tree = document.getElementById("info_key_tree")
-  var col = tree.columns.key_id;
+  var tree = document.getElementById("info_key_tree");
+//   if(tree.columns){
+//     var col = tree.columns.key_id;
+//   }
+//   else{
+    var col = document.getElementById("key_treecols"); 
+//   }
   var index = tree.view.getParentIndex(tree.currentIndex);
   Logger.dbg("Transfering of RSA keys");
   //-1 means no parent

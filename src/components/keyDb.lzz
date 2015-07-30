@@ -189,6 +189,7 @@ class KeyDb{
           break;
 
         case SGN_CERT_POS: // 0x13
+          std::cout<<"Adding signature"<<std::endl;
           pkey = &(lastPair->getSSKey()->pkey);
           if(pkey->user_ids.size() < 0){
             return ANG_PARSE_ERROR;
@@ -201,6 +202,7 @@ class KeyDb{
 /*             free(pkey->user_ids.back()->signature); */
           }
           pkey->user_ids.back()->signature = pkt.pkt.signature;
+          std::cout<<"Key expire period:"<< pkt.pkt.signature->key_expirePeriod<<std::endl;
           if(pkt.pkt.signature->key_expirePeriod != 0){
             pkey->expirePeriod = pkt.pkt.signature->key_expirePeriod;
           }

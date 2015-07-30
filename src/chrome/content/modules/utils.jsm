@@ -1104,11 +1104,13 @@ function removeSelectedKeys(){
   //nsITreeView: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsITreeView#getCellText%28%29
   var selected = document.getElementById("tree_keys").view.selection;
   if(selected.getRangeCount() <= 0){
-  //no keys selected
-  return;
+    //no keys selected
+    button.disabled = false;
+    return;
   }
   //ask user if they really want to remove the devices
   if(!Logger.promptService.confirm(null, "Trango", CWrapper.languagepack.getString("prompt_remove_key"))){
+    button.disabled = false;
     return;
   }
 

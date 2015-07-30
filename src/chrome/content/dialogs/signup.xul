@@ -212,7 +212,7 @@
         <spacer type="block" width="5" flex="1"/>
         <hbox style="overflow:auto" flex="1" height="190"><!-- 190=150 tree + x scrollbar-->
           <stack>
-            <tree id="info_key_tree" flex="1" rows="2" seltype="single" width="590"
+            <tree id="info_key_tree" flex="1"  seltype="single" width="590"
                   hidden="false" treelines="true" onselect="onKeySelect()">
               <!-- email, keyID, created, expiry, fingerprint -->
                <treecols id="key_treecols" disabled="true">
