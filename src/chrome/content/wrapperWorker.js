@@ -253,16 +253,6 @@ var Client = {
           , ctypes.char.ptr     //param 6 - char* password
           );
 
-   this.c_decryptAndSaveAttachment = this.client.declare("decryptAndSaveAttachment"
-          , ctypes.default_abi //binary interface type
-          , ctypes.uint32_t    //return type - Confi_Status
-          , ctypes.uint8_t.ptr //param 1 - char* data
-          , ctypes.uint32_t    //param 2 - length of data
-          , ctypes.char.ptr    //param 3 - char* filepath
-          , ctypes.char.ptr    //param 4 - char* sender
-          , ctypes.char.ptr    //param 5 - char* password
-          );
-
    this.c_hasSecretKey = this.client.declare("hasSecretKey"// method name
           , ctypes.default_abi //binary interface type
           , ctypes.bool        //return type
