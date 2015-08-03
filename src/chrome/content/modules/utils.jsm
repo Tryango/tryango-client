@@ -112,7 +112,7 @@ var Utils = new function()
       fp.appendFilter("All files", "*");
       var nsIFilePicker = Components.interfaces.nsIFilePicker;
       fp.init(this.window, CWrapper.languagepack.getString("sel_keypurse_imp"), nsIFilePicker.modeOpen);
-      
+
       //check result
       var res = fp.show();
       if(res == nsIFilePicker.returnOK || res == nsIFilePicker.returnReplace){
@@ -686,7 +686,7 @@ var devicesView = {
   getRowProperties: function(row){ },
   getCellProperties: function(row, col){
     if(this.rows[row] == Prefs.getPref("machineID")){
-      return 'redCell';
+      return 'blueCell';
     }
     else return '';
   },

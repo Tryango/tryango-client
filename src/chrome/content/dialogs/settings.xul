@@ -13,7 +13,7 @@
 
 <dialog id="tryango_settings" title="&settings.title;"
 	xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
-	width="800px" height="600px"
+	width="900px" height="800px"
 	onload="prefOnLoad(); infoOnLoad();"
 	onunload="Dialogs.settingsEnd();"
 	minheight="300"
@@ -95,7 +95,7 @@
               label="&settings.advoptions;"/>
 	</vbox>
       </groupbox>
-      
+
     <!-- tab 2: manage devices -->
     <groupbox flex="2">
       <label class="header" value="&settings.desc_devices;"/>
@@ -208,5 +208,5 @@
   <stringbundleset id="stringbundleset">
     <stringbundle id="lang_file" src="chrome://tryango/locale/lang.properties"/>
   </stringbundleset>
-  
+
 </dialog>

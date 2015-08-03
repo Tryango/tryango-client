@@ -361,15 +361,15 @@ var MailWindow = new function(){
       if(sendFlowed){
         flags = flags | dce.OutputFormatFlowed;
       }
-      if(!gMsgCompose.composeHTML){
-        //plaintext
-        mailBody = editor.outputToString("text/plain", flags);
-      }
-      else{
+      if(gMsgCompose.composeHTML){
         //html email
         //           flags = dce.OutputRaw;
         mailBody = editor.outputToString("text/html", flags);
         mailBody = mailBody.replace(/[^\S\r\n]+$/gm, "");
+      }
+      else{
+		//plaintext
+        mailBody = editor.outputToString("text/plain", flags);
       }
       //         mailBody = Utils.convertFromUnicode(mailBody, "UTF-16");
     }
@@ -691,7 +691,11 @@ var MailWindow = new function(){
   }
 
   //tries to insert an email as text with quotations; if it fails it writes the email as text
-  this.replaceEmailWithQuotations = function(newBody, replace = true){
+  this.replaceEmailWithQuotations = function(
+	newBody,
+	html, //boolean indicating if the inserted text is html or text
+	replace = true
+  ){
     //init
     var editor = GetCurrentEditor();
     if(replace){
@@ -702,8 +706,7 @@ var MailWindow = new function(){
     try{
       //write with quotations
       var mailEditor = editor.QueryInterface(Components.interfaces.nsIEditorMailSupport);
-      mailEditor.insertAsCitedQuotation(newBody, "", true);
-      //TODO: is that needed for pure-text citations: mailEditor.insertTextWithQuotations(newBody);? html drafts? => editor.getEditorType() => text/plain or html/plain;; HINT: it seems to work as it is though!
+      mailEditor.insertAsCitedQuotation(newBody, "", html);
     }
     catch(ex){
       //on error, write text
@@ -771,7 +774,7 @@ ConfiComposeStateListener = {
     //nsIEditor: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/NsIEditor
     //get message body
     var editor = GetCurrentEditor();
-    var charset = editor.documentCharacterSet;
+//    var charset = editor.documentCharacterSet;
     editor.beginTransaction();
 //     var flags = Components.interfaces.nsIDocumentEncoder.OutputRaw;
     let dce = Components.interfaces.nsIDocumentEncoder;
@@ -865,6 +868,9 @@ ConfiComposeStateListener = {
       if((status == 0 || CWrapper.getMaxErrNum() <= status) && decrypted.length > 0){
         Logger.dbg("write decrypted email back:\n" + decrypted);
 
+		var isHtml = decrypted.match(/<html>[\s\S]*<\/html>/i) != null;
+		Logger.dbg("isHtml: "  + isHtml);
+
         //TODO: we drop the header and the bgcolor in <body ...> here!
         //strip body out of email
         var match = decrypted.match(/<body[^>]*>([\s\S]*)<\/body>/i)
@@ -873,19 +879,23 @@ ConfiComposeStateListener = {
         }
 
         if(draft){
+		  Logger.dbg("write draft back");
+
           //draft not quoted
           MailWindow.replaceEmail(decrypted);
         }
         else{
+		  Logger.dbg("write (non draft) email back");
+
           if(head){
             //insert head ("mail send by ... on 2015-01-01...") without quotations
             MailWindow.replaceEmail(head, true, true);
 
             //non-drafts (=replies) should quote the original mail
-            MailWindow.replaceEmailWithQuotations(decrypted, false);
+            MailWindow.replaceEmailWithQuotations(decrypted, isHtml, false);
           }else{
             //non-drafts (=replies) should quote the original mail
-            MailWindow.replaceEmailWithQuotations(decrypted, true);
+            MailWindow.replaceEmailWithQuotations(decrypted, isHtml, true);
           }
 
           if(tail){
