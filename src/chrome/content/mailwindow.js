@@ -357,13 +357,11 @@ var MailWindow = new function(){
       editor = GetCurrentEditor();
       let dce = Components.interfaces.nsIDocumentEncoder;
       var flags = dce.OutputFormatted | dce.OutputLFLineBreak | dce.OutputPreformatted; //ATTENTION: OutputPreformatted is needed to avoid the double-empty-lines-bug!!!
-      //         var flags = Components.interfaces.nsIDocumentEncoder.OutputRaw;
       if(sendFlowed){
         flags = flags | dce.OutputFormatFlowed;
       }
       if(gMsgCompose.composeHTML){
         //html email
-        //           flags = dce.OutputRaw;
         mailBody = editor.outputToString("text/html", flags);
         mailBody = mailBody.replace(/[^\S\r\n]+$/gm, "");
       }
@@ -371,6 +369,7 @@ var MailWindow = new function(){
 		//plaintext
         mailBody = editor.outputToString("text/plain", flags);
       }
+	  editor.endTransaction();
       //         mailBody = Utils.convertFromUnicode(mailBody, "UTF-16");
     }
     catch(ex){
@@ -675,7 +674,8 @@ var MailWindow = new function(){
       editor.selectAll();
     }
     //replace
-    if(puretext){
+    if(puretext || !gMsgCompose.composeHTML){
+	  //pure text or we do NOT composeHTML (= editor is pure-text)
       editor.insertText(newBody);
     }else{
       try{
@@ -706,7 +706,7 @@ var MailWindow = new function(){
     try{
       //write with quotations
       var mailEditor = editor.QueryInterface(Components.interfaces.nsIEditorMailSupport);
-      mailEditor.insertAsCitedQuotation(newBody, "", html);
+      mailEditor.insertAsCitedQuotation(newBody, "", html & gMsgCompose.composeHTML);
     }
     catch(ex){
       //on error, write text
@@ -774,15 +774,14 @@ ConfiComposeStateListener = {
     //nsIEditor: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/NsIEditor
     //get message body
     var editor = GetCurrentEditor();
-//    var charset = editor.documentCharacterSet;
     editor.beginTransaction();
-//     var flags = Components.interfaces.nsIDocumentEncoder.OutputRaw;
     let dce = Components.interfaces.nsIDocumentEncoder;
-//     var flags = dce.OutputRaw;
-    var flags = dce.OutputFormatted | dce.OutputLFLineBreak;
+    var flags = dce.OutputFormatted | dce.OutputLFLineBreak ;//TODO: not sure if OutputPreformatted is needed here, seems to work without
     var body = editor.outputToString('text/plain', flags);
     editor.endTransaction();
-//     body = Utils.convertFromUnicode(body, charset);
+
+	//    var charset = editor.documentCharacterSet;
+	//    body = Utils.convertFromUnicode(body, charset);
 
     //search for PGP block
     var PGPstart = body.indexOf("-----BEGIN PGP ");
@@ -868,6 +867,7 @@ ConfiComposeStateListener = {
       if((status == 0 || CWrapper.getMaxErrNum() <= status) && decrypted.length > 0){
         Logger.dbg("write decrypted email back:\n" + decrypted);
 
+		//init: check if decrypted email is html
 		var isHtml = decrypted.match(/<html>[\s\S]*<\/html>/i) != null;
 		Logger.dbg("isHtml: "  + isHtml);
 
