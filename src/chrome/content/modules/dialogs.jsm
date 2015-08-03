@@ -153,11 +153,24 @@ Dialogs._showMessage= function(message, priorityNum){
 										 'chrome://tryango/skin/cm_logo.png',
 										 priority, buttons);
 
-	//hide element again after TIMEOUT milliseconds
-	setTimeout(function(){
-	  Logger.log("timeout happended");
-	  //TODO: notifications spam the box and only old messages are shown => hide notifications after TIMEOUT milliseconds?
-	}.bind(this), this.TIMEOUT);
+	//remove element again after TIMEOUT milliseconds
+	window.setTimeout(
+	  function(){
+		Logger.dbg("notificationbox: timeout happended");
+		//removing a notification is a race-condition with the user
+		//if we cannot find the element again, the user probably already
+		//cancelled the notification => ignore
+		try{
+		  box.removeNotification(element);
+		}catch(err){
+		  //ignore error
+		  Logger.dbg("notificationbox: user already closed it");
+		}
+	  }.bind(this),
+      //show every notification TIMEOUT seconds
+      // = show n-th. notification n*TIMEOUT seconds before removing
+      this.TIMEOUT * box.allNotifications.length
+    );
   }
   else{
     Logger.error("Could not get the main window.");
