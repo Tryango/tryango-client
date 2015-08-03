@@ -645,14 +645,16 @@ var MailWindow = new function(){
 
   this._replaceBody = function(newBody, origMailBody){
     //change body to enc_signed_mail
-	this.replaceEmail(newBody, true, true);
+    this.replaceEmail(newBody, true, true);
     if(origMailBody && origMailBody.length > 0){
       //add callback when message is saved as draft
       MailListener.addDraftCallback(
         function(){
           Logger.dbg("in draftCallback");
           //reset editing window to original message
-		  this.replaceEmail(origMailBody);
+          this.replaceEmail(origMailBody);
+          gMsgCompose.domWindow.tryEncrypt = true; //to encrypt again in case draft is saved again
+          this.sign  = document.getElementById("menu-sign").hasAttribute("checked");
           SetContentAndBodyAsUnmodified();//to prevent asking for saving
           //done
           return;
@@ -665,45 +667,45 @@ var MailWindow = new function(){
 
   //tries to write an email back as HTML email; if it fails it writes the email as text
   this.replaceEmail = function(newBody, replace = true, puretext = false){
-	//init
-	var editor = GetCurrentEditor();
-	if(replace){
-	  editor.beginningOfDocument();
+    //init
+    var editor = GetCurrentEditor();
+    if(replace){
+      editor.beginningOfDocument();
       editor.selectAll();
-	}
-	//replace
-	if(puretext){
-	  editor.insertText(newBody);
-	}else{
-	  try{
-		//write as html
-		var htmlEditor = editor.QueryInterface(Components.interfaces.nsIHTMLEditor);
-		htmlEditor.insertHTML(newBody);
+    }
+    //replace
+    if(puretext){
+      editor.insertText(newBody);
+    }else{
+      try{
+        //write as html
+        var htmlEditor = editor.QueryInterface(Components.interfaces.nsIHTMLEditor);
+        htmlEditor.insertHTML(newBody);
       }
       catch(ex){
-		//on error, write text
-		editor.insertText(newBody);
+        //on error, write text
+        editor.insertText(newBody);
       }
-	}
+    }
   }
 
   //tries to insert an email as text with quotations; if it fails it writes the email as text
   this.replaceEmailWithQuotations = function(newBody, replace = true){
-	//init
+    //init
     var editor = GetCurrentEditor();
-	if(replace){
-	  editor.beginningOfDocument();
+    if(replace){
+      editor.beginningOfDocument();
       editor.selectAll();
-	}
-	//replace
+    }
+    //replace
     try{
-	  //write as text with quotations
+      //write as text with quotations
       var mailEditor = editor.QueryInterface(Components.interfaces.nsIEditorMailSupport);
-	  mailEditor.insertAsCitedQuotation(newBody, "", true);
-	  //TODO: is that needed for pure-text citations? mailEditor.insertTextWithQuotations(newBody); html drafts? => editor.getEditorType() => text/plain or html/plain
+      mailEditor.insertAsCitedQuotation(newBody, "", true);
+      //TODO: is that needed for pure-text citations? mailEditor.insertTextWithQuotations(newBody); html drafts? => editor.getEditorType() => text/plain or html/plain
     }
     catch(ex){
-	  //on error, write text
+      //on error, write text
       editor.insertText(newBody);
     }
   }
@@ -754,15 +756,15 @@ ConfiComposeStateListener = {
 
 
   NotifyComposeBodyReady: function(){
-	//recheck colours of recipients
-	MailWindow.recheckRecipientColours();
+    //recheck colours of recipients
+    MailWindow.recheckRecipientColours();
 
-    //TODO: it would be good to get the xheader "X-Mozilla-Draft-Info: internal/draft;"
-    //check if message is a draft by checking where its ID
-    var draft = (gMsgCompose.compFields.draftId && gMsgCompose.compFields.draftId.length >0);
-	if(draft){
+  //TODO: it would be good to get the xheader "X-Mozilla-Draft-Info: internal/draft;"
+  //check if message is a draft by checking where its ID
+    var draft = (gMsgCompose.compFields.draftId && gMsgCompose.compFields.draftId.length > 0);
+    if(draft){
       Logger.dbg("draft");
-	}
+    }
 
     //called after email body is loaded (with quotations in the beginning!)
     //nsIEditor: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/NsIEditor
@@ -813,13 +815,13 @@ ConfiComposeStateListener = {
     //get ciphertext from "BEGIN PGP" on
     var ciphertext = body.substr(beginIndex, endIndex - beginIndex + 1);
 
-	//format email a bit...
+    //format email a bit...
     var indentRegexp;
     if (indent) {
       // MULTILINE MATCHING ON
       RegExp.multiline = true;
 
-	  //remove first level of quotations
+      //remove first level of quotations
       if (indent == "> ") {
         // replace ">> " with "> > " to allow correct quoting
         ciphertext = ciphertext.replace(/^>>/g, "> >");
@@ -830,7 +832,7 @@ ConfiComposeStateListener = {
       ciphertext = ciphertext.replace(indentRegexp, "");
       //tail     =     tail.replace(indentRegexp, "");
 
-	  //delete spacing at line end
+      //delete spacing at line end
       if (indent.match(/[ \t]*$/)) {
         indent = indent.replace(/[ \t]*$/g, "");
         indentRegexp = new RegExp("^"+indent+"$", "g");
@@ -840,7 +842,7 @@ ConfiComposeStateListener = {
       // Handle blank indented lines
       ciphertext = ciphertext.replace(/^[ \t]*>[ \t]*$/g, "");
       tail = tail.replace(/^[ \t]*>[ \t]*$/g, "");
-	  head = head.replace(/^[ \t]*>[ \t]*$/g, ""); //TODO: maybe also delete the \n?
+      head = head.replace(/^[ \t]*>[ \t]*$/g, ""); //TODO: maybe also delete the \n?
 
       // Trim leading space in tail
       tail = tail.replace(/^\s*\n/, "\n");
@@ -870,30 +872,31 @@ ConfiComposeStateListener = {
         }
 
         if(draft){
-		  //draft not quoted
-		  MailWindow.replaceEmail(decrypted);
-        }else{
+          //draft not quoted
+          MailWindow.replaceEmail(decrypted);
+        }
+        else{
           if(head){
-			//insert head ("mail send by ... on 2015-01-01...") without quotations
-			Logger.dbg("head: " + head);
-			MailWindow.replaceEmail(head, true, true);
+            //insert head ("mail send by ... on 2015-01-01...") without quotations
+            Logger.dbg("head: " + head);
+            MailWindow.replaceEmail(head, true, true);
 
-			//non-drafts (=replies) should quote the original mail
-			MailWindow.replaceEmailWithQuotations(decrypted, false);
+            //non-drafts (=replies) should quote the original mail
+            MailWindow.replaceEmailWithQuotations(decrypted, false);
           }else{
-			//non-drafts (=replies) should quote the original mail
-			MailWindow.replaceEmailWithQuotations(decrypted, true);
-		  }
+            //non-drafts (=replies) should quote the original mail
+            MailWindow.replaceEmailWithQuotations(decrypted, true);
+          }
 
           if(tail){
-			//insert tail (mostly empty lines?) without quotations similar to head
-			Logger.dbg("tail: " + tail);
-			MailWindow.replaceEmail(tail, false);
+            //insert tail (mostly empty lines?) without quotations similar to head
+            Logger.dbg("tail: " + tail);
+            MailWindow.replaceEmail(tail, false);
           }
         }
       }
       else{
-        Logger.error("Decrypting failed with status:"+status);
+        Logger.error("Decrypting failed with status:" + status);
       }
     }
 
@@ -910,7 +913,7 @@ ConfiComposeStateListener = {
 
 
   ComposeProcessDone: function(result){
-	//Logger.dbg("Ex body"+gMsgCompose.compFields.body);
+    //Logger.dbg("Ex body"+gMsgCompose.compFields.body);
 
     //called after a mail was sent/saved
     //not needed => empty interface
