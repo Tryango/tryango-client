@@ -1072,7 +1072,7 @@ if(typeof window != 'undefined'){ //only set-up if file is NOT imported
   // can use document.getElementById("msgcomposeWindow") instead of window
   window.addEventListener("compose-send-message", function(event){
     if(!gMsgCompose.domWindow.tryEncrypt){
-      Logger.dbg("compose-send-message  not trying to encrypt");
+      Logger.dbg("compose-send-message  not trying to encrypt"); //TODO: FIXME: when saving drafts twice, this will not encrypt!
       return;
     }
     var ret;

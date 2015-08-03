@@ -4,9 +4,10 @@ var EXPORTED_SYMBOLS = ["Dialogs"]
 
 if (! Dialogs){
   var Dialogs = {signupOpen:false
-                , settingsOpen:false
-                , aboutOpen:false
-                , helpOpen:false
+                 , settingsOpen:false
+                 , aboutOpen:false
+                 , helpOpen:false
+				 , TIMEOUT: 5000
                 };
 }
 
@@ -124,9 +125,8 @@ Dialogs._showMessage= function(message, priorityNum){
 //     popup: 'blockedPopupOptions',
 //     callback: null
 //   }];
-	//TODO: this spams the box and only old messages are shown => maybe prepend not append?
-//     PRIORITY_INFO_LOW  
-//     PRIORITY_INFO_MEDIUM  0 
+//     PRIORITY_INFO_LOW
+//     PRIORITY_INFO_MEDIUM  0
 //     PRIORITY_INFO_HIGH
 //     PRIORITY_WARNING_LOW
 //     PRIORITY_WARNING_MEDIUM 1
@@ -149,10 +149,15 @@ Dialogs._showMessage= function(message, priorityNum){
     default:
       break;
     }
-    box.appendNotification(message, 'tryango-notify',
-                           'chrome://tryango/skin/cm_logo.png',
-                           priority, buttons);
+    var element = box.appendNotification(message, 'tryango-notify',
+										 'chrome://tryango/skin/cm_logo.png',
+										 priority, buttons);
 
+	//hide element again after TIMEOUT milliseconds
+	setTimeout(function(){
+	  Logger.log("timeout happended");
+	  //TODO: notifications spam the box and only old messages are shown => hide notifications after TIMEOUT milliseconds?
+	}.bind(this), this.TIMEOUT);
   }
   else{
     Logger.error("Could not get the main window.");
