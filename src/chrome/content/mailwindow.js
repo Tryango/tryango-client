@@ -356,7 +356,7 @@ var MailWindow = new function(){
       //get editor
       editor = GetCurrentEditor();
       let dce = Components.interfaces.nsIDocumentEncoder;
-      var flags = dce.OutputFormatted | dce.OutputLFLineBreak;
+      var flags = dce.OutputFormatted | dce.OutputLFLineBreak | dce.OutputPreformatted; //ATTENTION: OutputPreformatted is needed to avoid the double-empty-lines-bug!!!
       //         var flags = Components.interfaces.nsIDocumentEncoder.OutputRaw;
       if(sendFlowed){
         flags = flags | dce.OutputFormatFlowed;
@@ -369,7 +369,7 @@ var MailWindow = new function(){
         //html email
         //           flags = dce.OutputRaw;
         mailBody = editor.outputToString("text/html", flags);
-        mailBody = mailBody.replace(/[^\S\r\n]+$/gm, "")
+        mailBody = mailBody.replace(/[^\S\r\n]+$/gm, "");
       }
       //         mailBody = Utils.convertFromUnicode(mailBody, "UTF-16");
     }
@@ -377,7 +377,8 @@ var MailWindow = new function(){
       Logger.error("Could not get message body:\n" + ex);
       return -1;
     }
-    Logger.dbg("mailBody:\n" + mailBody); //TODO: FIXME: double-empty-line-bug: the code above ("get body of the email") inserts empty lines every second line when saving drafts a second time!!! (it works the first time though)
+
+    Logger.dbg("mailBody:\n" + mailBody);
     MailWindow._password = "";
     if(this.sign){
       Logger.dbg("Getting password as we need to sign email");
@@ -699,10 +700,10 @@ var MailWindow = new function(){
     }
     //replace
     try{
-      //write as text with quotations
+      //write with quotations
       var mailEditor = editor.QueryInterface(Components.interfaces.nsIEditorMailSupport);
       mailEditor.insertAsCitedQuotation(newBody, "", true);
-      //TODO: is that needed for pure-text citations? mailEditor.insertTextWithQuotations(newBody); html drafts? => editor.getEditorType() => text/plain or html/plain
+      //TODO: is that needed for pure-text citations: mailEditor.insertTextWithQuotations(newBody);? html drafts? => editor.getEditorType() => text/plain or html/plain;; HINT: it seems to work as it is though!
     }
     catch(ex){
       //on error, write text
@@ -759,8 +760,8 @@ ConfiComposeStateListener = {
     //recheck colours of recipients
     MailWindow.recheckRecipientColours();
 
-  //TODO: it would be good to get the xheader "X-Mozilla-Draft-Info: internal/draft;"
-  //check if message is a draft by checking where its ID
+	//TODO: it would be good to get the xheader "X-Mozilla-Draft-Info: internal/draft;"
+	//check if message is a draft by checking where its ID
     var draft = (gMsgCompose.compFields.draftId && gMsgCompose.compFields.draftId.length > 0);
     if(draft){
       Logger.dbg("draft");
@@ -842,7 +843,7 @@ ConfiComposeStateListener = {
       // Handle blank indented lines
       ciphertext = ciphertext.replace(/^[ \t]*>[ \t]*$/g, "");
       tail = tail.replace(/^[ \t]*>[ \t]*$/g, "");
-      head = head.replace(/^[ \t]*>[ \t]*$/g, ""); //TODO: maybe also delete the \n?
+      head = head.replace(/^[ \t]*>[ \t]*\n/g, ""); //also delete the \n character
 
       // Trim leading space in tail
       tail = tail.replace(/^\s*\n/, "\n");
@@ -862,7 +863,7 @@ ConfiComposeStateListener = {
 
     function decryptCallback(status, decrypted){
       if((status == 0 || CWrapper.getMaxErrNum() <= status) && decrypted.length > 0){
-        Logger.dbg("write decrypted email back");
+        Logger.dbg("write decrypted email back:\n" + decrypted);
 
         //TODO: we drop the header and the bgcolor in <body ...> here!
         //strip body out of email
@@ -878,7 +879,6 @@ ConfiComposeStateListener = {
         else{
           if(head){
             //insert head ("mail send by ... on 2015-01-01...") without quotations
-            Logger.dbg("head: " + head);
             MailWindow.replaceEmail(head, true, true);
 
             //non-drafts (=replies) should quote the original mail
