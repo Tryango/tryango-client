@@ -149,28 +149,53 @@ Dialogs._showMessage= function(message, priorityNum){
     default:
       break;
     }
-    var element = box.appendNotification(message, 'tryango-notify',
-										 'chrome://tryango/skin/cm_logo.png',
-										 priority, buttons);
+	box.appendNotification(message, 'tryango-notify',
+						   'chrome://tryango/skin/cm_logo.png',
+						   priority, buttons);
 
-	//remove element again after TIMEOUT milliseconds
-	window.setTimeout(
-	  function(){
-		Logger.dbg("notificationbox: timeout happended");
-		//removing a notification is a race-condition with the user
-		//if we cannot find the element again, the user probably already
-		//cancelled the notification => ignore
-		try{
-		  box.removeNotification(element);
-		}catch(err){
-		  //ignore error
-		  Logger.dbg("notificationbox: user already closed it");
-		}
-	  }.bind(this),
-      //show every notification TIMEOUT seconds
-      // = show n-th. notification n*TIMEOUT seconds before removing
-      this.TIMEOUT * box.allNotifications.length
-    );
+	//THREAD-SAFETY: this might seem like a race condition but javascript functions
+	//have run-to-completion/are reentrant functions:
+	//https://stackoverflow.com/questions/124764/are-mutexes-needed-in-javascript
+	//  "Javascript is defined as a reentrant language which means there is no threading exposed
+	//  to the user, there may be threads in the implementation. Functions like setTimeout() and
+	//  asynchronous callbacks need to wait for the script engine to sleep before they're able
+	//  to run."
+	//So, the "async" timeout/interval can just happen when no other function is
+	//running (~synchronous)
+	if(this.timer == null){
+	  //remove element again after TIMEOUT milliseconds
+	  this.timer = window.setInterval(
+		function(){
+		  Logger.dbg("notificationbox: timeout happended");
+		  //removing a notification is a race-condition with the user
+		  //if we cannot find the element again, the user probably already
+		  //cancelled the notification => ignore
+		  try{
+			//if there is a notification
+			if(box.currentNotification != null){
+			  //remove it
+			  box.removeCurrentNotification();
+			}
+
+			//if there are no notifications left
+			if(box.allNotifications.length == 0){
+			  //stop timer
+			  window.clearInterval(this.timer);
+			  this.timer = null;
+			  Logger.dbg("notificationbox: timer removed");
+			}
+		  }catch(err){
+			//ignore error
+			Logger.dbg("notificationbox: user already closed it");
+		  }
+		}.bind(this),
+		//remove notifications every TIMEOUT seconds
+		this.TIMEOUT
+      );
+	  Logger.dbg("notificationbox: timer started");
+	}
+	// --- END TIMEOUT ---
+
   }
   else{
     Logger.error("Could not get the main window.");
