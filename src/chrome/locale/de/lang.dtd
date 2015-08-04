@@ -1,5 +1,7 @@
 <!-- German Tryango Language Pack -->
 
+
+<!-- TODO: language DE -->
 <!ENTITY  tryango.label		"Tryango">
 
 <!ENTITY  menu.signup			"Anmelden">
@@ -21,4 +23,3 @@
 <!ENTITY  settings.encryptiontab	"Verschlüsselung">
 
 <!ENTITY  about.title			"Über">
-

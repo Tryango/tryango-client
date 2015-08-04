@@ -1,0 +1,93 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+
+<!-- JavaScript does not work in this document -->
+
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+    <title>Tryango @FULL_VERSION@ - HILFE</title>
+  </head>
+  <body>
+	<!-- header -->
+    <h1>
+      <img src="../../skin/cm_logo.png" alt="&lt;logo&gt;"
+	   style="width:32px;height:32px;vertical-align:middle;"> Tryango @FULL_VERSION@ - Hilfe
+    </h1>
+    <h3>Universit&auml;t Birmingham und CloudTomo Ltd.</h3>
+
+	<!-- FAQ -->
+	<h3>FAQ:</h3>
+	<ol>
+	  <b><li>Was ist Tryango?</li></b>
+	  <p>Tryango ist eine sichere E-mail Verschl&uuml;sselungstechnik, die von der
+		Universit&auml;t Birmingham (UK) entwickelt wurde.</p>
+
+	  <b><li>Wie installiere ich das Tryango Thunderbird plugin?</li></b>
+	  <p>
+		Laden Sie zuerst Tryango von der offiziellen Website
+		<a href="www.tryango.com">www.tryango.com</a> herunter.<br><br>
+
+		&Ouml;ffnen Sie Thunderbird und w&auml;hlen Sie im Menu (Symbol mit drei Streifen in der
+		rechten, oberen Ecke) den Eintrag <i>Add-ons</i> aus.<br><br>
+
+		Klicken Sie im Add-ons-Manager auf das kleine Zahnrad in der rechten, oberen Ecke und
+		w&auml;hlen Sie <i>Add-on aus Datei installieren...</i> aus.<br><br>
+
+		W&auml;hlen Sie in dem darauffolgenden Dialog die zuvor heruntergeladene xpi-Datei von
+		Tryango f&uuml;r Ihr Betriebssystem aus
+		(z.B. tryango-0.9.3-linux-amd64.xpi) und starten Sie Thunderbird neu.<br><br>
+
+		Nun sollte Tryango's Anmelde-Dialog erscheinen. Sollte dies nicht der Fall sein,
+		k&ouml;nnen Sie den Dialog mittels <i>Tryango</i> => <i>Anmelden</i> in der
+		Men&uuml;leiste manuell starten.
+	  </p>
+
+	  <b><li>Wie melde ich mich f&uuml;r Tryango an?</li></b>
+	  <p>
+		Tryango sollte schon automatisch einen Anmelde-Dialog anzeigen. Sollte dies nicht der
+		Fall sein, k&ouml;nnen Sie den Dialog mittels <i>Tryango</i> => <i>Anmelden</i> in der
+		Men&uuml;leiste manuell starten.
+	  </p>
+
+	  <b><li>Wie versende ich versch&uuml;sselte E-mails mit Tryango?</li></b>
+	  <p>
+		Nachdem Sie sich (einmalig) bei Tryango angemeldet haben, sollten E-mails zu anderen
+		Tryango Nutzern bereits automatisch verschl&uuml;sselt werden.<br><br>
+
+		In jedem E-mail Fenster ("neue E-mail verfassen") k&ouml;nnen Sie diese Option
+		tempor&auml;r &uuml;ber das Tryango Men&uuml; &auml;ndern.<br><br>
+
+		Die Standardeinstellungen f&uuml;r Verschl&uuml;sselung und digitaler Signatur
+		k&ouml;nnen &uuml;ber <i>Tryango</i> => <i>Einstellungen</i>
+		ge&auml;ndert werden. Wir empfehlen jedoch dies standardm&auml;&szlig;ig aktiviert
+		zu lassen.<br><br>
+	  </p>
+
+	  <b><li>Wo kann ich Fehler ("bugs") melden?</li></b>
+	  <p>
+		Bitte nutzen Sie github <a href="https://github.com/tryango/tryango-client">
+		  https://github.com/tryango/tryango-client</a> um Fehler zu melden.
+	  </p>
+
+	  <b><li>Wer entwickelt Tryango?</li></b>
+      <p>Tryango ist ein Projekt der Universit&auml;t Birmingham (UK) und wurde von den
+		folgenden Personen entwickelt:
+		<ul>
+		  <li>Professor Mark Ryan</li>
+		  <li>Dr. Mihai Ordean</li>
+		  <li>Dr. Piotr Kordy</li>
+		  <li>Joshua Philips</li>
+		  <li>Michael Denzel</li>
+		</ul>
+	  </p>
+
+	  <b><li>Wo kann ich weitere Informationen und Hilfe erhalten?</li></b>
+	  <p>
+		Kontakt: <a href="mailto:support@tryango.com?subject=Tryango">support@tryango.com</a><br>
+		Website: <a href="http://www.tryango.com">www.tryango.com</a>
+      </p>
+
+	</ol>
+
+  </body>
+</html>

@@ -54,28 +54,25 @@
                    orient="horizontal"
                    disabled="false">
       <menupopup>
-        <!-- TODO: FIXME: fill element automatically: anchorNode nsIDOMElement (tryango-menu-popup) -->
-	<menuitem id="menu-signup" label="&menu.signup;"
-		  oncommand="Tryango.handleEvent(this.id);" />
-	<menuitem id="menu-settings" label="&menu.settings;"
-		  oncommand="Tryango.handleEvent(this.id);" />
+		<menuitem id="menu-signup" label="&menu.signup;"
+				  oncommand="Tryango.handleEvent(this.id);" />
+		<menuitem id="menu-settings" label="&menu.settings;"
+				  oncommand="Tryango.handleEvent(this.id);" />
 
+		<menuseparator />
+		<menuitem id="menu-import" label="&menu.import;"
+				  oncommand="Tryango.handleEvent(this.id);" />
+		<menuitem id="menu-export" label="&menu.export;"
+				  oncommand="Tryango.handleEvent(this.id);" />
 
-	<menuseparator />
-	<menuitem id="menu-import" label="&menu.import;"
-		  oncommand="Tryango.handleEvent(this.id);" />
-	<menuitem id="menu-export" label="&menu.export;"
-		  oncommand="Tryango.handleEvent(this.id);" />
+		<menuitem id="menu-reset" label="&menu.reset;"
+				  oncommand="Tryango.handleEvent(this.id);" />
 
-
-	<menuitem id="menu-reset" label="&menu.reset;"
-		  oncommand="Tryango.handleEvent(this.id);" />
-
-	<menuseparator />
-	<menuitem id="menu-help" label="&menu.help;"
-		  oncommand="Tryango.handleEvent(this.id);" />
-	<menuitem id="menu-about" label="&about.title;"
-		  oncommand="Tryango.handleEvent(this.id);" />
+		<menuseparator />
+		<menuitem id="menu-help" label="&menu.help;"
+				  oncommand="Tryango.handleEvent(this.id);" />
+		<menuitem id="menu-about" label="&about.title;"
+				  oncommand="Tryango.handleEvent(this.id);" />
       </menupopup>
     </toolbarbutton>
   </toolbarpalette>
