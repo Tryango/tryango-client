@@ -794,6 +794,13 @@ var MailListener = new function() {
       this.cmToolbar.children[0].setAttribute("value", this.languagepack.getString("verifytoolbar")+ ": " + this.languagepack.getString("sigkey_expired"));
       this.cmToolbar.children[0].setAttribute("style", "color: black;");
     }
+    else if(CWrapper.getErrorStr(status) == "cancel"){
+      //no sig => grey
+      this.cmToolbar.setAttribute("style", "background-color: orange;");
+      this.cmToolbar.children[0].setAttribute("value", this.languagepack.getString("verifytoolbar")+ ": " + this.languagepack.getString("cancel"));
+      this.cmToolbar.children[0].setAttribute("style", "color: black;");
+    }
+
     else if(CWrapper.getErrorStr(status) == "wrong_sig"){
       //no sig => grey
       this.cmToolbar.setAttribute("style", "background-color: red;");
