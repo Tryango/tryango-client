@@ -296,7 +296,7 @@ var CWrapper = {
     var pb = Components.classes["@mozilla.org/preferences-service;1"]//cannot use prefs.jsm because of cyclic dependancy
                           .getService(Components.interfaces.nsIPrefService)
                           .getBranch("extensions.tryango.");
-    Logger.dbg("synchGetDataPassword data: "+ data);
+    Logger.dbg("synchGetDataPassword data: " + data);
     var check = {value: pb.getBoolPref("savePW")};
     var keyIdStr = "";
     var passValue = {value: ""};
@@ -321,11 +321,11 @@ var CWrapper = {
       }
     }
     else{
-      return {success: false, password: ""};
+      return {status: status, password: ""};
     }
 
     if(status == 0){
-      return {success: true, password: passValue.value};
+      return {status: status, password: passValue.value};
     }
     
     do{
@@ -342,7 +342,7 @@ var CWrapper = {
         }
       }
       else{
-        return {success: false, password: ""};
+        return {status: status, password: ""};
       }
       if(status != 0){
         var result = true;
@@ -353,7 +353,7 @@ var CWrapper = {
         }
         while(result && passValue.value == "");
         if(!result){
-          return {success: false, password: ""};
+          return {status: 30, password: ""};//ANG_CANCEL
         }
         pb.setBoolPref("savePW", check.value);
         if(check.value){
@@ -366,7 +366,7 @@ var CWrapper = {
       }
     }
     while(status != 0)
-    return {success: true, password: passValue.value};
+    return {status: status, password: passValue.value};
   },
 
   getDataPassword: function(data, callback){
@@ -388,7 +388,7 @@ var CWrapper = {
                                        , CWrapper.languagepack.getString("prompt_password") + keyId
                                        , passValue, CWrapper.languagepack.getString("save_password"), check);
             if(!result){
-              callback(false, "");
+              callback(30, ""); //ANG_CANCEL
               return;
             }
             pb.setBoolPref("savePW", check.value);
@@ -402,11 +402,11 @@ var CWrapper = {
           CWrapper.post("checkDataPassword", [data, passValue.value, true], dataPwCallback);
         }
         else{
-          callback(false, "");
+          callback(status, "");
         }
       }
       else{
-        callback(true, password);
+        callback(status, password);
       }
     }
 //     Logger.dbg("getDataPassword start");
@@ -832,7 +832,7 @@ var CWrapper = {
 //sychronous decryption without signature verification - should be fast as we do not contact server
   synchDecryptMail: function(mailBody){
     var ret = this.synchGetDataPassword(mailBody);
-    if(ret.success){
+    if(ret.status == 0){
       var result = new ctypes.char.ptr;
       var resultSize = new ctypes.uint32_t;
       var c_mailBody= ctypes.uint8_t.array()(mailBody.length)
@@ -846,7 +846,7 @@ var CWrapper = {
                                      , ret.password);
       Logger.dbg("Synch decrypting mail returned with status:" + status);
       var decrypted = "";
-      if((ctypes.uint32_t(0)<resultSize)){
+      if((ctypes.uint32_t(0) < resultSize)){
         if(status == 0 || status > this.getMaxErrNum()){ //ANG_OK
           decrypted = result.readString();
         }
@@ -854,19 +854,19 @@ var CWrapper = {
       }
       return {status:status, decrypted: decrypted, password: ret.password};
     }
-    return {status:21, decrypted: "", password: ""};
+    return {status:ret.status, decrypted: "", password: ""};
   },
 
   decryptMail: function(mailBody, sender, aPassword, callback){
     if(aPassword.length < 1){
-      this.getDataPassword(mailBody, function(success, password){
-        if(success){
+      this.getDataPassword(mailBody, function(status, password){
+        if(status == 0){
           CWrapper.post("decryptMail", [mailBody, sender, password], function(status, decrypted){
             callback(status, decrypted);
           });
         }
         else{
-          callback(21, "");//ANG_NO_KEY_PRESENT
+          callback(status, "");
         }
       });
     }
@@ -888,8 +888,8 @@ var CWrapper = {
     var c_sender = ctypes.char.array()(sender);
     Logger.dbg("decrypting attachment with size of data:" + data.length);
     var pass = {value : ""};
-    this.getDataPassword(data, function(success, password){
-      if(success){
+    this.getDataPassword(data, function(status, password){
+      if(status == 0){
         var c_data = ctypes.uint8_t.array()(data.length)
         for(var i = 0; i< data.length;i++){
           c_data[i] = data.charCodeAt(i);
@@ -897,16 +897,16 @@ var CWrapper = {
         var c_password = ctypes.char.array()(password);
         Logger.dbg("password:"+ password);
         //query
-        var status = CWrapper.c_decryptAndSaveAttachment(c_data, c_data.length, c_filepath, c_sender, c_password);
-        if(status > CWrapper.getMaxErrNum()){
+        var status2 = CWrapper.c_decryptAndSaveAttachment(c_data, c_data.length, c_filepath, c_sender, c_password);
+        if(status2 > CWrapper.getMaxErrNum()){
           //signature failed
-          Dialogs.error(CWrapper.languagepack.getString(CWrapper.getErrorStr(status)) +
+          Dialogs.error(CWrapper.languagepack.getString(CWrapper.getErrorStr(status2)) +
                       ":\n\t" + filepath);
         }
-        else if(status != 0){
+        else if(status2 != 0){
           //error => tell user
           Dialogs.error(CWrapper.languagepack.getString("att_dec_failed") + " " + filepath +
-                       "\n(" + CWrapper.languagepack.getString(CWrapper.getErrorStr(status)) +
+                       "\n(" + CWrapper.languagepack.getString(CWrapper.getErrorStr(status2)) +
                        ")");
         }
         else{
@@ -916,8 +916,7 @@ var CWrapper = {
 
       }
       else{
-        Dialogs.error(CWrapper.languagepack.getString(CWrapper.getErrorStr(21)) + ":\n\t" + filepath);
-         //ANG_NO_KEY_PRESENT - should we return wrong password instead? or nothing?
+        Dialogs.error(CWrapper.languagepack.getString(CWrapper.getErrorStr(status)) + ":\n\t" + filepath);
       }
     });
   },

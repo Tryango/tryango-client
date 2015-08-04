@@ -349,10 +349,7 @@ class KeyDb{
           return ANG_SIGKEY_EXPIRED;//37
         }
         fingerprint = skp->getSSKey()->pkey.fingerprint;
-        Confi_Status status = skp->checkPassword(password);
-        if(status == ANG_OK){
-          return status;
-        }
+        return skp->checkPassword(password);
       }
     }
     else{

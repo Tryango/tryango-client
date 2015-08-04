@@ -366,10 +366,10 @@ var MailWindow = new function(){
         mailBody = mailBody.replace(/[^\S\r\n]+$/gm, "");
       }
       else{
-		//plaintext
+        //plaintext
         mailBody = editor.outputToString("text/plain", flags);
       }
-	  editor.endTransaction();
+      editor.endTransaction();
       //         mailBody = Utils.convertFromUnicode(mailBody, "UTF-16");
     }
     catch(ex){
@@ -675,7 +675,7 @@ var MailWindow = new function(){
     }
     //replace
     if(puretext || !gMsgCompose.composeHTML){
-	  //pure text or we do NOT composeHTML (= editor is pure-text)
+      //pure text or we do NOT composeHTML (= editor is pure-text)
       editor.insertText(newBody);
     }else{
       try{
@@ -692,9 +692,9 @@ var MailWindow = new function(){
 
   //tries to insert an email as text with quotations; if it fails it writes the email as text
   this.replaceEmailWithQuotations = function(
-	newBody,
-	html, //boolean indicating if the inserted text is html or text
-	replace = true
+    newBody,
+    html, //boolean indicating if the inserted text is html or text
+    replace = true
   ){
     //init
     var editor = GetCurrentEditor();
@@ -763,8 +763,8 @@ ConfiComposeStateListener = {
     //recheck colours of recipients
     MailWindow.recheckRecipientColours();
 
-	//TODO: it would be good to get the xheader "X-Mozilla-Draft-Info: internal/draft;"
-	//check if message is a draft by checking where its ID
+    //TODO: it would be good to get the xheader "X-Mozilla-Draft-Info: internal/draft;"
+    //check if message is a draft by checking where its ID
     var draft = (gMsgCompose.compFields.draftId && gMsgCompose.compFields.draftId.length > 0);
     if(draft){
       Logger.dbg("draft");
@@ -780,8 +780,8 @@ ConfiComposeStateListener = {
     var body = editor.outputToString('text/plain', flags);
     editor.endTransaction();
 
-	//    var charset = editor.documentCharacterSet;
-	//    body = Utils.convertFromUnicode(body, charset);
+    //    var charset = editor.documentCharacterSet;
+    //    body = Utils.convertFromUnicode(body, charset);
 
     //search for PGP block
     var PGPstart = body.indexOf("-----BEGIN PGP ");
@@ -867,9 +867,9 @@ ConfiComposeStateListener = {
       if((status == 0 || CWrapper.getMaxErrNum() <= status) && decrypted.length > 0){
         Logger.dbg("write decrypted email back:\n" + decrypted);
 
-		//init: check if decrypted email is html
-		var isHtml = decrypted.match(/<html>[\s\S]*<\/html>/i) != null;
-		Logger.dbg("isHtml: "  + isHtml);
+        //init: check if decrypted email is html
+        var isHtml = decrypted.match(/<html>[\s\S]*<\/html>/i) != null;
+        Logger.dbg("isHtml: "  + isHtml);
 
         //TODO: we drop the header and the bgcolor in <body ...> here!
         //strip body out of email
@@ -879,13 +879,13 @@ ConfiComposeStateListener = {
         }
 
         if(draft){
-		  Logger.dbg("write draft back");
+          Logger.dbg("write draft back");
 
           //draft not quoted
           MailWindow.replaceEmail(decrypted);
         }
         else{
-		  Logger.dbg("write (non draft) email back");
+          Logger.dbg("write (non draft) email back");
 
           if(head){
             //insert head ("mail send by ... on 2015-01-01...") without quotations
@@ -893,7 +893,8 @@ ConfiComposeStateListener = {
 
             //non-drafts (=replies) should quote the original mail
             MailWindow.replaceEmailWithQuotations(decrypted, isHtml, false);
-          }else{
+          }
+          else{
             //non-drafts (=replies) should quote the original mail
             MailWindow.replaceEmailWithQuotations(decrypted, isHtml, true);
           }
@@ -906,6 +907,8 @@ ConfiComposeStateListener = {
         }
       }
       else{
+        Dialogs.error(CWrapper.languagepack.getString("mail_dec_failed") + "\nError: "
+                             + CWrapper.languagepack.getString(CWrapper.getErrorStr(status)));
         Logger.error("Decrypting failed with status:" + status);
       }
     }
@@ -1085,7 +1088,7 @@ if(typeof window != 'undefined'){ //only set-up if file is NOT imported
   // can use document.getElementById("msgcomposeWindow") instead of window
   window.addEventListener("compose-send-message", function(event){
     if(!gMsgCompose.domWindow.tryEncrypt){
-      Logger.dbg("compose-send-message  not trying to encrypt"); //TODO: FIXME: when saving drafts twice, this will not encrypt!
+      Logger.dbg("compose-send-message  not trying to encrypt");
       return;
     }
     var ret;
