@@ -1,0 +1,28 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+    <title>Tryango @FULL_VERSION@ - HELP</title>
+  </head>
+  <body>
+    <h1>
+      <img src="../../skin/cm_logo.png" alt="&lt;logo&gt;"
+	   style="width:32px;height:32px;vertical-align:middle;"> Tryango @FULL_VERSION@ - Help
+    </h1>
+    <h3>University of Birmingham and CloudTomo Ltd.</h3>
+
+	<p>Tryango is a secure e-mail encryption technique.</p>
+
+    <p>
+      Contact: <a href="mailto:support@tryango.com?subject=Tryango">support@tryango.com</a><br>
+      Website: <a href="http://www.tryango.com">www.tryango.com</a>
+    </p>
+
+
+	<h3>FAQ:</h3>
+    <!-- TODO: FAQ -->
+
+
+  </body>
+</html>

@@ -9,8 +9,8 @@ INCLUDE("${PROJECT_SOURCE_DIR}/cmake/GetOs.cmake")
 ADD_SUBDIRECTORY("components")
 
 # CMAKE_POLICY(SET CMP0026 OLD)
-# 
-# 
+#
+#
 # GET_PROPERTY(CONFIMAIL_PATH TARGET tryango-client PROPERTY LOCATION)
 # GET_FILENAME_COMPONENT(CONFIMAIL_FILE ${CONFIMAIL_PATH} NAME)
 
@@ -19,8 +19,13 @@ ADD_SUBDIRECTORY("components")
 SET(INSTALLRDF "install.rdf")
 MESSAGE(STATUS "Generating ${INSTALLRDF}")
 CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/install.rdf.in" "${CMAKE_CURRENT_BINARY_DIR}/${INSTALLRDF}")
+
+#en-US
 CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/chrome/locale/en-US/about.html.in" "${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/en-US/about.html")
+CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/chrome/locale/en-US/help.html.in" "${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/en-US/help.html")
+#en-GB
 CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/chrome/locale/en-GB/about.html.in" "${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/en-GB/about.html")
+CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/chrome/locale/en-GB/help.html.in" "${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/en-GB/help.html")
 
 GetOSArchitecture("ANG")
 SET(XPI_OUT "${PROJECT_NAME}-${VERSION}-${ANG_OS}-${ANG_ARCHITECTURE}")
@@ -50,7 +55,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 ENDIF()
 
 ADD_CUSTOM_COMMAND(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/chrome.manifest
-    COMMAND ${PYTHON_EXECUTABLE} 
+    COMMAND ${PYTHON_EXECUTABLE}
       ${PROJECT_SOURCE_DIR}/cmake/genChromeManifest.py
       $<TARGET_FILE:tryango-client>
       ${CMAKE_CURRENT_SOURCE_DIR}/chrome.manifest.in
@@ -70,7 +75,7 @@ ADD_CUSTOM_COMMAND(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/chrome.manifest
 # ENDIF()
 
 FILE(GLOB_RECURSE XPI_DEPS chrome/content/* chrome/skin/* chrome/locale/*dtd chrome/locale/*properties defaults/*)
-SET(XPI_DEPS ${XPI_DEPS} ${CMAKE_CURRENT_BINARY_DIR}/chrome.manifest ${CMAKE_CURRENT_BINARY_DIR}/install.rdf ${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/en-US/about.html ${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/en-GB/about.html)
+SET(XPI_DEPS ${XPI_DEPS} ${CMAKE_CURRENT_BINARY_DIR}/chrome.manifest ${CMAKE_CURRENT_BINARY_DIR}/install.rdf ${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/en-US/about.html ${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/en-GB/about.html ${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/en-US/help.html ${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/en-GB/help.html)
 
 FILE(GLOB_RECURSE GLOB_TEMP RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" chrome/content/* chrome/skin/* chrome/locale/*dtd chrome/locale/*properties chrome/locale/*html defaults/*)
 
@@ -87,7 +92,7 @@ FOREACH(FILE ${GLOB_TEMP})
 ENDFOREACH(FILE)
 
 # FILE(GLOB IDL "components/*.idl")
-# 
+#
 # FOREACH(F ${IDL})
 #   GET_FILENAME_COMPONENT(BAS ${F} NAME_WE)
 #   SET(XPI_DEPS ${XPI_DEPS} "${CMAKE_CURRENT_BINARY_DIR}/components/${BAS}.xpt")
@@ -98,6 +103,8 @@ ENDFOREACH(FILE)
 SET(XPI_SOURCES "-C" "${CMAKE_CURRENT_BINARY_DIR}" ${INSTALLRDF} chrome.manifest ${XPI_SOURCES})
 SET(XPI_SOURCES "-C" "${CMAKE_CURRENT_BINARY_DIR}" chrome/locale/en-GB/about.html ${XPI_SOURCES})
 SET(XPI_SOURCES "-C" "${CMAKE_CURRENT_BINARY_DIR}" chrome/locale/en-US/about.html ${XPI_SOURCES})
+SET(XPI_SOURCES "-C" "${CMAKE_CURRENT_BINARY_DIR}" chrome/locale/en-GB/help.html ${XPI_SOURCES})
+SET(XPI_SOURCES "-C" "${CMAKE_CURRENT_BINARY_DIR}" chrome/locale/en-US/help.html ${XPI_SOURCES})
 SET(XPI_SOURCES "-C" "${CMAKE_CURRENT_BINARY_DIR}" components/certificate.pem ${XPI_SOURCES})
 SET(XPI_SOURCES "-C" "${CMAKE_SOURCE_DIR}" LICENSE ${XPI_SOURCES})
 # message("sources:${XPI_SOURCES}")
