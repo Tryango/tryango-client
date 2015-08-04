@@ -227,7 +227,7 @@ var CWrapper = {
 //           , ctypes.default_abi //binary interface type
 //           , ctypes.uint32_t     //return type
 //           );
-// 
+//
 //     this.setV = this.client.declare("setV"// method name
 //           , ctypes.default_abi //binary interface type
 //           , ctypes.void_t        //return type
@@ -327,7 +327,7 @@ var CWrapper = {
     if(status == 0){
       return {status: status, password: passValue.value};
     }
-    
+
     do{
       status = this.c_checkDecrPassword(keyId.address()
                                          , keyIdSize.address()
@@ -476,8 +476,8 @@ var CWrapper = {
     }
     return {status:0, password: passValue.value};
    },
- 
- 
+
+
 //checks (and prompts if wrong) password for secret sign key for the sender email
   getSignPassword: function(sender, callback){
     var pb = Components.classes["@mozilla.org/preferences-service;1"]//cannot use prefs.jsm because of cyclic dependancy
@@ -923,6 +923,7 @@ var CWrapper = {
 
   closeLibrary : function(){
     this.client.close(); //TODO: FIXME: this does not work sometimes
+	//TODO: FIXME: isn't here a call to wrapperWorker.closeLibrary() missing?
   }
 }
 
