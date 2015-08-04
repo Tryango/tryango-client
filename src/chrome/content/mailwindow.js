@@ -23,6 +23,8 @@ var MailWindow = new function(){
   this.COLOUR_REJECTED = "#FFAAAA";
   this.DEFAULT_COLOUR = "transparent";
   this.RECIPIENTSFIELD_PREFIX = "addressCol2#";
+  this.RECIPIENTSFIELD_TYPE_PREFIX = "addressCol1#";
+
   // generate a unique ID for each window (not automatically done!)
   // use miliseconds of time for it
   Logger.dbg("Previous id:"+this.id);
@@ -49,11 +51,9 @@ var MailWindow = new function(){
       return;
     }
 
-    // hook "recipients" field
-    var addrCol = document.getElementById("addressCol2#1");
+    // hook "recipients" field (first one is enough as further ones will be cloned from this one)
+    var addrCol = document.getElementById(this.RECIPIENTSFIELD_PREFIX + "1");
     if (addrCol) {
-      //var attr = adrCol.getAttribute("oninput");
-      //adrCol.setAttribute("oninput", "MailWindow.recipientsChange();" + attr);
       var attr = addrCol.getAttribute("onchange");
       addrCol.setAttribute("onchange", "MailWindow.recipientsChange(this);" + attr);
       attr = addrCol.getAttribute("onfocus");
@@ -61,6 +61,16 @@ var MailWindow = new function(){
     }
     else{
       Logger.error("Could not hook recepients-field of mailwindow " + this.id);
+    }
+
+	//hook "recipients" type field (first one is enough as further ones will be cloned from this one)
+	var addrColType = document.getElementById(this.RECIPIENTSFIELD_TYPE_PREFIX + "1");
+    if (addrColType) {
+      var attr = addrColType.getAttribute("oncommand");
+      addrColType.setAttribute("oncommand", "MailWindow.recipientsTypeChange(this);" + attr);
+    }
+    else{
+      Logger.error("Could not hook recepients-type-field of mailwindow " + this.id);
     }
   }
 
@@ -182,9 +192,11 @@ var MailWindow = new function(){
   this.recheckRecipientColours = function(){
     var i = 1; //recipientsfield starts with 1!!!
     var addrCol = document.getElementById(MailWindow.RECIPIENTSFIELD_PREFIX + i);
+	var addrColType;
     while(addrCol){
-      // empty fields
-      if(addrCol.value.length == 0){
+      // empty fields or "reply-to"
+	  addrColType = document.getElementById(addrCol.getAttribute("aria-labelledby"));
+      if(addrCol.value.length == 0 || addrColType.value == "addr_reply"){
         addrCol.style.backgroundColor = MailWindow.DEFAULT_COLOUR;
       }
       else{
@@ -218,6 +230,26 @@ var MailWindow = new function(){
     }
   }
 
+  //helper function to call recipientsChange from an addrTypeCol
+  this.recipientsTypeChange = function(addrTypeCol){
+	//get index out of addrTypeCol
+	var index = addrTypeCol.id.match(/[^#]*#([0-9]+)/);
+	if(index.length == 2){ //two because full string is also included e.g.: [addressCol1#1, 1]
+	  index = index[1]; //0 = full string; 1 = index
+	}else{
+	  //error => just recheck everything to be sure
+	  Logger.error("recipientsTypeChange could not get index - recheck everything");
+	  this.recheckRecipientColours();
+	  return;
+	}
+
+	//get addrCol with index of addrTypeCol
+	var addrCol = document.getElementById(MailWindow.RECIPIENTSFIELD_PREFIX + index);
+
+	//call onchange method
+	this.recipientsChange(addrCol);
+  }
+
   /*
    * recipientsChange function, called when user alters anything in the recipients field
    *      of the compose-mail-window; passes info to C interface and highlights
@@ -235,6 +267,12 @@ var MailWindow = new function(){
         addrCol.style.backgroundColor = MailWindow.DEFAULT_COLOUR;
         return;
       }
+	  //check if only "reply-to" => no checking needed
+	  var addrColType = document.getElementById(addrCol.getAttribute("aria-labelledby"));
+	  if(addrColType && addrColType.value == "addr_reply"){
+		addrCol.style.backgroundColor = MailWindow.DEFAULT_COLOUR;
+		return;
+	  }
 
       // log
       Logger.dbg("recipientsChange: " + addrCol.value);
@@ -318,10 +356,14 @@ var MailWindow = new function(){
       //read them from the mailwindow-field(s)
       var addrCol = document.getElementById(MailWindow.RECIPIENTSFIELD_PREFIX + i);
       while(addrCol){
-          //check for empty string
+        //check for empty string
         if(/([^\s])/.test(addrCol.value)){
-          //store into an array
-          recipients += addrCol.value + ",";
+		  //check if it is a "reply-to"
+		  addrColType = document.getElementById(addrCol.getAttribute("aria-labelledby"));
+		  if(addrColType.value != "addr_reply"){
+			//store into an array
+			recipients += addrCol.value + ",";
+		  }
         }
 
         //next field
