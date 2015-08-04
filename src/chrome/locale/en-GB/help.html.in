@@ -1,28 +1,82 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 
+<!-- JavaScript does not work in this document -->
+
 <html>
   <head>
     <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
     <title>Tryango @FULL_VERSION@ - HELP</title>
   </head>
   <body>
+	<!-- header -->
     <h1>
       <img src="../../skin/cm_logo.png" alt="&lt;logo&gt;"
 	   style="width:32px;height:32px;vertical-align:middle;"> Tryango @FULL_VERSION@ - Help
     </h1>
     <h3>University of Birmingham and CloudTomo Ltd.</h3>
 
-	<p>Tryango is a secure e-mail encryption technique.</p>
+	<!-- FAQ -->
+	<h3>FAQ:</h3>
+	<ol>
+	  <b><li>What is Tryango?</li></b>
+	  <p>Tryango is a secure e-mail encryption technique developed by the University of Birmingham (UK).</p>
 
-    <p>
-      Contact: <a href="mailto:support@tryango.com?subject=Tryango">support@tryango.com</a><br>
-      Website: <a href="http://www.tryango.com">www.tryango.com</a>
-    </p>
+	  <b><li>How do I install the Thunderbird plugin?</li></b>
+	  <p>
+		Download Tryango from the official website <a href="www.tryango.com">www.tryango.com</a>.<br><br>
 
+		Open Thunderbird and go to Menu (the three stripes in the right upper corner)
+		and select <i>Add-ons</i><br><br>
 
-	<p>FAQ:</p>
-    <!-- TODO: FAQ -->
+		In the Add-ons Manager click on the small cog in the right upper corner and
+		select <i>Install Add-on From File...</i><br><br>
 
+		Lastly, select the downloaded xpi-file of Tryango for your platform
+		(e.g. tryango-0.9.3-linux-amd64.xpi) and restart Thunderbird.<br><br>
+
+		Tryango's sign up dialog should now appear. If it does not show up, go to
+		<i>Tryango</i> => <i>Sign-Up</i> in the menu bar.
+	  </p>
+
+	  <b><li>How do I sign up with Tryango?</li></b>
+	  <p>
+		Tryango should automatically show a sign up dialog upon first start up.
+		If it does not, please  go to <i>Tryango</i> => <i>Sign-Up</i> in the menu bar.
+	  </p>
+
+	  <b><li>How do I send an encrypted e-mail with Tryango?</li></b>
+	  <p>
+		After signing up, Tryango should encrypt e-mails to other Tryango users by default.<br><br>
+		In every e-mail composition window ("write new email"), these options can be temporarily
+		changed via the Tryango menu.<br><br>
+
+		The default options can be changed in <i>Tryango</i> => <i>Settings</i> but we recommend
+		to encrypt/sign by default.<br><br>
+	  </p>
+
+	  <b><li>Where can I submit bugs?</li></b>
+	  <p>Please submit bugs via github: <a href="https://github.com/tryango/tryango-client">
+		  https://github.com/tryango/tryango-client</a>
+	  </p>
+
+	  <b><li>Who developed Tryango?</li></b>
+      <p>Tryango is a project of the University of Birmingham (UK) and was developed by:
+		<ul>
+		  <li>Professor Mark Ryan</li>
+		  <li>Dr. Mihai Ordean</li>
+		  <li>Dr. Piotr Kordy</li>
+		  <li>Joshua Philips</li>
+		  <li>Michael Denzel</li>
+		</ul>
+	  </p>
+
+	  <b><li>Where can I find further help?</li></b>
+	  <p>
+		Contact: <a href="mailto:support@tryango.com?subject=Tryango">support@tryango.com</a><br>
+		Website: <a href="http://www.tryango.com">www.tryango.com</a>
+      </p>
+
+	</ol>
 
   </body>
 </html>
