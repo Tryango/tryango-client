@@ -12,18 +12,18 @@
 <!ENTITY  menu.sign         "Signature">
 <!ENTITY  menu.decrypt      "Decrypt">
 <!ENTITY  menu.decryptSave  "Decrypt and Save Attachment(s)">
-<!ENTITY  verifytoolbar.tooltip	"Shows the status of signature verification (green=good, grey=no info, orange=no key for verification available, red=bad)">
+<!ENTITY  verifytoolbar.tooltip	"Shows the status of signature verification (green=good, gray=no info, orange=no key for verification available, red=bad)">
 
 <!-- signup dialog -->
 <!ENTITY  wizard.title                   "Sign-Up Wizard">
-<!ENTITY  wizard.welcomePage.title       "Signup to Tryango server.">
-<!ENTITY  wizard.welcomePage.simpleTxt   "To simply signup without being asked too many questions.">
-<!ENTITY  wizard.welcomePage.advancedTxt "To have more control over the signup procedure.">
+<!ENTITY  wizard.welcomePage.title       "Sign-up to Tryango server.">
+<!ENTITY  wizard.welcomePage.simpleTxt   "To simply sign-up without being asked too many questions.">
+<!ENTITY  wizard.welcomePage.advancedTxt "To have more control over the sign-up procedure.">
 <!ENTITY  wizard.welcomePage.advancedRemark "(this includes import from GnuPG, server settings etc.)">
 <!ENTITY  wizard.welcomePage.btnSimple   "Simple">
 <!ENTITY  wizard.welcomePage.btnAdvanced "Advanced">
 
-<!ENTITY  wizard.chooseEmailPage.title     "Signup to Tryango server.">
+<!ENTITY  wizard.chooseEmailPage.title     "Sign-up to Tryango server.">
 <!ENTITY  wizard.chooseEmailPage.email_label "Please select email address with which you want to sign up with Tryango:">
 <!ENTITY  wizard.chooseEmailPage.key_label "Sign-up options:">
 <!ENTITY  wizard.chooseEmailPage.prev_key  "Use previous Tryango setup stored on this machine.">
@@ -55,8 +55,8 @@
 <!ENTITY  wizard.progressbarPage.waitingDialog "Tryango is creating a new account. This might take a few moments.">
 
 
-<!ENTITY  wizard.lastPage.title      "Signup with Tryango is complete.">
-<!ENTITY  wizard.lastPage.completed  "The signup process will continue in the background. Shortly you should receive an email with a secret value which will complete the signup procedure. You can safely ignore/delete that email after you see the confirmation of completing Tryango signup.">
+<!ENTITY  wizard.lastPage.title      "Sign-up with Tryango is complete.">
+<!ENTITY  wizard.lastPage.completed  "The sign-up process will continue in the background. Shortly you should receive an email with a secret value which will complete the sign-up procedure. You can safely ignore/delete that email after you see the confirmation of completing Tryango sign-up.">
 
 <!-- settings -->
 <!ENTITY  settings.title         "Settings">

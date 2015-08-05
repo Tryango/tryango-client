@@ -20,12 +20,12 @@
 <!ENTITY  wizard.welcomePage.title       "Anmeldung am Tryango Server.">
 <!ENTITY  wizard.welcomePage.simpleTxt   "Einfache Anmeldung ohne viele Fragen.">
 <!ENTITY  wizard.welcomePage.advancedTxt "Anmeldeprozedur mit mehr Kontrolle.">
-<!ENTITY  wizard.welcomePage.advancedRemark "(dies  beinhaltet den Import von GnuPG Schlüsseln, Servereinstellungen etz.)">
+<!ENTITY  wizard.welcomePage.advancedRemark "(dies  beinhaltet den Import von GnuPG Schlüsseln, Servereinstellungen etc.)">
 <!ENTITY  wizard.welcomePage.btnSimple   "Einfach">
 <!ENTITY  wizard.welcomePage.btnAdvanced "Mit Zusatzoptionen">
 
 <!ENTITY  wizard.chooseEmailPage.title     "Anmeldung am Tryango Server.">
-<!ENTITY  wizard.chooseEmailPage.email_label "Bitte wählen Sie die entsprechende E-mail Adresse für Tryango aus">
+<!ENTITY  wizard.chooseEmailPage.email_label "Bitte wählen Sie die entsprechende E-Mail Adresse für Tryango aus">
 <!ENTITY  wizard.chooseEmailPage.key_label "Anmelde-Optionen:">
 <!ENTITY  wizard.chooseEmailPage.prev_key  "Importiere die zuvor benutzten Tryango Einstellungen, die sich noch auf diesem Gerät befinden.">
 <!ENTITY  wizard.chooseEmailPage.new_key   "Erstelle neue Tryango Daten.">
@@ -44,7 +44,7 @@
 
 <!-- set labels depending on simple/advanced setup -->
 <!ENTITY  wizard.importKeyPage.kt_type         "Schlüssel Typ">
-<!ENTITY  wizard.importKeyPage.kt_email        "E-mail Adresse(n)">
+<!ENTITY  wizard.importKeyPage.kt_email        "E-Mail Adresse(n)">
 <!ENTITY  wizard.importKeyPage.kt_created      "Erstellungsdatum">
 <!ENTITY  wizard.importKeyPage.kt_expiry       "Ablaufdatum">
 <!ENTITY  wizard.importKeyPage.kt_encrypted    "Verschlüsselt?">
@@ -57,7 +57,7 @@
 
 
 <!ENTITY  wizard.lastPage.title      "Anmeldung bei Tryango ist abgeschlossen.">
-<!ENTITY  wizard.lastPage.completed  "Die Anmeldung wird im Hintergrund fortgesetzt. In Kürze sollten Sie eine E-mail erhalten, die die Anmeldung vervollständigt. Sie können diese E-mail ohne Probleme ignorieren/löschen sobald Sie den Bestätigungsdialog von Tryango sehen.">
+<!ENTITY  wizard.lastPage.completed  "Die Anmeldung wird im Hintergrund fortgesetzt. In Kürze sollten Sie eine E-Mail erhalten, die die Anmeldung vervollständigt. Sie können diese E-Mail ohne Probleme ignorieren/löschen sobald Sie den Bestätigungsdialog von Tryango sehen.">
 
 <!-- settings -->
 <!ENTITY  settings.title         "Einstellungen">
@@ -82,7 +82,7 @@
 <!ENTITY  settings.keys		        "Schlüssel">
 <!ENTITY  settings.desc_status	        "Status:">
 <!ENTITY  settings.randomcheck	        "Log">
-<!ENTITY  settings.desc_randomcheck     "Beweise/Audit:">
+<!ENTITY  settings.desc_randomcheck     "Kryptographische Beweise/Audit:">
 <!-- descriptions -->
 <!ENTITY  settings.enc_default	 "Verschlüssele Mitteilungen standardmäßig">
 <!ENTITY  settings.sign_default	 "Signiere Mitteilungen standardmäßig">

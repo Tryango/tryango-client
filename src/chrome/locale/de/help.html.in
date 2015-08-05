@@ -19,21 +19,21 @@
 	<h3>FAQ:</h3>
 	<ol>
 	  <b><li>Was ist Tryango?</li></b>
-	  <p>Tryango ist eine sichere E-mail Verschl&uuml;sselungstechnik, die von der
+	  <p>Tryango ist eine sichere E-Mail Verschl&uuml;sselungstechnik, die von der
 		Universit&auml;t Birmingham (UK) entwickelt wurde.</p>
 
-	  <b><li>Wie installiere ich das Tryango Thunderbird plugin?</li></b>
+	  <b><li>Wie installiere ich das Tryango Thunderbird Plugin?</li></b>
 	  <p>
 		Laden Sie zuerst Tryango von der offiziellen Website
 		<a href="www.tryango.com">www.tryango.com</a> herunter.<br><br>
 
-		&Ouml;ffnen Sie Thunderbird und w&auml;hlen Sie im Menu (Symbol mit drei Streifen in der
+		&Ouml;ffnen Sie Thunderbird und w&auml;hlen Sie im Men&uuml; (Symbol mit drei Streifen in der
 		rechten, oberen Ecke) den Eintrag <i>Add-ons</i> aus.<br><br>
 
 		Klicken Sie im Add-ons-Manager auf das kleine Zahnrad in der rechten, oberen Ecke und
 		w&auml;hlen Sie <i>Add-on aus Datei installieren...</i> aus.<br><br>
 
-		W&auml;hlen Sie in dem darauffolgenden Dialog die zuvor heruntergeladene xpi-Datei von
+		W&auml;hlen Sie in dem darauf folgenden Dialog die zuvor heruntergeladene xpi-Datei von
 		Tryango f&uuml;r Ihr Betriebssystem aus
 		(z.B. tryango-0.9.3-linux-amd64.xpi) und starten Sie Thunderbird neu.<br><br>
 
@@ -49,12 +49,12 @@
 		Men&uuml;leiste manuell starten.
 	  </p>
 
-	  <b><li>Wie versende ich versch&uuml;sselte E-mails mit Tryango?</li></b>
+	  <b><li>Wie versende ich versch&uuml;sselte E-Mails mit Tryango?</li></b>
 	  <p>
-		Nachdem Sie sich (einmalig) bei Tryango angemeldet haben, sollten E-mails zu anderen
+		Nachdem Sie sich (einmalig) bei Tryango angemeldet haben, sollten E-Mails zu anderen
 		Tryango Nutzern bereits automatisch verschl&uuml;sselt werden.<br><br>
 
-		In jedem E-mail Fenster ("neue E-mail verfassen") k&ouml;nnen Sie diese Option
+		In jedem E-Mail Fenster ("neue E-Mail verfassen") k&ouml;nnen Sie diese Option
 		tempor&auml;r &uuml;ber das Tryango Men&uuml; &auml;ndern.<br><br>
 
 		Die Standardeinstellungen f&uuml;r Verschl&uuml;sselung und digitaler Signatur
