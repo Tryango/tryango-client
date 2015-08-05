@@ -318,13 +318,11 @@ var Utils = new function()
     //iterate over accounts
     for each (let account in fixIterator(accounts,
                                          Components.interfaces.nsIMsgAccount)) {
-      //get pretty names as "mail for foo@test.com" or "news on news.mozilla.org"
-      var mailaddrs = account.incomingServer.constructedPrettyName;
-      //filter for the ones which are mails
-      if(mailaddrs.substring(0, 4) == "Mail" || mailaddrs.substring(0, 4) == "mail"){
-        //cut "mail for " and save address
-        mailaddrs = mailaddrs.substring(9, mailaddrs.length);
-        addresses.push(mailaddrs);
+	  //TODO: at the moment we just allow default identities to sign up with tryango
+      //filter for real email addresses (not Local Folders etc.)
+      if(account.defaultIdentity){
+        //save address
+        addresses.push(account.defaultIdentity.email);
       }
     }
 
@@ -869,6 +867,7 @@ function fillDevices(languagepack){
   document.getElementById("tree_devices_updated").value = new Date().toISOString();
 
   var addresses = Utils.getEmailAddresses();
+  Logger.dbg("fillDevices: " + addresses);
 
   //get actual device
   var device = Prefs.getPref("machineID");
@@ -891,9 +890,10 @@ function fillDevices(languagepack){
         Logger.dbg("Account " + identity + " no ap");
       }
     }
-//     i = 0;
+
     for each(identity in addresses){
       var ap = Pwmgr.getAp(identity);
+	  Logger.dbg(ap);
       if(ap != undefined && ap.length > 1){
         try{
           Logger.dbg("Getting devices for identity:" + identity);
@@ -917,7 +917,9 @@ function fillDevices(languagepack){
                        err + "\n\n" );
           devicesView.changeIdentityText(identity, CWrapper.languagepack.getString("info_error") + " " + err);
         }
-      }
+      }else{
+		Logger.dbg("Account " + identity + " no ap");
+	  }
     }
   }
   else{

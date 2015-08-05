@@ -10,7 +10,7 @@ SET( PROJECT_NAME tryango )
 PROJECT( ${PROJECT_NAME} CXX C)
 SET( ANG_PACKAGE_VERSION_MAJOR "0")
 SET( ANG_PACKAGE_VERSION_MINOR "9")
-SET( ANG_PACKAGE_VERSION_PATCH "5")
+SET( ANG_PACKAGE_VERSION_PATCH "6")
 SET( VERSION "${ANG_PACKAGE_VERSION_MAJOR}.${ANG_PACKAGE_VERSION_MINOR}.${ANG_PACKAGE_VERSION_PATCH}" )
 
 include(FindThreads) #set up e.g. CMAKE_THREAD_LIBS_INIT
@@ -29,7 +29,7 @@ endif()
 if(HAVE_NETINET_IN_H)
   ADD_DEFINITIONS("-DHAVE_NETINET_IN_H")
 endif()
-  
+
 IF(WIN32)
   OPTION(${PROJECT_NAME}_build_tests "Build tests for ${PROJECT_NAME}." OFF)
   OPTION(${PROJECT_NAME}_windows_tests "Build tests for ${PROJECT_NAME} for windows." ON)
@@ -47,7 +47,7 @@ OPTION(${PROJECT_NAME}_static_protobuf "Include protobuf statically for ${PROJEC
 
 IF(${PROJECT_NAME}_static_protobuf)
   IF(WIN32)
-  
+
     SET(protobuf_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/ThirdParty/protobuf)
     EXTERNALPROJECT_ADD(
         protobuf
@@ -64,7 +64,7 @@ IF(${PROJECT_NAME}_static_protobuf)
     )
     INCLUDE_DIRECTORIES(${protobuf_PREFIX}/src/protobuf-build/cmake/include)
     SET(PROTOBUF_GENERATOR ${protobuf_PREFIX}/src/protobuf-build/cmake/protoc.exe)
-    SET(PROTOBUF_LITE_LIBRARIES ${protobuf_PREFIX}/src/protobuf-build/cmake/libprotobuf-lite${CMAKE_STATIC_LIBRARY_SUFFIX})   
+    SET(PROTOBUF_LITE_LIBRARIES ${protobuf_PREFIX}/src/protobuf-build/cmake/libprotobuf-lite${CMAKE_STATIC_LIBRARY_SUFFIX})
     ExternalProject_Add_Step(protobuf extractIncludes
       COMMENT "Extracting includes from Protobuf."
       COMMAND ${protobuf_PREFIX}/src/protobuf-build/cmake/extract_includes.bat
@@ -93,7 +93,7 @@ ELSE()
   IF(NOT PROTOBUF_FOUND)
       MESSAGE(FATAL_ERROR "Could not find PROTOBUF library! Install appropriate package e.g. libprotobuf-dev")
   ENDIF()
-  
+
   FIND_PROGRAM(PROTOBUF_GENERATOR protoc PATHS ${PROTOBUF_SRC_ROOT_FOLDER}/vsprojects/Release)
   IF(NOT PROTOBUF_GENERATOR)
       MESSAGE(FATAL_ERROR "Could not find PROTOBUF compiler \"protoc\"! Install appropriate package e.g. protobuf-compiler")
@@ -105,7 +105,7 @@ ENDIF()
 IF(${PROJECT_NAME}_build_tests)
   MESSAGE(STATUS "TESTING ENABLED" )
   ENABLE_TESTING()
-ELSE()  
+ELSE()
   MESSAGE(STATUS "TESTING DISABLED" )
 ENDIF (${PROJECT_NAME}_build_tests)
 
@@ -145,7 +145,7 @@ ENDIF()
 # IF (NOT PKG_CONFIG_FOUND)
 #   MESSAGE(FATAL_ERROR "Could not find pkg-config executable!")
 # ENDIF(NOT PKG_CONFIG_FOUND)
-# 
+#
 # PKG_SEARCH_MODULE( XUL REQUIRED libxul)
 # IF (NOT XUL_FOUND)
 #   MESSAGE(FATAL_ERROR "Could not find thunderbird or similar development package! Install appropriate package e.g. iceweasel-dev")
@@ -182,7 +182,7 @@ Please install Python or specify the PYTHON_EXECUTABLE CMake variable.")
 ENDIF()
 
 SET(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
-  
+
 FIND_PROGRAM(LZZ_COMMAND lzz)
 IF(NOT LZZ_COMMAND)
   MESSAGE(FATAL_ERROR "Could not find \"lzz\" program! Download from http://www.lazycplusplus.com/download.html")
@@ -213,6 +213,5 @@ ADD_SUBDIRECTORY("src")
 # Four back-slashes to escape a dot? Go figure...
 # SET( CPACK_SOURCE_IGNORE_FILES "\\\\.svn/;.*~" )
 # SET( CPACK_GENERATOR "ZIP" )
-# SET( CPACK_SOURCE_GENERATOR "TBZ2") 
-# INCLUDE( CPack ) 
-
+# SET( CPACK_SOURCE_GENERATOR "TBZ2")
+# INCLUDE( CPack )
