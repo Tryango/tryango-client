@@ -26,6 +26,9 @@ CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/chrome/locale/en-US/help.html.in" "$
 #en-GB
 CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/chrome/locale/en-GB/about.html.in" "${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/en-GB/about.html")
 CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/chrome/locale/en-GB/help.html.in" "${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/en-GB/help.html")
+#de
+CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/chrome/locale/de/about.html.in" "${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/de/about.html")
+CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/chrome/locale/de/help.html.in" "${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/de/help.html")
 
 GetOSArchitecture("ANG")
 SET(XPI_OUT "${PROJECT_NAME}-${VERSION}-${ANG_OS}-${ANG_ARCHITECTURE}")
@@ -75,7 +78,7 @@ ADD_CUSTOM_COMMAND(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/chrome.manifest
 # ENDIF()
 
 FILE(GLOB_RECURSE XPI_DEPS chrome/content/* chrome/skin/* chrome/locale/*dtd chrome/locale/*properties defaults/*)
-SET(XPI_DEPS ${XPI_DEPS} ${CMAKE_CURRENT_BINARY_DIR}/chrome.manifest ${CMAKE_CURRENT_BINARY_DIR}/install.rdf ${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/en-US/about.html ${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/en-GB/about.html ${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/en-US/help.html ${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/en-GB/help.html)
+SET(XPI_DEPS ${XPI_DEPS} ${CMAKE_CURRENT_BINARY_DIR}/chrome.manifest ${CMAKE_CURRENT_BINARY_DIR}/install.rdf ${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/en-US/about.html ${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/en-GB/about.html  ${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/de/about.html ${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/en-US/help.html ${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/en-GB/help.html ${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/de/help.html)
 
 FILE(GLOB_RECURSE GLOB_TEMP RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" chrome/content/* chrome/skin/* chrome/locale/*dtd chrome/locale/*properties chrome/locale/*html defaults/*)
 
@@ -103,8 +106,10 @@ ENDFOREACH(FILE)
 SET(XPI_SOURCES "-C" "${CMAKE_CURRENT_BINARY_DIR}" ${INSTALLRDF} chrome.manifest ${XPI_SOURCES})
 SET(XPI_SOURCES "-C" "${CMAKE_CURRENT_BINARY_DIR}" chrome/locale/en-GB/about.html ${XPI_SOURCES})
 SET(XPI_SOURCES "-C" "${CMAKE_CURRENT_BINARY_DIR}" chrome/locale/en-US/about.html ${XPI_SOURCES})
+SET(XPI_SOURCES "-C" "${CMAKE_CURRENT_BINARY_DIR}" chrome/locale/de/about.html ${XPI_SOURCES})
 SET(XPI_SOURCES "-C" "${CMAKE_CURRENT_BINARY_DIR}" chrome/locale/en-GB/help.html ${XPI_SOURCES})
 SET(XPI_SOURCES "-C" "${CMAKE_CURRENT_BINARY_DIR}" chrome/locale/en-US/help.html ${XPI_SOURCES})
+SET(XPI_SOURCES "-C" "${CMAKE_CURRENT_BINARY_DIR}" chrome/locale/de/help.html ${XPI_SOURCES})
 SET(XPI_SOURCES "-C" "${CMAKE_CURRENT_BINARY_DIR}" components/certificate.pem ${XPI_SOURCES})
 SET(XPI_SOURCES "-C" "${CMAKE_SOURCE_DIR}" LICENSE ${XPI_SOURCES})
 # message("sources:${XPI_SOURCES}")

@@ -25,8 +25,8 @@ skin		tryango	tryangoskin			chrome/skin/
 #languages
 locale		tryango	en-US				chrome/locale/en-US/
 #locale		tryango	en-GB				chrome/locale/en-GB/
-#locale		tryango	de				chrome/locale/de/
-#locale		tryango	fr				chrome/locale/fr/
+locale		tryango	de					chrome/locale/de/
+#locale		tryango	fr					chrome/locale/fr/
 
 
 #The following are P1 (priority 1) locales in order of priority:
