@@ -56,7 +56,7 @@
 
 
 <!ENTITY  wizard.lastPage.title      "Signup with Tryango is complete.">
-<!ENTITY  wizard.lastPage.completed  "The signing process will continue in the background. Shortly you should receive an email with a secret value which will complete the signup procedure. You can safely ignore/delete that email after you see the confirmation of completing Tryango signup.">
+<!ENTITY  wizard.lastPage.completed  "The signup process will continue in the background. Shortly you should receive an email with a secret value which will complete the signup procedure. You can safely ignore/delete that email after you see the confirmation of completing Tryango signup.">
 
 <!-- settings -->
 <!ENTITY  settings.title         "Settings">
