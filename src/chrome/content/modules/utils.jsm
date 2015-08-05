@@ -179,84 +179,56 @@ var Utils = new function()
 
   this.removeAllDevicesAndRevokeKeys = function(){
     //function is called when plugin is deinstalled or user presses "reset"
-    //a lot of pop-ups are ok, we have to make sure the user is aware what he/she
-    //is doing
-    var ret;
 
     //(local) remove keypurse (if it exists) => backup first
-    if(Prefs.getPref("keyPursePath") !=  undefined &&
-       (new FileUtils.File(Prefs.getPref("keyPursePath"))).exists()){
+	var keyPursePath = Prefs.getPref("keyPursePath");
+    if(keyPursePath !=  undefined &&
+       (new FileUtils.File(keyPursePath)).exists()){
 
       //log
       Logger.dbg("keypurse exists => remove it");
 
       //BACKUP: export keypurse if user wants to
-  //all three buttons: yes/cancel/no buttons
-  //ATTENTION: cancel button has to be "button 1" since closing the window with
-  //           the close button in the titlebar always returns 1
-  var buttonFlags = (Components.interfaces.nsIPromptService.BUTTON_POS_0) *
-        (Components.interfaces.nsIPromptService.BUTTON_TITLE_YES) +
-        (Components.interfaces.nsIPromptService.BUTTON_POS_1) *
-        (Components.interfaces.nsIPromptService.BUTTON_TITLE_CANCEL) + //cancel needs to be 1!!!
-        (Components.interfaces.nsIPromptService.BUTTON_POS_2) *
-        (Components.interfaces.nsIPromptService.BUTTON_TITLE_NO);
       var buttonResult = Logger.promptService.confirmEx(
         null, "Tryango", CWrapper.languagepack.getString("exp_keypurse"),
-        buttonFlags,
+        Components.interfaces.nsIPromptService.STD_YES_NO_BUTTONS,
         null, null, null, //button labels set above already
         null, new Object() //no checkbox
       );
-      //0 = YES
-      if(buttonResult == 0){
+
+	  //0 = YES
+	  if(buttonResult == 0){
         Logger.dbg("Backup prompt: YES");
 
         Logger.dbg("Export keypurse");
         if(Utils.exportKeyPurse()){
-          Logger.dbg("exportKeyPurse done");
-          //backup ok
-          ret = true;
+		  Logger.dbg("exportKeyPurse done");
         }
         else{
-          Logger.dbg("User abort exportKeyPurse");
-
-          //backup user cancelled or error
-          return false;
+		  //backup user cancelled
+		  Logger.dbg("User abort exportKeyPurse");
         }
-      }
-      //1 = CANCEL
-      else if(buttonResult == 1){
-        Logger.dbg("Backup prompt: CANCEL");
-
-        //continue = false
-        return false;
-      }
-      //2 = NO
-      else if(buttonResult == 2){
+	  }
+	  //1 = NO
+	  else if(buttonResult == 1){
         Logger.dbg("Backup prompt: NO");
-
-        //continue = true
-        ret = true;
-      }
-      else{
-        //error => just warn and abort
+	  }
+	  else{
+        //error => treat it as "NO"
         Logger.error("Backup keypurse prompt returned unexpected result: " + buttonResult);
-        //continue = false
-        return false;
-      }
+	  }
 
       //remove keypurse
       Logger.dbg("removing keypurse...");
-      CWrapper.post("removeKeyPurse", [Prefs.getPref("keyPursePath")], function(success){
+      CWrapper.post("removeKeyPurse", [keyPursePath], function(success){
         if(!success){
-          Logger.error("Could not remove keypurse: " +
-                       Prefs.getPref("keyPursePath"));
+          Logger.error("Could not remove keypurse: " + keyPursePath);
           Dialogs.error(CWrapper.languagepack.getString("rm_keypurse_fail"));
         }
       });
     }
     else{
       //no keypurse => everything good
-      ret = true;
     }
 
     //clear data on tryango server
@@ -276,7 +248,7 @@ var Utils = new function()
       CWrapper.post("synchStub", [], function(){fillDevices();});
     }
 
-    return ret;
+	return; //explicit end of method
   }
 
   this.syncKeypurse = function(){

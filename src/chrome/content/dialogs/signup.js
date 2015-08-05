@@ -214,7 +214,7 @@ function setRadioBtn(){
     dropdownmenu.setAttribute("hidden", true);//hide until we get response from CWrapper
 
     var radio = document.getElementById("chooseEmailPage_prev_key");
-    CWrapper.post("hasSecretKey", [dropdownmenu.selectedItem.value], function(success){
+    CWrapper.post("hasSecretKey", [dropdownmenu.selectedItem.value], function(success){ //TODO: FIXME: function does not return
       Logger.dbg("hasSecretKey:" + success + " identity:"+dropdownmenu.selectedItem.value);
       dropdownmenu.removeAttribute("hidden");
       if(success){
@@ -712,7 +712,7 @@ function importKey(email){
   var col = tree.columns.key_id;
 //   }
 //   else{
-//     var col = document.getElementById("key_treecols"); 
+//     var col = document.getElementById("key_treecols");
 //   }
   var index = tree.view.getParentIndex(tree.currentIndex);
   Logger.dbg("Transfering of RSA keys");

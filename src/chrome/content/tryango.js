@@ -235,10 +235,7 @@ Tryango.reset = function(removeEverything = false){
 
   //remove devices and keys from server as well as locally
   //this also asks if the user wants to backup the keypurse
-  if(!Utils.removeAllDevicesAndRevokeKeys()){
-    Logger.log("removeEverything: abort");
-    return false;
-  }
+  Utils.removeAllDevicesAndRevokeKeys();
 
   //clear XHEADERS
   MailListener.removeAllTryangoXHEADERS();
@@ -264,7 +261,7 @@ Tryango.reset = function(removeEverything = false){
 
   //ATTENTION: no Tryango.cleanup() here yet! we are still running!
 
-  return true;
+  return;
 }
 
 
@@ -304,7 +301,7 @@ var TryangoCleaner = {
 
   //1. listen if uninstall is cancelled again
   onOperationCancelled: function(addon){
-    if(addon.name == "Tryango" && addon.id == "tryango@bham.uni.ac.uk"){
+    if(addon.name == "Tryango" && addon.id == "tryango@cs.bham.ac.uk"){
       Logger.dbg("TryangoCleaner: uninstall cancelled");
       this.uninstall = false;
     }
