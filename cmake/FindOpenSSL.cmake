@@ -42,16 +42,16 @@ IF(WIN32 AND NOT CYGWIN)
     # We are using the libraries located in the VC subdir instead of the parent directory eventhough :
     # libeay32MD.lib is identical to ../libeay32.lib, and
     # ssleay32MD.lib is identical to ../ssleay32.lib
-    FIND_LIBRARY(LIB_EAY_DEBUG NAMES libeay32MTd libeay32
+    FIND_LIBRARY(LIB_EAY_DEBUG NAMES libeay32MDd libeay32
       PATHS "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\OpenSSL (32-bit)_is1;Inno Setup: App Path]/lib/VC/static"
       )
-    FIND_LIBRARY(LIB_EAY_RELEASE NAMES libeay32MT libeay32
+    FIND_LIBRARY(LIB_EAY_RELEASE NAMES libeay32MD libeay32
       PATHS "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\OpenSSL (32-bit)_is1;Inno Setup: App Path]/lib/VC/static"
       )
-    FIND_LIBRARY(SSL_EAY_DEBUG NAMES ssleay32MTd ssleay32 ssl
+    FIND_LIBRARY(SSL_EAY_DEBUG NAMES ssleay32MDd ssleay32 ssl
       PATHS "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\OpenSSL (32-bit)_is1;Inno Setup: App Path]/lib/VC/static"
       )
-    FIND_LIBRARY(SSL_EAY_RELEASE NAMES ssleay32MT ssleay32 ssl
+    FIND_LIBRARY(SSL_EAY_RELEASE NAMES ssleay32MD ssleay32 ssl
       PATHS "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\OpenSSL (32-bit)_is1;Inno Setup: App Path]/lib/VC/static"
       )
     if( CMAKE_CONFIGURATION_TYPES OR CMAKE_BUILD_TYPE )

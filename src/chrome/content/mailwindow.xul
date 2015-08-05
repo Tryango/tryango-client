@@ -6,14 +6,14 @@
 <!-- language file -->
 <!DOCTYPE tryango SYSTEM "chrome://tryango/locale/lang.dtd">
 
-<overlay id="cm_mailwindow" 
+<overlay id="cm_mailwindow"
 	 xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
 
   <!-- Reference to JavaScript file -->
   <script type="application/javascript" src="chrome://tryango/content/mailwindow.js"/>
 
   <!-- Thunderbird parts to be altered -->
-  
+
   <!-- Menu -->
   <menubar id="mail-menubar">
     <menu label="&tryango.label;"
@@ -42,7 +42,6 @@
                    insertbefore="button-security,button-save"
                    orient="horizontal">
       <menupopup>
-        <!-- TODO: FIXME: fill element automatically: anchorNode nsIDOMElement -->
 	<menuitem id="button-encrypt" label="&menu.encrypt;"
 		  type="checkbox" checked="true"
 		  oncommand="MailWindow.handleEvent(this.id);" />

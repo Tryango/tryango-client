@@ -19,6 +19,7 @@ class PacketParser{
     bool partial = false;
     bool havePacket = false;
     if(data.size() < 1){
+      std::cout<<"parsePackets: nothing to parse"<<std::endl;
       return ANG_NO_ENTRIES;
     }
     int c = data.at(0);
@@ -92,6 +93,7 @@ class PacketParser{
         }
         else{
           free(pkt.pkt.pubkey_enc);
+          std::cout<<"Error parsing PKT_PUBKEY_ENC status:"<<status<<std::endl;
           return status;
         }
         break;
@@ -104,6 +106,7 @@ class PacketParser{
         }
         else{
           free(pkt.pkt.signature);
+          std::cout<<"Error parsing PKT_SIGNATURE status:"<<status<<std::endl;
           return status;
         }
         break;
@@ -120,6 +123,7 @@ class PacketParser{
         }
         else{
           free(pkt.pkt.onepass_sig);
+          std::cout<<"Error parsing PKT_ONEPASS_SIG status:"<<status<<std::endl;
           return status;
         }
         break;
@@ -132,6 +136,7 @@ class PacketParser{
         }
         else{
           free(pkt.pkt.secret_key);
+          std::cout<<"Error parsing PKT_SECRET_KEY status:"<<status<<std::endl;
           return status;
         }
         break;
@@ -144,6 +149,7 @@ class PacketParser{
         }
         else{
           free(pkt.pkt.public_key);
+          std::cout<<"Error parsing PKT_PUBLIC_KEY status:"<<status<<std::endl;
           return status;
         }
         break;
@@ -156,6 +162,7 @@ class PacketParser{
         }
         else{
           free(pkt.pkt.secret_key);
+          std::cout<<"Error parsing PKT_SECRET_SUBKEY status:"<<status<<std::endl;
           return status;
         }
         break;
@@ -180,6 +187,7 @@ class PacketParser{
         }
         else{
           free(pkt.pkt.plaintext);
+          std::cout<<"Error parsing PKT_PLAINTEXT status:"<<status<<std::endl;
           return status;
         }
         break;
@@ -196,6 +204,7 @@ class PacketParser{
         }
         else{
           free(pkt.pkt.user_id);
+          std::cout<<"Error parsing PKT_USER_ID status:"<<status<<std::endl;
           return status;
         }
         break;
@@ -208,6 +217,7 @@ class PacketParser{
         }
         else{
           free(pkt.pkt.public_key);
+          std::cout<<"Error parsing PKT_PUBLIC_SUBKEY status:"<<status<<std::endl;
           return status;
         }
         break;
@@ -228,6 +238,7 @@ class PacketParser{
         }
         else{
           free(pkt.pkt.encrypted);
+          std::cout<<"Error parsing PKT_ENCRYPTED_MDC status:"<<status<<std::endl;
           return status;
         }
         break;
@@ -243,10 +254,14 @@ class PacketParser{
       }
       if(tag != PKT_COMPRESSED){
         while (partial) {
-          if(packets.size() < 1) return ANG_PARSE_ERROR;
+          if(packets.size() < 1){
+            std::cout<<"Error parsing; too small packet size"<<std::endl;
+            return ANG_PARSE_ERROR;
+          }
           pkt = packets.back();
           if(pkt.pkttype != PKT_PLAINTEXT &&
              pkt.pkttype != PKT_ENCRYPTED_MDC){
+            std::cout<<"Expected plaintext package got pkttype:"<<pkt.pkttype<<std::endl;
             return ANG_PARSE_ERROR;
           }
           c = bf.getC();

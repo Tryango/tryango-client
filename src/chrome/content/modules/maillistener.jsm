@@ -6,8 +6,10 @@ Components.utils.import("resource://gre/modules/mailServices.js");
 Components.utils.import("resource://gre/modules/iteratorUtils.jsm");
 Components.utils.import("resource:///modules/gloda/mimemsg.js");//for MsgHdrToMimeMessage
 
+
 //own imports
 Components.utils.import("resource://tryango_modules/logger.jsm");
+Components.utils.import("resource://tryango_modules/dialogs.jsm");
 Components.utils.import("resource://tryango_modules/cWrapper.jsm");
 Components.utils.import("resource://tryango_modules/prefs.jsm");
 Components.utils.import("resource://tryango_modules/pwmanager.jsm");
@@ -51,6 +53,7 @@ var MailListener = new function() {
   this.gFolderDisplay = null;
   this.languagepack = null;
   this.cmToolbar = null;
+  this.window = null;
 
   this.init = function(gFolderDisplay, languagepack, cmToolbar){
     addHeader(this.XHEADER);
@@ -88,6 +91,20 @@ var MailListener = new function() {
   };
 
   // functions
+
+  /**
+   * function to add a callback in case we are saving a draft
+   *  @param	the function callback to call (if we find a draft)
+   *
+   *  see also: maillistener.jsm::msgAdded and mailwindow.js::send_handler
+   *			both marked with "DRAFTCALLBACK:"
+   */
+  this.addDraftCallback = function(func){
+	Logger.dbg("adding draftCallback");
+	//just store the callback for now
+	this.draftCallback = func;
+  };
+
   /**
    * function to handle incoming emails
    *  @param  header header of type "nsIMsgDBHdr"
@@ -95,39 +112,97 @@ var MailListener = new function() {
    *    "nsIMsgFolderListener::msgAdded" and "...::msgsClassified"
    */
   this.msgAdded = function(header){
-    var identity = this.findAccountFromHeader(header);
-    if(identity == ""){
+    //assert
+    if(!header){
+      return;
+    }
+
+    //get identity
+    var acc = this.findAccountFromHeader(header, true);
+    if(acc == ""){
       //print folder and subject of message for debug purposes
       var mimeConvert = Components.classes["@mozilla.org/messenger/mimeconverter;1"]
             .getService(Components.interfaces.nsIMimeConverter);
       var subject =  mimeConvert.decodeMimeHeader(header.subject, null, false, true);
       Logger.error("Could not identify receiving email address (" +
-                     header.folder.prettiestName + "/" + subject + ")");
+                   header.folder.prettiestName + "/" + subject + ")");
       return;
     }
+    if(!acc.mail){
+      Logger.error("Implementation error, findAccountFromHeader returned not an object with drafts=true");
+      return;
+    }
+    var identity = acc.mail;
+    Logger.dbg("msgAdded " + identity + " " + header.folder.prettiestName);
 
-    if(this.searchAP(header, identity)){
+
+    //check for drafts
+    //DRAFTCALLBACK: this is a helper. If a draft is saved, it gets encrypted but
+    //stays open. To decrypt the open compose-mail-window again, we need to get
+    //the event when the draft WAS saved. This is done by adding a callback
+    //when we find a new Draft message/a Draft message gets updated. In both
+    //cases msgAdded is called.
+    // => if msgAdded to "Drafts", we call the callback-function
+    // (see also mailwindow.js::send_handler - marked with DRAFTCALLBACK)
+    if(header.folder && header.folder.URI == acc.draftfolder){
+      //URI of message matches the draftfolder of this account => it is a draft
+      Logger.dbg("found a new draft");
+      if(this.draftCallback){
+        //new draft and we are waiting for a draft (callback != null)
+        //=> call callback-function and reset
+        Logger.dbg("calling draftCallback");
+        this.draftCallback();
+        this.draftCallback = null;
+      }
+    }
+    //search email for AP (then it's a confirmation email of the server and we need to process it)
+//searchAP aborts immediatelly if we are not in "searching" mode (Prefs)
+    else if(this.searchAP(header, identity)){
       this.submitKey(identity);
     }
     else{
-      if(!this.searchNewKey(header, identity)){
-        this.searchOldKey(header, identity);
-      }
+      // Disable until implemented
+//       if(!this.searchNewKey(header, identity)){
+//         this.searchOldKey(header, identity);
+//       }
     }
   };
 
   this.searchNewKey = function(header, identity){
+    Logger.dbg("serchNewKey for " + identity);
     var reqDevice = header.getStringProperty(this.XHEADER_NEWKEY.toLowerCase());
     let device = Prefs.getPref("machineID");
-    if(reqDevice == device){
+    var sender = header.author.substring(header.author.indexOf("<") + 1,
+                                           header.author.indexOf(">"));
+    if(reqDevice && (reqDevice.length > 0) && reqDevice != device ){
       MsgHdrToMimeMessage(header, null, function (aMsgHdr, aMimeMessage) {
         // do something with aMimeMessage:
         let keyStr = aMimeMessage.coerceBodyToPlaintext();
-        let start = keyStr.search("-----BEGIN PGP");
-//         if(document.body.textContent.search("-----BEGIN PGP") != -1){
-//         }
-        
-        Logger.dbg("Get new key"+keyStr);
+        let start = keyStr.search("-----BEGIN PGP MESSAGE-----");
+        let end = keyStr.search("-----END PGP MESSAGE-----");
+//         var decryptedMail = {str : ""};
+        if(start != -1 && end != -1){
+          Logger.dbg("PGP message found");
+          CWrapper.decryptMail(keyStr.substr(start, end - start + 25), sender, "", function(status, decrypted){
+            Logger.dbg("Decrypt result:" + status);
+            if(status == 0){
+              start = decrypted.search("-----BEGIN PGP MESSAGE-----");
+              end = decrypted.search("-----END PGP MESSAGE-----");
+              if(start != -1 && end != -1){
+                keyStr = decrypted.substr(start, end - start + 25);
+                CWrapper.post("checkIfCanAdd", [keyStr, sender], function(status2){
+                  Logger.dbg("checkIfCanAdd result:" + status);
+                  var message = MailListener.languagepack.getString("key_add_question");
+                  if(status2 == 0 && Logger.promptService.confirm(null, "Tryango", message)){
+                    CWrapper.post("importSecretKey", [keyStr, sender], function(status3){
+                      Logger.dbg("Added key with status" + status3);
+                    });
+                  }
+                });
+              }
+            }
+          });
+        }
       }, true);
       return true;
     }
@@ -149,7 +224,6 @@ var MailListener = new function() {
   };
 
   this.searchAP = function(header, identity){
-    //TODOTODO: could not identify receiving email address when encrypted mail arrives (maybe since email is not clicked on findAccountFromHeader does not work?)
     //see also:
     //  https://developer.mozilla.org/en-US/Add-ons/Thunderbird/HowTos/Common_Thunderbird_Extension_Techniques/Filter_Incoming_Mail
     //  http://kewisch.wordpress.com/2012/10/11/executing-js-code-when-receiving-an-email-with-a-specific-header-set/
@@ -197,51 +271,132 @@ var MailListener = new function() {
   this.submitKey = function(identity){
     //submit our key
     let device = Prefs.getPref("machineID");
-    let result = CWrapper.submitKey(identity, device);
-    if (result != 0 && result != 18){//18 = ANG_ID_ALREADY_EXISTS
-      let errorStr = CWrapper.getErrorStr(result);
-      let err = this.languagepack.getString("signup_failed") + ": " +
-          this.languagepack.getString(errorStr) + " (" + result + ")";
-      Logger.error(err);
-      Logger.infoPopup(err);
-    }
-    else{
-      if(result == 18 ){ //ANG_ID_ALREADY_EXISTS
-        Logger.dbg("Added ap but no need to sumbit new key for identity: " + identity);
-//         sendMessage(identity, "subject", "test body", null, this.XHEADER_NEWKEY +": test header\n");
-      }
-      else{
-        Logger.dbg("Added identity: " + identity);
-        let sendEmail = false;
-        try{
-          var ret = CWrapper.getDevices(identity, device);
-          if(ret.length > 1){//it makes sense to send encryped key when there is more than 1 device
-           sendEmail = true;
-          }
+    let hexAp = Pwmgr.getAp(identity);
+    MailListener._dosendEmail = false;
+    if(hexAp != undefined && hexAp.length > 1){
+      MailListener._runningGetDev = true;
+      //ap will be added in CWrapper.post - current one may get outdated
+      CWrapper.post("submitKey", [identity, device], function(newHexAp, status){
+        MailListener._dosendEmail = false;
+        if(newHexAp.length > 2){
+          Pwmgr.setAp(identity, newHexAp);
         }
-        catch(err){
-        }
-        let message = this.languagepack.getString("send_encrypted_key");
-        if(sendEmail && Logger.promptService.confirm(null, "Tryango", message)){
-          let encrKey = {str : ""};
-          let status =  CWrapper.getEncryptedSK(encrKey, identity);
-          Logger.dbg("Encrytped key to send:" + encrKey.str);
-          if(status == 0 && encrKey.str.length > 0){
-            sendMessage(identity, "Encrypted private key for Tryango", encrKey.str, null, this.XHEADER_NEWKEY +": " + device + "\n");
+
+        if(status == 0){
+          Logger.dbg("Added identity: " + identity);
+          try{
+            var ap = Pwmgr.getAp(identity);
+            if(ap != undefined && ap.length > 1){
+              CWrapper.post("getDevices", [identity, device], function(newHexAp2, status, devices){
+                if(newHexAp2.length > 2){
+                  Pwmgr.setAp(identity, newHexAp2);
+                }
+                if(status == 0 && devices.length > 1){
+                  MailListener._dosendEmail = true;
+                }
+                MailListener._runningGetDev = false;
+              });
+            }
+            else{
+              MailListener._runningGetDev = false;
+            }
           }
+          catch(err){
+            MailListener._runningGetDev = false;
+          }
+          CWrapper.post("synchronizeSK", [identity], function(status){
+            if(status != 0){
+              Logger.error(CWrapper.languagepack.getString("no_corresponding_key") +": " + identity);
+            }
+            else{
+              Logger.dbg("Keypurse synchronised successfully for id "+ identity);
+            }
+          });
+          Dialogs.info(MailListener.languagepack.getString("signup_done") + " (" + identity + ")");
+          //signup is done, so ask user to back up tryango credentials now
+          this.askUserToBackup();
+        }
+        else if(status == 18){//ANG_ID_ALREADY_EXISTS
+          Logger.dbg("Added ap but no need to sumbit new key for identity: " + identity + " got ap:" + newHexAp +  " new ap:" + Pwmgr.getAp(identity));
+          Dialogs.info(MailListener.languagepack.getString("signup_done") + " (" + identity + ")");
+          MailListener._runningGetDev = false;
         }
         else{
-          CWrapper.clearTempKey();
+          let errorStr = CWrapper.getErrorStr(status);
+          let err = this.languagepack.getString("signup_failed") + ": " +
+            this.languagepack.getString(errorStr) + " (" + status + ")";
+          Dialogs.error(err + "\n(" + errorStr + ")");
+          MailListener._runningGetDev = false;
         }
-      }
-      if(CWrapper.synchronizeSK(identity) != 0){
-        Logger.error(this.languagepack.getString("no_corresponding_key") +": " + identity);
-      }
-      Logger.infoPopup(this.languagepack.getString("signup_done") + " (" + identity + ")");
+      }.bind(this));
+      let mediator = Components.classes['@mozilla.org/appshell/window-mediator;1']
+                       .getService(Components.interfaces.nsIWindowMediator);
+      var window = mediator.getMostRecentWindow("mail:3pane");//getOuterWindowWithId("messengerWindow")
+      window.setTimeout(MailListener._tryToSendEmail, 2000, identity);
+        //           Logger.dbg("Encrytped key to send:" + encrKey.str);
     }
-    //ap is updated in submitKey, no need to do it here
+    else{
+      Dialogs.error(this.languagepack.getString("no_ap"));
+    }
   };
 
+  this._tryToSendEmail = function(identity){
+    //TODO: disable it for the time being..
+    return;
+    Logger.dbg(" Try to send ");
+    if(MailListener._runningGetDev){
+      let mediator = Components.classes['@mozilla.org/appshell/window-mediator;1']
+                       .getService(Components.interfaces.nsIWindowMediator);
+      var window = mediator.getMostRecentWindow("mail:3pane");//getOuterWindowWithId("messengerWindow")
+      window.setTimeout(MailListener._tryToSendEmail, 2000, identity);
+      return;
+    }
+    else{
+      let device = Prefs.getPref("machineID");
+      Logger.dbg(" Sending**************************************** id:"+identity);
+      //sending mail
+      var message = MailListener.languagepack.getString("mail_question_p1") + "\n\n" +
+        MailListener.languagepack.getString("mail_question_p2");
+      if(MailListener._dosendEmail && (!Prefs.getPref("advancedOptions")
+                                             || Logger.promptService.confirm(null, "Tryango", message) )){
+        let encrKey = {str : ""};
+        message = MailListener.languagepack.getString("mail_explanation_newkey").replace("$DEVICE", device) + "\n\n\n";
+//         let status =  CWrapper.getEncryptedSK(encrKey, identity, message); //TODO finish
+        CWrapper.getEncryptedSK(identity, message, function(status, encrKey){
+          if(status == 0 && encrKey.length > 0){
+            message = MailListener.languagepack.getString("mail_explanation_newkey").replace("$DEVICE", device)
+                    + "\n\n\n" + encrKey;
+            let custom_headers = {};
+            custom_headers[MailListener.XHEADER_NEWKEY] =  device;
+            sendMessage(identity, MailListener.languagepack.getString("mail_subject_newkey"), message, null, custom_headers);
+          }
+          else{
+            Logger.dbg("Failed to get key to encrypt, status:" + status + " identity:" + identity);
+          }
+        });
+      }
+      else{
+        CWrapper.post("clearTempKey",[], null);
+      }
+    }
+  };
+
+  this.askUserToBackup = function(){
+    //ask user to do backup only if we generated new key - otherwise user have key in some form
+    if(CWrapper.keyPurseNeedsBackup){
+      if(Logger.promptService.confirm(null, "Tryango",
+                                      this.languagepack.getString("prompt_user_backup"))){
+        //backup
+        Logger.dbg("backing up keys");
+        Utils.exportKeyPurse(this.languagepack);
+      }
+      else{
+        //no backup
+        Logger.log("user refused to do a backup of Tryango credentials");
+      }
+      delete CWrapper.keyPurseNeedsBackup;
+    }
+  };
 
   this.recoverHtml = function(body){
     var htmlStart = body.indexOf("<html>");
@@ -253,10 +408,11 @@ var MailListener = new function() {
       return body;
     }
     return body.substr(htmlStart,  htmlEnd + 7 - htmlStart);
-  }
+  };
 
 
   this.getPgpMessage = function(body){
+    if(!body) return {ciphertext: ""};
     var PGPstart = body.indexOf("-----BEGIN PGP ");
     if(PGPstart < 0){
       Logger.dbg("Unencrypted email");
@@ -325,107 +481,176 @@ var MailListener = new function() {
 
   //messaged to be called when a mail is displayed => check for PGP header
   //and decrypt/verify if necessary
-  this.onMsgDisplay = function(event){
-    //explanation: hooked messagepane and overload "onpageshow" function (see tryango.js)
+  this.onMsgDisplay = function(window, event){
+//     //explanation: hooked messagepane and overload "onpageshow" function (see tryango.js)
+//     //event is pageshow-Event on target messagepane
+//************************EXPERIMET VV
+    //reset gui
+//     let mediator = Components.classes['@mozilla.org/appshell/window-mediator;1']
+//                   .getService(Components.interfaces.nsIWindowMediator);
+//     var win = mediator.getMostRecentWindow("mail:3pane");//getOuterWindowWithId("messengerWindow")
+//     Logger.dbg("curr msg uri:"+ gCurrentMessageUri);
+    MailListener.updateToolBar(-1);//processing
 
-    //reset
-    this.cmToolbar.children[0].setAttribute("value", this.languagepack.getString("verifytoolbar"));
-    this.cmToolbar.setAttribute("style", "background-color: transparent;");
-    this.cmToolbar.children[0].setAttribute("style", "color: black;");
-    var msgHdr = this.gFolderDisplay.selectedMessage;
-    if(!msgHdr){
-      //no message selected
-      Logger.dbg("no message header");
-      return;
+    // find mail body
+    var msgHdr = null;
+    try{
+      let messageURI = window.gFolderDisplay.view.dbView.URIForFirstSelectedMessage;
+//       Logger.dbg("msgHeader:" + messageURI);
+
+      let messenger = Components.classes["@mozilla.org/messenger;1"]
+                      .createInstance(Components.interfaces.nsIMessenger);
+      msgHdr = messenger.msgHdrFromURI(messageURI);
     }
+    catch(e){
+      msgHdr = MailListener.gFolderDisplay.selectedMessage;
+    }
+    Logger.dbg("msgHeader:" + msgHdr);
 
-    //search for signed/encrypted (BEGIN PGP MESSAGE/BEGIN PGP SIGNED MESSAGE?)
-    if(event.currentTarget.contentDocument.body != null){
-      //get sender
+    if(msgHdr){
       var sender = msgHdr.author.substring(msgHdr.author.indexOf("<") + 1,
-                                           msgHdr.author.indexOf(">"));
+                                             msgHdr.author.indexOf(">"));
+      if(!sender || sender.length < 1){//fallback method to find sender
+        var msgPane = null;
+        for (var j = 0; j < window.frames.length && msgPane == null; j++) {
+          if (window.frames[j].name == "messagepane") {
+            msgPane =  window.frames[j];
+          }
+        }
+        let box = window.document.getElementById("expandedfromBox");
+        if(box){
+          let child = msgPane.document.getAnonymousNodes(box)[0];
+          if(child && child.firstChild && child.firstChild.firstChild){
+            sender = msgPane.document.getAnonymousNodes(box)[0].firstChild.firstChild.getAttribute("emailAddress");
+          }
+        }
+      }
+      if(!sender || sender.length < 1){
+        Logger.error("Could not find sender");
+        return;
+      }
 
       this.currDoc = event.currentTarget.contentDocument;
       MsgHdrToMimeMessage(msgHdr, null, function (aMsgHdr, aMimeMessage) {
-        let keyStr;
+        let msgStr;
         try{
-          keyStr = aMimeMessage.coerceBodyToPlaintext();
+          msgStr = aMimeMessage.coerceBodyToPlaintext();
         }
         catch(e){
-          keyStr = MailListener.currDoc.body.textContent;
+          msgStr = MailListener.currDoc.body.textContent;
           Logger.log("Could not get text content of the email:" + e + " - trying to recover html");
-          keyStr = MailListener.recoverHtml(keyStr);
-          var isHtml = keyStr.search("<html") != -1;
-          MailListener.insertEmail(MailListener.currDoc, keyStr, isHtml);
+          msgStr = MailListener.recoverHtml(msgStr);
+          var isHtml = msgStr.search("<html") != -1;
+          MailListener.insertEmail(MailListener.currDoc, msgStr, isHtml);
           return;
         }
-
-        // do something with aMimeMessage:
-//         Logger.dbg("Get new key\""+keyStr+ "\"");
-        var msgObj = MailListener.getPgpMessage(keyStr);
-
+        var msgObj = MailListener.getPgpMessage(msgStr);
         if(msgObj.ciphertext != ""){
-          var decryptedMail = {str : ""};
-          if(msgObj.blockType=="MESSAGE"){
-            var recipient = MailListener.findAccountFromHeader(msgHdr);
-            Logger.dbg("decrypting email for " + recipient + " from " + sender);
-            var status = CWrapper.decryptMail(decryptedMail, msgObj.ciphertext, sender, recipient);
-            if(status > 0 && status <= CWrapper.getMaxErrNum()){
-              Logger.error("Decrypt failed with error: " + MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
-              //tell user
-              Logger.infoPopup(MailListener.languagepack.getString("mail_dec_failed") + "\nError: " + MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
-              return;
-            }
-            MailListener.updateToolBar(status);
-            //searching for <html> works since in the body it becomes &lt;html&gt;
-            //so if finding a <html> tag, it is a "real" one and not text of the email
-            var isHtml = decryptedMail.str.search("<html") != -1;
-            MailListener.insertEmail(MailListener.currDoc, decryptedMail.str, isHtml);
-          }
-          else{
-          //"SIGNED MESSAGE"
-            Logger.dbg("display dbg 11");
-            Logger.dbg("veryfing signature for msg" + msgObj.ciphertext);
-            var status = CWrapper.verifySignature(decryptedMail, msgObj.ciphertext, sender);
-            Logger.dbg("verified signature for sender:"+sender + " with status:"+status);
-            Logger.dbg("display dbg 12");
-            let message = decryptedMail.str;
-            
-            //signature failed if NOT (status is 0 or no_sig)
-            //user has to be notified if any non-signature errors happen
-            if(status != 0 && CWrapper.getErrorStr(status) != "no_sig"){
-              //error
-              Logger.error("signature check failed: " + status + "\n" +
-                           MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
-              
-              //message could not be decrypted => only display ciphertext (and show
-              //the error to the user)
-              if(status > 0 && status <= CWrapper.getMaxErrNum()){
-                Logger.infoPopup(MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
-                //critical error
-                message = msgObj.ciphertext;
+          var sender = msgHdr.author.substring(msgHdr.author.indexOf("<") + 1,
+                                               msgHdr.author.indexOf(">"));
+          if(!sender || sender.length < 1){//fallback method to find sender
+            var msgPane = null;
+            for (var j = 0; j < window.frames.length && msgPane == null; j++) {
+              if (window.frames[j].name == "messagepane") {
+                msgPane =  window.frames[j];
               }
             }
-            MailListener.updateToolBar(status);
-            
-            //update message
-            var isHtml = message.search("<html") != -1;
-            MailListener.insertEmail(MailListener.currDoc, message, isHtml);
+            let box = window.document.getElementById("expandedfromBox");
+            if(box){
+              let child = msgPane.document.getAnonymousNodes(box)[0];
+              if(child && child.firstChild && child.firstChild.firstChild){
+                sender = msgPane.document.getAnonymousNodes(box)[0].firstChild.firstChild.getAttribute("emailAddress");
+              }
+            }
           }
 
+          if(msgObj.blockType=="MESSAGE"){
+            Logger.dbg("decrypting email without checking signature.");
+
+            if(CWrapper.libraryLoaded){
+              var ret = CWrapper.synchDecryptMail(msgObj.ciphertext);
+              if(ret.status > 0 && ret.status <= CWrapper.getMaxErrNum()){
+                Dialogs.error(MailListener.languagepack.getString("mail_dec_failed") + "\nError: "
+                             + MailListener.languagepack.getString(CWrapper.getErrorStr(ret.status)));
+                MailListener.updateToolBar(ret.status);
+              }
+              else{
+                var isHtml = ret.decrypted.search("<html") != -1;
+                MailListener.insertEmail(MailListener.currDoc, ret.decrypted, isHtml);
+                //getting sender
+                if(status != 33){//ANG_NO_SIG)
+                  if(sender && sender.length > 0){
+                    MailListener.updateToolBar(-3);//veryfing signature
+                    CWrapper.decryptMail(msgObj.ciphertext, sender, ret.password,
+                                         function(status, decrypted){
+                                           MailListener.updateToolBar(status);
+                                         });
+                  }
+                  else{
+                    Logger.error("Could not find sender");
+                    MailListener.updateToolBar(-4);//no_sender
+                  }
+                }
+                else{
+                  MailListener.updateToolBar(ret.status);
+                }
+              }
+            }
+            else{//library not loaded yet - we cannot do sych calls
+              CWrapper.decryptMail(msgObj.ciphertext, sender, "",
+                function(status, decrypted){
+                  if(status > 0 && status <= CWrapper.getMaxErrNum()){
+                    Dialogs.error(MailListener.languagepack.getString("mail_dec_failed") + "\nError: "
+                                 + MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
+                  }
+                  else{
+                    var isHtml = decrypted.search("<html") != -1;
+                    MailListener.insertEmail(MailListener.currDoc, decrypted, isHtml);
+
+                  }
+                  MailListener.updateToolBar(status);
+              });
+
+            }
+          }
+          else{
+            //"SIGNED MESSAGE"
+            Logger.dbg("veryfing signature for msg" + msgObj.ciphertext);
+            var status = CWrapper.post("verifySignature", [msgObj.ciphertext, sender],
+              function(status, message){
+                Logger.dbg("verified signature for sender:"+sender + " with status:"+status);
+                if(status != 0 && CWrapper.getErrorStr(status) != "no_sig"){
+                  //error
+                  Logger.error("signature check failed: " + status + "\n" +
+                               MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
+
+                  //message could not be decrypted => only display ciphertext (and show
+                  //the error to the user)
+                  if(status > 0 && status <= CWrapper.getMaxErrNum()){
+                    Dialogs.error(MailListener.languagepack.getString(CWrapper.getErrorStr(status)));
+                  }
+                }
+                MailListener.updateToolBar(status);
+                //update message
+                if(message.length > 0){
+                  var isHtml = message.search("<html") != -1;
+                  MailListener.insertEmail(MailListener.currDoc, message, isHtml);
+                }
+              });
+          }
         }
         else{
           Logger.dbg("Empty ciphertext");
+          MailListener.updateToolBar(-2);
         }
-        return;
       }, true);
     }
     else{
-      //error: body is null (this should never happen, Thunderbird should supply us with the email)
-      Logger.error("event.currentTarget.contentDocument.body is null");
+      Logger.error("Could not get message header!");
+      MailListener.updateToolBar(-5); //hide toolbar - if we cannot get message header then message is e. g. welcome page of Thunderbird
     }
-
   };
+
 
   //helper function to insert email into documentBody
   this.insertEmail = function(document, email, bool_html){
@@ -441,10 +666,10 @@ var MailListener = new function() {
     //    ATTENTION: if attachments are displayed there are multiple DIV elements and PRE holds the attachment, not the email!
     if(email.search("<html") != -1){
       //cut body out of email
-      var re = new RegExp("<body [^>]*>(.*)</body>");
-      let emailBody = email.match(re);
+//       var re = new RegExp("<body[^>]*>(.*)</body>");
+      let emailBody = email.match(/<body[^>]*>([^<]*(?:(?!<\/?body)<[^<]*)*)<\/body\s*>/i);//TODO: Breakes when body is commented etc
       if(emailBody == null || emailBody.length != 2){ // 2 cause decryptedMailPureText is an array: ["<body...> email </body>", "email"]
-        Logger.error("Could not find body in email!"+ email);
+        Logger.error("Could not find body in email!"+ email+ " emailBody:"+emailBody);
       }
       else{
         Logger.dbg("Found body in email!");
@@ -485,17 +710,18 @@ var MailListener = new function() {
       //create new
       div = document.createElement("div");
       //check html vs text
-	  //if message not html or View->Message Body As->Plain Text => text
+      //if message not html or View->Message Body As->Plain Text => text
       if(!bool_html || Prefs.getPrefByString("html_as", "mailnews.display.") == 1){
-		Logger.dbg("Recreating <PRE>");
+        Logger.dbg("Recreating <PRE>");
         //display email as text
-		//add pre tag to achieve pure text...
-		div.textContent = "";
-		pre = document.createElement("pre");
-		pre.textContent = email;
-		div.appendChild(pre);
-      }else{
-		Logger.dbg("display email as html");
+        //add pre tag to achieve pure text...
+        div.textContent = "";
+        pre = document.createElement("pre");
+        pre.textContent = email;
+        div.appendChild(pre);
+      }
+      else{
+        Logger.dbg("display email as html");
         //display email as HTML
         div.innerHTML = email;
       }
@@ -510,7 +736,34 @@ var MailListener = new function() {
 
   //helper function to colorize verification toolbar
   this.updateToolBar = function(status){
-    if(status == 0){
+    if(status == -5){ //hide verification toolbar
+      this.cmToolbar.setAttribute("hidden", "true");
+      return;
+    }
+    else{
+      this.cmToolbar.removeAttribute("hidden");
+    }
+    if(status == -4){ //no_sender
+      this.cmToolbar.setAttribute("style", "background-color: orange;");
+      this.cmToolbar.children[0].setAttribute("value", this.languagepack.getString("verifytoolbar") + ": " +this.languagepack.getString("no_sender"));
+      this.cmToolbar.children[0].setAttribute("style", "color: black;");
+    }
+    if(status == -3){ //decrypted waiting for signature verification
+      this.cmToolbar.setAttribute("style", "background-color: transparent;");
+      this.cmToolbar.children[0].setAttribute("value", this.languagepack.getString("verifytoolbar") + ": " +this.languagepack.getString("veryfing_signature"));
+      this.cmToolbar.children[0].setAttribute("style", "color: black;");
+    }
+    else if(status == -2){ //no encrypted email
+      this.cmToolbar.setAttribute("style", "background-color: transparent;");
+      this.cmToolbar.children[0].setAttribute("value", this.languagepack.getString("verifytoolbar") + ": " +this.languagepack.getString("not_encrypted"));
+      this.cmToolbar.children[0].setAttribute("style", "color: black;");
+    }
+    else if(status == -1){ //decryption in progress
+      this.cmToolbar.setAttribute("style", "background-color: transparent;");
+      this.cmToolbar.children[0].setAttribute("value", this.languagepack.getString("verifytoolbar") + ": " +this.languagepack.getString("processing"));
+      this.cmToolbar.children[0].setAttribute("style", "color: black;");
+    }
+    else if(status == 0){
       //ok => green
       this.cmToolbar.setAttribute("style", "background-color: green;");
       this.cmToolbar.children[0].setAttribute("value", this.languagepack.getString("verifytoolbar_ok"));
@@ -541,6 +794,13 @@ var MailListener = new function() {
       this.cmToolbar.children[0].setAttribute("value", this.languagepack.getString("verifytoolbar")+ ": " + this.languagepack.getString("sigkey_expired"));
       this.cmToolbar.children[0].setAttribute("style", "color: black;");
     }
+    else if(CWrapper.getErrorStr(status) == "cancel"){
+      //no sig => grey
+      this.cmToolbar.setAttribute("style", "background-color: orange;");
+      this.cmToolbar.children[0].setAttribute("value", this.languagepack.getString("verifytoolbar")+ ": " + this.languagepack.getString("cancel"));
+      this.cmToolbar.children[0].setAttribute("style", "color: black;");
+    }
+
     else if(CWrapper.getErrorStr(status) == "wrong_sig"){
       //no sig => grey
       this.cmToolbar.setAttribute("style", "background-color: red;");
@@ -559,21 +819,30 @@ var MailListener = new function() {
 
 
   //helper function to find account from a message header
-  this.findAccountFromHeader = function(msgHdr){
+  this.findAccountFromHeader = function(msgHdr, drafts = false){
     if(msgHdr){
       if(msgHdr.accountKey){
         //message has been moved and the original account is specified by accountKey
         //=> search for accountKey in accounts and get the email-address
         var accMgr = Components.classes["@mozilla.org/messenger/account-manager;1"]
-         .getService(Components.interfaces.nsIMsgAccountManager);
+                     .getService(Components.interfaces.nsIMsgAccountManager);
         var accounts = accMgr.accounts;
         //iterate over accounts and search for the right key
         for(var i = 0; i < accounts.length; i++){
-	        var account = accounts.queryElementAt(i, Components.interfaces.nsIMsgAccount);
-	        if(account.key == msgHdr.accountKey){
-	          return account.email;
-	        }
+          var account = accounts.queryElementAt(i, Components.interfaces.nsIMsgAccount);
+          if(account.key == msgHdr.accountKey){
+            if(drafts){
+              return {"mail": account.email,
+                      "draftfolder": account.draftFolder};
+            }
+            else{
+              return account.email;
+            }
+          }
         }
+
+        //TODO: FIXME: could not identify receiving email address when encrypted mail arrives (is this line the error?)
+        Logger.error("msgHdr.accountKey does not match any account.key");
         return "";
       }
       else{
@@ -581,16 +850,23 @@ var MailListener = new function() {
         //=> get account via the folder the email is in
         var ret = this.findAccountFromFolder(msgHdr.folder);
         if(ret != null){
-	        return ret.defaultIdentity.email;
+          if(drafts){
+            return {"mail": ret.defaultIdentity.email,
+                    "draftfolder": ret.defaultIdentity.draftFolder};
+          }
+          else{
+            return ret.defaultIdentity.email;
+          }
         }
         else{
-          Logger.error("Find account account from header did not find email addres");
-	        return "";
+          Logger.error("Find account account from header did not find email address");
+          return "";
         }
       }
     }
     else{
-        Logger.error("Find account account from header did not find email addres - mshHeader is null");
+      Logger.error("Find account account from header did not find email addres - msgHeader is null");
+      return "";
     }
   };
 

@@ -172,8 +172,9 @@ class KeyParser{
         case SIGSUBPKT_SIG_EXPIRE:
           signature.sig_expirePeriod = 0;
           if(subpacket.size() == 4){
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 4; i++){
               signature.sig_expirePeriod = signature.sig_expirePeriod * 256 + (subpacket.at(i)&0xFF);
+            }
           }
           else{
             return ANG_PARSE_ERROR;
@@ -215,7 +216,9 @@ class KeyParser{
           signature.key_expirePeriod = 0;
           if(subpacket.size() == 4){
             for (int i = 0; i < 4; i++){
+/*               std::cout<<"Adding key expire step i:"<<i<<" byte:"<<subpacket.at(i) <<std::endl; */
               signature.key_expirePeriod = signature.key_expirePeriod * 256 + (0xFF&subpacket.at(i));
+/*               std::cout<<"After adding:step i:"<<i<<" value:"<<signature.sig_expirePeriod <<std::endl; */
             }
           }
           else{

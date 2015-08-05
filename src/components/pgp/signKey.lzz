@@ -117,7 +117,7 @@ class SignKey{
 /*     } */
 
     /* The spec says that all primary keys MUST be able to certify. */
-    if(sgnClass!=SGN_SUBKEY){
+    if(sgnClass != SGN_SUBKEY){
       flags |= 0x01;
     }
 
@@ -255,6 +255,14 @@ class SignKey{
     addSubpkt(sig, SIGSUBPKT_SIG_CREATED);
     if(sig->sig_expirePeriod != 0){
       addSubpkt(sig, (PKT_SigSubpktType)(SIGSUBPKT_SIG_EXPIRE | SIGSUBPKT_FLAG_CRITICAL));
+    }
+    if(subpk == NULL && pk->expirePeriod != 0){
+      sig->key_expirePeriod = pk->expirePeriod;
+      addSubpkt(sig, (PKT_SigSubpktType)(SIGSUBPKT_KEY_EXPIRE | SIGSUBPKT_FLAG_CRITICAL));
+    }
+    else if(subpk != NULL && subpk->expirePeriod != NULL){
+      sig->key_expirePeriod = subpk->expirePeriod;
+      addSubpkt(sig, (PKT_SigSubpktType)(SIGSUBPKT_KEY_EXPIRE ));
     }
 
     std::string pref;

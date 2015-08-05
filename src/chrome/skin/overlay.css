@@ -22,4 +22,7 @@ treechildren::-moz-tree-cell-text(redCell){
     color: red;
     font-weight: bold;
 }
-
+treechildren::-moz-tree-cell-text(blueCell){
+    color: blue;
+    font-weight: bold;
+}

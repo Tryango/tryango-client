@@ -1,0 +1,55 @@
+Development:
+------------
+
+The Thunderbird-Error-Console logging is turned off by default, to activate goto
+Edit -> Preferences -> Advanced -> General -> Config Editor... and set
+    javascript.options.showInConsole to true
+    extensions.logging.enabled to true
+    (not needed but maybe helpful: browser.dom.window.dump.enabled to true)
+    more info: https://developer.mozilla.org/en-US/Add-ons/Setting_up_extension_development_environment
+To turn off delay when installing addon modify security.dialog_enable_delay in about:config
+To turn on debugging messages install https://addons.mozilla.org/en-US/firefox/addon/devprefs/
+
+Explanation for Thunderbird Extensions:
+---------------------------------------
+
+.Documentation:
+https://developer.mozilla.org/en-US/
+https://developer.mozilla.org/en-US/docs/Web/API	(all javascript elements)
+https://developer.mozilla.org/en-US/Add-ons/Thunderbird	(main start page)
+http://doxygen.db48x.net/comm-central/html/
+
+.Complete example of XPCOM:
+http://ptncode.blogspot.com/2013/08/exposing-xpcom-c-interface-on-dom.html
+
+.TB Examples:
+http://mdn.beonex.com/en/Extensions/Thunderbird/HowTos.html
+
+.Book
+http://books.mozdev.org/html/index.html
+
+.File structure of plugins:
+https://developer.mozilla.org/en-US/Add-ons/Thunderbird/Building_a_Thunderbird_extension_2:_extension_filesystem
+
+
+.Tutorial on how to build a Thunderbird Extension (outdated according to website, but still working)
+https://developer.mozilla.org/en-US/Add-ons/Thunderbird/Building_a_Thunderbird_extension
+
+[NOTE]
+====
+Do not use the mentioned "builder" and create files manually by hand.
+The builder seems to work only for firefox!
+====
+
+.Next Tutorial
+http://blog.xulforum.org/index.php?post/2011/01/03/An-overview-of-Thunderbird-Conversations
+http://blog.xulforum.org/index.php?post/2011/03/14/Basic-MimeMessage-demo
+
+.Advanced Tutorials:
+https://developer.mozilla.org/en-US/Add-ons/Thunderbird/Demo_Addon
+https://developer.mozilla.org/en-US/Add-ons/Thunderbird/HowTos
+
+
+Useful plugins:
+---------------
+Developer assistant: https://addons.mozilla.org/en-US/thunderbird/addon/extension-developer/?src=search

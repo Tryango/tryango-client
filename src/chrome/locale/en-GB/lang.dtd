@@ -1,5 +1,5 @@
 <!-- British English Tryango Language Pack -->
-<!ENTITY  tryango.label   "Tryango">
+<!ENTITY  tryango.label   "Tryango(beta)">
 
 <!-- menu -->
 <!ENTITY  menu.signup       "Sign-Up">
@@ -16,9 +16,9 @@
 
 <!-- signup dialog -->
 <!ENTITY  wizard.title                   "Sign-Up Wizard">
-<!ENTITY  wizard.welcomePage.title       "Signup to Tryango server.">
-<!ENTITY  wizard.welcomePage.simpleTxt   "To simply signup without being asked too many questions.">
-<!ENTITY  wizard.welcomePage.advancedTxt "To have more control over the signup procedure.">
+<!ENTITY  wizard.welcomePage.title       "Sign-up to Tryango server.">
+<!ENTITY  wizard.welcomePage.simpleTxt   "To simply sign-up without being asked too many questions.">
+<!ENTITY  wizard.welcomePage.advancedTxt "To have more control over the sign-up procedure.">
 <!ENTITY  wizard.welcomePage.advancedRemark "(this includes import from GnuPG, server settings etc.)">
 <!ENTITY  wizard.welcomePage.btnSimple   "Simple">
 <!ENTITY  wizard.welcomePage.btnAdvanced "Advanced">
@@ -41,7 +41,7 @@
 <!ENTITY  wizard.createKeyPage.noexpire   "Key does not expire.">
 <!ENTITY  wizard.createKeyPage.keysize    "Choose key size.">
 
-<!-- TODO: set labels depending on simple/advanced setup -->
+<!-- set labels depending on simple/advanced setup -->
 <!ENTITY  wizard.importKeyPage.kt_type         "Key type">
 <!ENTITY  wizard.importKeyPage.kt_email        "Email address(es)">
 <!ENTITY  wizard.importKeyPage.kt_created      "Created">
@@ -50,13 +50,13 @@
 <!ENTITY  wizard.importKeyPage.kt_fingerprint  "Key Fingerprint"> <!-- only for settings.xul! rest: see lang.properties -->
 <!ENTITY  wizard.importKeyPage.importFile      "Import from file">
 <!ENTITY  wizard.importKeyPage.importGpg       "Import from GnuPG">
-<!ENTITY  wizard.importKeyPage.loadedGpg  "Results from loading keys from GnuPG for chosen email address. Select one key.">
-<!ENTITY  wizard.importKeyPage.noKeys     "No entries have been loaded yet.">
-<!ENTITY  wizard.importKeyPage.emptyFile     "File is empty.">
+
+<!ENTITY  wizard.progressbarPage.title "Creating account">
+<!ENTITY  wizard.progressbarPage.waitingDialog "Tryango is creating a new account. This might take a few moments.">
 
 
-<!ENTITY  wizard.lastPage.title      "Signup with Tryandgo is complete.">
-<!ENTITY  wizard.lastPage.completed  "You have signed up with Tryango. Shortly you should receive an email with a secret value which will complete the signup procedure. You can safely igrore/delete that email after you see the confirmation pop-up of Tryango.">
+<!ENTITY  wizard.lastPage.title      "Signup with Tryango is complete.">
+<!ENTITY  wizard.lastPage.completed  "The signup process will continue in the background. Shortly you should receive an email with a secret value which will complete the signup procedure. You can safely ignore/delete that email after you see the confirmation of completing Tryango signup.">
 
 <!-- settings -->
 <!ENTITY  settings.title         "Settings">

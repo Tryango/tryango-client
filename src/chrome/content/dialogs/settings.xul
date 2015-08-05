@@ -13,7 +13,7 @@
 
 <dialog id="tryango_settings" title="&settings.title;"
 	xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
-	width="800px" height="600px"
+	width="900px" height="800px"
 	onload="prefOnLoad(); infoOnLoad();"
 	onunload="Dialogs.settingsEnd();"
 	minheight="300"
@@ -78,9 +78,9 @@
         <textbox id="tex_status" multiline="true" rows="8" cols="20"/>
         <!-- refresh button -->
         <vbox align="left">
-          <button label="&settings.buttonrefresh;"
+          <button id="fillStatusBtn" label="&settings.buttonrefresh;"
                   width="100"
-                  oncommand="fillStatus(document.getElementById('lang_file'));">
+                  oncommand="fillStatus();">
           </button>
         </vbox>
         <spacer type="block" height="20"/>
@@ -95,9 +95,9 @@
               label="&settings.advoptions;"/>
 	</vbox>
       </groupbox>
-      
+
     <!-- tab 2: manage devices -->
-    <groupbox flex="1">
+    <groupbox flex="2">
       <label class="header" value="&settings.desc_devices;"/>
       <!-- tree of devices -->
       <!-- https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XUL/tree -->
@@ -116,6 +116,7 @@
       <hbox>
         <!-- refresh button -->
         <button label="&settings.buttonrefresh;"
+                id="fillDevicesBtn"
                 width="100"
                 oncommand="fillDevices(document.getElementById('lang_file'));">
         </button>
@@ -135,19 +136,19 @@
       <!-- tree of keys -->
       <!-- https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XUL/tree -->
       <tree id="tree_keys" hidecolumnpicker="true" seltype="multiple"
-            rows="20" treelines="true">
+            rows="20" treelines="true" flex="1">
         <treecols>
-            <treecol primary="true" id="key_type" label="&wizard.importKeyPage.kt_type;" flex="1"/>
+            <treecol primary="true" id="key_type" label="&wizard.importKeyPage.kt_type;" flex="2"/>
             <splitter class="tree-splitter"/>
-            <treecol id="key_email" label="&wizard.importKeyPage.kt_email;" flex="1"/>
+            <treecol id="key_email" label="&wizard.importKeyPage.kt_email;" flex="4"/>
             <splitter class="tree-splitter"/>
-            <treecol sortActive="true" id="key_created" label="&wizard.importKeyPage.kt_created;" flex="1"/>
+            <treecol sortActive="true" id="key_created" label="&wizard.importKeyPage.kt_created;" flex="4"/>
             <splitter class="tree-splitter"/>
-            <treecol id="key_expiry" label="&wizard.importKeyPage.kt_expiry;" flex="1"/>
+            <treecol id="key_expiry" label="&wizard.importKeyPage.kt_expiry;" flex="2"/>
             <splitter class="tree-splitter"/>
-            <treecol id="key_id" label="&wizard.importKeyPage.kt_fingerprint;" flex="1"/>
+            <treecol id="key_id" label="&wizard.importKeyPage.kt_fingerprint;" flex="8"/>
             <splitter class="tree-splitter"/>
-            <treecol id="key_version" label="&wizard.importKeyPage.kt_encrypted;" flex="1"/>
+            <treecol id="key_version" label="&wizard.importKeyPage.kt_encrypted;" flex="0"/>
         </treecols>
         <treechildren id="tree_keys_content">
           <!-- TAB WILL BE FILLED BY JAVASCRIPT -->
@@ -158,11 +159,13 @@
       <hbox>
         <!-- refresh button -->
         <button label="&settings.buttonrefresh;"
+                id="fillKeysBtn"
                 width="100"
-                oncommand="fillKeys(document.getElementById('lang_file'));">
+                oncommand="fillKeys();">
         </button>
         <!-- remove button -->
         <button label="&settings.buttonremove;"
+                id="removeKeysBtn"
                 width="100"
                 oncommand="removeSelectedKeys();">
         </button>
@@ -184,7 +187,7 @@
         <vbox align="left">
           <button label="&settings.buttonrefresh;"
                   width="100"
-                  oncommand="fillAudit(document.getElementById('lang_file'));">
+                  oncommand="fillAudit();">
           </button>
         </vbox>
       </vbox>
@@ -205,5 +208,5 @@
   <stringbundleset id="stringbundleset">
     <stringbundle id="lang_file" src="chrome://tryango/locale/lang.properties"/>
   </stringbundleset>
-  
+
 </dialog>

@@ -48,25 +48,27 @@ extern "C"{
   uint32_t getEncryptedSK(char** encrKey
                           , uint32_t* encrKeySize
                           , const char* id
+                          , const char* cMessage
                           , const char* password
                           ){
     uint32_t c_status = ANG_UNKNOWN_ERROR;
     std::string identity = PktDo::stripId(std::string(id));
+    std::string message = std::string(cMessage);
     std::string keyStr;
     PublicKeyDb pubDb;
     pubDb.importKey(client.getTempKey(), identity);
     clearTempKey();
-    PublicKeyPair* pk = pubDb.getKey(id);
+    PublicKeyPair* pk = pubDb.getKey(identity, true);
     if(pk == NULL) {
       return ANG_NO_KEY_PRESENT;
     }
     PKT_public_key* pkey = pk->getPEKey();
-    SecretKeyPair* skey = client.getKeyDb()->getCurrentKey(id);
+    SecretKeyPair* skey = client.getKeyDb()->getCurrentKey(identity);
     if(pkey != NULL && skey != NULL && skey->exportPair(keyStr, true, true) && keyStr.length() > 0){
       std::vector<PKT_public_key*> keys;
       keys.push_back(pkey);
       std::string encrypted;
-      c_status = MessageHandler::encryptData(encrypted, keyStr, keys, CIPHER_ALGO_AES256,
+      c_status = MessageHandler::encryptData(encrypted, message + keyStr, keys, CIPHER_ALGO_AES256,
                                              client.getKeyDb(), identity, false, "secretKey.gpg",
                                              password, true, true);
       if(c_status == ANG_OK && !encrypted.empty()){
@@ -110,7 +112,10 @@ extern "C"{
       c_status = client.find_last(serverKey, type, identity);
       if(keyStr.compare(serverKey) != 0 && c_status == ANG_OK){
 /*         client.log("Sumbitting new id:"+ identity + " device"+std::string(device)); */
-        std::string ap = hex_to_string(std::string(hexAp, 2 * HASH_SIZE));
+        std::string ap = hex_to_string(std::string(hexAp));
+        if(ap.length() != HASH_SIZE){
+          return ANG_NO_AP;
+        }
         c_status = client.submit(ap, identity, std::string(device), keyStr);
         if(c_status == ANG_OK){
           memcpy(hexAp, string_to_hex(ap).c_str(), 2 * HASH_SIZE);
@@ -144,7 +149,10 @@ extern "C"{
       return ANG_NO_KEY_PRESENT;
     }
     Confi_Status c_status = ANG_UNKNOWN_ERROR;
-    std::string ap = hex_to_string(std::string(hexAp, 2 * HASH_SIZE));
+    std::string ap = hex_to_string(std::string(hexAp));
+    if(ap.length() != HASH_SIZE){
+      return ANG_NO_AP;
+    }
     c_status = client.revoke(ap, identity, std::string(device), std::string(password));
     if(c_status == ANG_OK){
       memcpy(hexAp, string_to_hex(ap).c_str(), 2 * HASH_SIZE);
@@ -153,21 +161,29 @@ extern "C"{
   }
 
 
-  uint32_t getServerInfo(char* dest
-                         , uint32_t size
+  uint32_t getServerInfo(char** serverInfo
+                         , uint32_t* serverInfoSize
                          ){
     std::string result;
     Confi_Status status = client.getServerInfo(result);
     if(status==ANG_OK){
-      memset(dest, '\0', size);
-      memcpy(dest, result.c_str(), (size < result.length())? size : result.length());
+      *serverInfoSize = allocateAndCopy(serverInfo, result);
+    }
+    else{
+      (*serverInfo) = NULL;
+      *serverInfoSize = 0;
     }
     return status;
   }
 
 
-  uint32_t getPort(){
-    return client.getPort();
+  uint32_t getV(){
+    return client.getV();
+  }
+
+
+  void setV(uint32_t v){
+    client.setV(v);
   }
 
 
@@ -176,6 +192,11 @@ extern "C"{
                  ){
     std::string serverName = client.getHost();
     *hostnameSize = allocateAndCopy(hostname, serverName);
+  }
+
+
+  uint32_t getPort(){
+    return client.getPort();
   }
 
 
@@ -189,15 +210,9 @@ extern "C"{
   bool generateRsaKeys(char* userId
                        , char* password
                        , uint32_t size
+                       , uint64_t validity
                        ){
-    return client.generateRsaKeys(PktDo::stripId(std::string(userId)), std::string(password), size);
-  }
-
-
-  bool useExistentTryangoKey(const char* email
-                             ){
-    //TODO: implement (adjust return type to uint32_t if needed)
-    return false;
+    return client.generateRsaKeys(PktDo::stripId(std::string(userId)), std::string(password), size, (time_t)validity);
   }
 
 
@@ -208,9 +223,16 @@ extern "C"{
                       , const char* device
                       ){
     std::string identity = PktDo::stripId(std::string(id));
-    std::string ap = hex_to_string(std::string(hexAp, 2 * HASH_SIZE));
+    std::string ap = hex_to_string(std::string(hexAp));
+    if(ap.length() != HASH_SIZE){
+/*       std::cout<<"wrong ap;"<<hexAp<<"  ap len:"<<ap.length()<<std::endl; */
+      return ANG_NO_AP;
+    }
     uint32_t status = client.getDevices(result, resultSize, ap, identity, std::string(device));
-    memcpy(hexAp, string_to_hex(ap).c_str(), 2 * HASH_SIZE);
+    if(status == 0){
+      memcpy(hexAp, string_to_hex(ap).c_str(), 2 * HASH_SIZE);
+    }
+    std::cout<<"End of getDevices status"<<status<<" resultSize:"<<*resultSize<<std::endl;
     return status;
   }
 
@@ -223,14 +245,17 @@ extern "C"{
                          ){
     //init
     std::string identity = PktDo::stripId(std::string(id));
-    std::string ap = hex_to_string(std::string(hexAp, 2 * HASH_SIZE));
+    std::string ap = hex_to_string(std::string(hexAp));
+    if(ap.length() != HASH_SIZE){
+      return ANG_NO_AP;
+    }
 
     //request to server
     uint32_t status = client.removeDevices(ap, identity, device, devices, devicesSize);
-
-    //update ap
-    memcpy(hexAp, string_to_hex(ap).c_str(), 2 * HASH_SIZE);
-
+    if(status == 0){
+      //update ap
+      memcpy(hexAp, string_to_hex(ap).c_str(), 2 * HASH_SIZE);
+    }
     return status;
   }
 
@@ -326,14 +351,47 @@ extern "C"{
   }
 
 
+  uint32_t checkIfCanAdd(const char* keyStr, const char* email){
+    KeyDb tempKeyDb;
+    uint32_t status = tempKeyDb.readFromStr(std::string(keyStr), false, PktDo::stripId(std::string(email)));
+    if(status == 0){
+      SecretKeyPair* pair = tempKeyDb.getCurrentKey(email);
+      if(pair == NULL){
+        return ANG_PARSE_ERROR;
+      }
+      std::string kip = pair->getKeyId();
+      KeyList list;
+      bool present = false;
+      list = client.getKeyDb()->getKeysById(kip);
+      for (auto it = list.begin(); it < list.end(); it++){
+        if((*it)->getFingerprint() == pair->getFingerprint()){
+          present = true;
+          break;
+        }
+      }
+      if(present){
+        return ANG_ID_ALREADY_EXISTS;
+      }
+      else return ANG_OK;
+    }
+    return status;
+  }
+
+
+  uint32_t importSecretKey(const char* keyStr, const char* email){
+    return client.getKeyDb()->readFromStr(std::string(keyStr), false, PktDo::stripId(std::string(email)));
+  }
+
+
   bool exportKeyPurse(const char* path
                       , const char* password
                       ){
+    std::cout<<"Exporting to file"<<std::string(path)<<std::endl;
     return client.getKeyDb()->writeToFile(std::string(path));
   }
 
 
-  bool importKeyPurse(const char* path
+  uint32_t importKeyPurse(const char* path
                       , bool clearOld
                       ){
     return client.getKeyDb()->readFromFile(std::string(path), clearOld, "");
@@ -346,7 +404,7 @@ extern "C"{
   }
 
 
-  bool checkMailAddr(const char* mailAddr
+  Confi_Status checkMailAddr(const char* mailAddr
                      ){
     std::string mail = PktDo::stripId(std::string(mailAddr));
     printf(("Checking mail for id" +mail +"\n").c_str());
@@ -395,30 +453,78 @@ extern "C"{
       lastPos = pos;
     }
     while(pos != std::string::npos);
+/*     if(sender != NULL){ */
+/*       users.insert(PktDo::stripId(sender)); //we encrypt for ourself */
+/*     } */
+    if(users.size() < 1 && sender == NULL) {
+      return ANG_NO_KEY_PRESENT;
+    }
+
+    if(users.size() > 0) {
+      alg = MessageHandler::chooseAlg(users, pubDb);
+      if(alg == CIPHER_ALGO_NONE){
+        return ANG_NO_KEY_PRESENT;
+      }
+      for(std::string uId:users){
+        PublicKeyPair* key = pubDb->getKey(uId);
+        if(key == NULL){
+          return ANG_NO_KEY_PRESENT;
+        }
+        PKT_public_key* pkey = key->getPEKey();
+        if(pkey == NULL){
+          return ANG_NO_KEY_PRESENT;
+        }
+        keys.push_back(pkey);
+      }
+    }
+    else{
+      alg = CIPHER_ALGO_AES256;
+    }
     if(sender != NULL){
-      users.insert(PktDo::stripId(sender)); //we encrypt for ourself
-    }
-    if(users.size() < 1) {
-      return ANG_NO_KEY_PRESENT;
+      SecretKeyPair* skp = client.getKeyDb()->getCurrentKey(sender);
+      if(skp == NULL){
+        return ANG_NO_KEY_PRESENT;
+/*         PublicKeyPair* key = pubDb->getKey(sender); */
+/*         if(key == NULL){ */
+/*           return ANG_NO_KEY_PRESENT; */
+/*         } */
+      }
+      else{
+        if(skp->getSEKey() == NULL){
+          return ANG_NO_KEY_PRESENT;
+        }
+        else{
+          keys.push_back(&(skp->getSEKey()->pkey));
+        }
+      }
     }
 
-    alg = MessageHandler::chooseAlg(users, pubDb);
-    if(alg == CIPHER_ALGO_NONE){
-      return ANG_NO_KEY_PRESENT;
-    }
-
-    for(std::string uId:users){
-      PublicKeyPair* key = pubDb->getKey(uId);
-      if(key == NULL){
-        return ANG_NO_KEY_PRESENT;
-      }
-      PKT_public_key* pkey = key->getPEKey();
-      if(pkey == NULL){
-        return ANG_NO_KEY_PRESENT;
-      }
-      keys.push_back(pkey);
-    }
     return ANG_OK;
+  }
+
+
+  uint32_t clearSignMail(char** result //return
+                          , uint32_t* resultSize //result size
+                          , const char* mailBody //the body in clear text
+                          , const char* sender //the mail address of the sender
+                          , const char* password //the password used to protect the key
+                           ){
+    Confi_Status status = ANG_UNKNOWN_ERROR;
+    std::string encrypted;
+    status =  MessageHandler::clearSign(encrypted
+                                        , std::string(mailBody)
+                                        , client.getKeyDb()
+                                        , PktDo::stripId(sender)
+                                        , std::string(password)
+                                        );
+    if(status == ANG_OK){
+      *resultSize = allocateAndCopy(result, encrypted);
+    }
+    else{
+      (*result)=NULL;
+      *resultSize = 0;
+    }
+    return status;
   }
 
 
@@ -471,7 +577,7 @@ extern "C"{
         }
       }
       else if(sign){
-        std::cout<<"signing with body:"<<std::endl<<string_to_hex(std::string(mailBody))<<std::endl;
+/*         std::cout<<"signing with body:"<<std::endl<<string_to_hex(std::string(mailBody))<<std::endl; */
         status =  MessageHandler::clearSign(encrypted
                                             , std::string(mailBody)
                                             , client.getKeyDb()
@@ -479,7 +585,7 @@ extern "C"{
                                              , std::string(password)
                                             );
         if(status == ANG_OK){
-          std::cout<<"signed with body:"<<std::endl<<string_to_hex(encrypted)<<std::endl;
+/*           std::cout<<"signed with body:"<<std::endl<<string_to_hex(encrypted)<<std::endl; */
           *resultSize = allocateAndCopy(result, encrypted);
         }
         else{
@@ -562,7 +668,6 @@ extern "C"{
                     , uint32_t* resultSize //result size
                     , const char* encMailBody//encrypted email
                     , const char* sender  //sending email address
-                    , const char* recipient//receiving mail account TODO remove that
                     , const char* password //password to protect secret key
                     ){
     std::string decrypted;
@@ -588,9 +693,10 @@ extern "C"{
   //helper function
   void freeString(char* string
                   ){
-    if(string!=NULL){
+    if(string != NULL){
       free(string);
     }
+    std::cout<<"End of freeString"<<std::endl;
   }
 
 

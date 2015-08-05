@@ -6,8 +6,7 @@
 <!-- language file -->
 <!DOCTYPE tryango SYSTEM "chrome://tryango/locale/lang.dtd">
 
-<overlay id="tryango" 
-	 xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+<overlay id="tryango" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
 
   <!-- Reference to JavaScript file -->
   <script type="application/x-javascript" src="chrome://tryango/content/tryango.js"/>
@@ -55,28 +54,25 @@
                    orient="horizontal"
                    disabled="false">
       <menupopup>
-        <!-- TODO: FIXME: fill element automatically: anchorNode nsIDOMElement (tryango-menu-popup) -->
-	<menuitem id="menu-signup" label="&menu.signup;"
-		  oncommand="Tryango.handleEvent(this.id);" />
-	<menuitem id="menu-settings" label="&menu.settings;"
-		  oncommand="Tryango.handleEvent(this.id);" />
+		<menuitem id="menu-signup" label="&menu.signup;"
+				  oncommand="Tryango.handleEvent(this.id);" />
+		<menuitem id="menu-settings" label="&menu.settings;"
+				  oncommand="Tryango.handleEvent(this.id);" />
 
+		<menuseparator />
+		<menuitem id="menu-import" label="&menu.import;"
+				  oncommand="Tryango.handleEvent(this.id);" />
+		<menuitem id="menu-export" label="&menu.export;"
+				  oncommand="Tryango.handleEvent(this.id);" />
 
-	<menuseparator />
-	<menuitem id="menu-import" label="&menu.import;"
-		  oncommand="Tryango.handleEvent(this.id);" />
-	<menuitem id="menu-export" label="&menu.export;"
-		  oncommand="Tryango.handleEvent(this.id);" />
+		<menuitem id="menu-reset" label="&menu.reset;"
+				  oncommand="Tryango.handleEvent(this.id);" />
 
-
-	<menuitem id="menu-reset" label="&menu.reset;"
-		  oncommand="Tryango.handleEvent(this.id);" />
-
-	<menuseparator />
-	<menuitem id="menu-help" label="&menu.help;"
-		  oncommand="Tryango.handleEvent(this.id);" />
-	<menuitem id="menu-about" label="&about.title;"
-		  oncommand="Tryango.handleEvent(this.id);" />
+		<menuseparator />
+		<menuitem id="menu-help" label="&menu.help;"
+				  oncommand="Tryango.handleEvent(this.id);" />
+		<menuitem id="menu-about" label="&about.title;"
+				  oncommand="Tryango.handleEvent(this.id);" />
       </menupopup>
     </toolbarbutton>
   </toolbarpalette>
@@ -101,11 +97,12 @@
   </toolbarpalette>
 
   <!-- Overlay to show signature check -->
-  <vbox id="expandedHeadersBox"
+  <vbox id="singlemessage"
         xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
 
     <hbox id="tryango-verification-toolbar"
           style="background-color: transparent;"
+		  insertbefore="messagepanewrapper"
           pack="center">
       <!-- value will be filled by JavaScript -->
       <label id="tryango-verification-label"
@@ -121,5 +118,3 @@
   </stringbundleset>
 
 </overlay>
-
-

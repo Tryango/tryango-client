@@ -1,0 +1,32 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+    <title>Tryango @FULL_VERSION@</title>
+  </head>
+  <body>
+    <h1>
+      <img src="../../skin/cm_logo.png" alt="&lt;logo&gt;"
+	   style="width:32px;height:32px;vertical-align:middle;"> Tryango @FULL_VERSION@
+    </h1>
+    <h3>Universit&auml;t Birmingham und CloudTomo Ltd.</h3>
+
+    <p>Tryango ist eine sichere E-Mail Verschl&uuml;sselungstechnik.</p>
+
+    <p>
+      Kontakt: <a href="mailto:support@tryango.com?subject=Tryango">support@tryango.com</a><br>
+      Website: <a href="http://www.tryango.com">www.tryango.com</a>
+    </p>
+
+    <p>Entwickler Team:</p>
+    <ul>
+      <li>Professor Mark Ryan</li>
+      <li>Dr. Mihai Ordean</li>
+      <li>Dr. Piotr Kordy</li>
+      <li>Joshua Philips</li>
+      <li>Michael Denzel</li>
+    </ul>
+
+  </body>
+</html>

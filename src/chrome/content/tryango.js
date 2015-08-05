@@ -17,11 +17,9 @@ Components.utils.import("resource://tryango_modules/cWrapper.jsm");
 Components.utils.import("resource://tryango_modules/attachmentManager.jsm");
 Components.utils.import("resource://tryango_modules/utils.jsm");
 
-//TODO: test with multiple send-windows open!
-
 // (Singleton) Basic Tryango class
 // "main" class for all Tryango functions
-if (! Tryango){
+if (!Tryango){
   var Tryango = {};
   Tryango.isInit = false;
 }
@@ -52,13 +50,16 @@ Tryango.init = function(){
   var lang = this.languagepack.getString("language");
   Logger.log("Language: " + lang);
 
+  //init utils
+  Utils.init(window);
+
   //init C interface
   try{
     CWrapper.initLibrary(this.languagepack);
   }catch(ex){
     //could not initialise C-lib => failsafe: disable Tryango
     Logger.error(ex);
-    Logger.infoPopup(this.languagepack.getString("err_init_lib"));
+    Dialogs.info(this.languagepack.getString("err_init_lib"));
     this.disable();
     return;
   }
@@ -69,20 +70,21 @@ Tryango.init = function(){
 
   //check offline status
   if(this.checkOfflineStatus()){
-    Logger.infoPopup(this.languagepack.getString("warn_offline"));
+    Dialogs.info(this.languagepack.getString("warn_offline"));
   }
 
   //load password manager
   Pwmgr.init();
   Logger.log("Password manager initialised");
-  if(!CWrapper.importKeyPurse(Prefs.getPref("keyPursePath"), true)){
-    Utils.syncKeypurse(this.languagepack);
-    Logger.log("Keypurse loaded succesfully");
-  }
-  else{
-    Logger.log("Keypurse does not exists or is invalid");
-  }
-
+  CWrapper.post("importKeyPurse", [Prefs.getPref("keyPursePath"), true], function(status){
+    if(status == 0){
+      Utils.syncKeypurse();
+      Logger.dbg("Keypurse loaded succesfully");
+    }
+    else{
+      Logger.log("Keypurse does not exists or is invalid");
+    }
+  });
   //init attachmentManager
   this.gFolderDisplay = gFolderDisplay; //needed to get sender for attachments
   AttachmentManager.init(window, this.languagepack);
@@ -97,9 +99,9 @@ Tryango.init = function(){
 
   //events to hook: https://developer.mozilla.org/en-US/docs/Web/Events
   //watch incoming mails for encryption/signature
-  document.getElementById("messagepane").addEventListener(
-    "pageshow", MailListener.onMsgDisplay.bind(MailListener), true);
-
+  var msgPane = document.getElementById("messagepane");
+  msgPane.addEventListener(
+    "pageshow", MailListener.onMsgDisplay.bind(MailListener, window), true);
 
   //after loading everything: check if this is the first start, if so, display setup wizard
   var firstStartup = Prefs.getPref("firstStartup");
@@ -152,7 +154,7 @@ Tryango.handleEvent = function(id){
   case "menu-signup":
     //check offline status
     if(this.checkOfflineStatus()){
-      Logger.infoPopup(this.languagepack.getString("warn_go_online"));
+      Dialogs.info(this.languagepack.getString("warn_go_online"));
       return;
     }
     else{
@@ -189,31 +191,11 @@ Tryango.handleEvent = function(id){
     break;
 
   case "menu-import":
-    //pick file to import from
-    //pick file to save to
-    var fp = Components.classes["@mozilla.org/filepicker;1"].createInstance(
-      Components.interfaces.nsIFilePicker);
-    //filters:
-    fp.appendFilter("Keypurses", "*.purse; *.gpg; *.pgp; *.asc; *,txt"); //only key purses
-    fp.appendFilter("All files", "*");
-    fp.init(window, this.languagepack.getString("sel_keypurse_imp"),
-            Components.interfaces.nsIFilePicker.modeOpen);
-
-    //check result
-    var res = fp.show();
-    if(res != Components.interfaces.nsIFilePicker.returnCancel){
-      //import keypurse from selected location
-      if(!CWrapper.importKeyPurse(fp.file.path, false)){
-        //error
-        Logger.error("importKeyPurse failed");
-        Logger.infoPopup(this.languagepack.getString("imp_keypurese_fail"));
-      }
-      //else: everything ok
-    }
+    Utils.importKeyPurse();
     break;
 
   case "menu-export":
-    Utils.exportKeyPurse(window, this.languagepack);
+    Utils.exportKeyPurse();
     break;
 
   case "button-cm-decrypt":
@@ -231,9 +213,10 @@ Tryango.handleEvent = function(id){
     var sender = "";
     var msgHdr = this.gFolderDisplay.selectedMessage;
     if(msgHdr != null){
-      var sender = msgHdr.author.substring(msgHdr.author.indexOf("<") + 1,
+      sender = msgHdr.author.substring(msgHdr.author.indexOf("<") + 1,
                                            msgHdr.author.indexOf(">"));
-    }else{
+    }
+    else{
       //else: error will result in signature to fail, decrypt should be possible anyway
       Logger.error("decrypt attachment: gFolderDisplay.selectedMessage is empty => no sender => signature verify will fail");
     }
@@ -252,9 +235,9 @@ Tryango.reset = function(removeEverything = false){
 
   //remove devices and keys from server as well as locally
   //this also asks if the user wants to backup the keypurse
-  if(!Utils.removeAllDevicesAndRevokeKeys(window, this.languagepack)){
-	Logger.log("removeEverything: abort");
-	return false;
+  if(!Utils.removeAllDevicesAndRevokeKeys()){
+    Logger.log("removeEverything: abort");
+    return false;
   }
 
   //clear XHEADERS

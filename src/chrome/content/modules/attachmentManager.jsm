@@ -13,7 +13,7 @@ Components.utils.import("resource://tryango_modules/cWrapper.jsm");
 var EXPORTED_SYMBOLS = ["AttachmentManager"]
 
 
-// class handling attachments (decrypt for saving / encrypt for sending)  
+// class handling attachments (decrypt for saving / encrypt for sending)
 var AttachmentManager = new function()
 {
   //variables
@@ -28,7 +28,7 @@ var AttachmentManager = new function()
   this.init = function(window, languagepack){
     this.window = window;
     this.languagepack = languagepack;
-  }
+  };
 
   /*
    * function to decrypt and save all selected attachments of an email
@@ -58,7 +58,7 @@ var AttachmentManager = new function()
       //attachmentList is a list of objects
       //attachmentList.selectedItems is an array
       //=> different ways to access
-      var att 
+      var att
       if(bool_att_list){
         att = attachmentList.getItemAtIndex(i).attachment;
       }else{
@@ -130,39 +130,24 @@ var AttachmentManager = new function()
 
             //decrypt the file
             Logger.dbg("decrypting attachment " + this.path);
-            var status = CWrapper.decryptAndSaveAttachment(data, this.path, this.sender);
-            if(status > CWrapper.getMaxErrNum()){
-              //signature failed
-              Logger.infoPopup(this.languagepack.getString(CWrapper.getErrorStr(status)) +
-                               ":\n\t" + this.path);
-            }
-            else if(status != 0){
-              //error => tell user
-              Logger.infoPopup(this.languagepack.getString("att_dec_failed") + " " + this.path +
-                               "\n(" + this.languagepack.getString(CWrapper.getErrorStr(status)) +
-                               ")");
-            }
-            else{
-              //debug output
-              Logger.dbg("Attachment " + this.path + " decryption/signature ok or cancelled");
-            }
+            CWrapper.decryptAndSaveAttachment(data, this.path, this.sender);
           },
-          
+
           onDataAvailable: function(aRequest, aSupports, aInputStream, offset, count){
             //read stream as raw data
             this.raw.push(NetUtil.readInputStreamToString(aInputStream, count));
           },
         }
       // ----------------------- end Asynchronous StreamListener -----------------------
-      
+
       //start the listener
-      channel.asyncOpen(AsyncStreamListener, null);        
+      channel.asyncOpen(AsyncStreamListener, null);
     } //end for
 
     return; //no return value, this method works asynchronous!
-  }
+  };
 
-  //TODOTODO: FIXME: (attachments) removing files before sending kills the encrypted file. to reproduce: create mail with txt attachment (that one works), save as draft, close, reopen, go to /tmp, remove nsmail.txt (temp file of the attachment), send. when email arrives it's in weird binary format!
+  //TODO: FIXME: (attachments) removing files before sending kills the encrypted file. to reproduce: create mail with txt attachment (that one works), save as draft, close, reopen, go to /tmp, remove nsmail.txt (temp file of the attachment), send. when email arrives it's in weird binary format!
   /*
    * function to encrypt attachments
    *	@param attachmentBucket		the attachmentBucket from Thunderbird
@@ -182,7 +167,7 @@ var AttachmentManager = new function()
    *
    * It seems that 1) cannot delete elements though. (according to docu it can but it doesn't)
    */
-  this.encryptAttachments = function(attachBucket, recipients, sender, sign, encrypt){
+  this.encryptAttachments = function(attachBucket, recipients, sender, sign, encrypt, password, callback){
     //init
     var node = attachBucket.firstChild; //if(node == null) here => no attachments
     var ioServ = Components.classes["@mozilla.org/network/io-service;1"]
@@ -194,8 +179,10 @@ var AttachmentManager = new function()
     if(node == null){
       //debug output, maybe useful for later...
       Logger.dbg("Email with no attachments");
-      return 0;
+      callback(0);
+      return;
     }
+    this._status = 0;
     while(node){
       /*
        * reverse engineered:
@@ -221,27 +208,69 @@ var AttachmentManager = new function()
       //encrypt and sign
       var newPath = path + ".pgp";
       Logger.dbg("newPath: " + newPath); //XXX: remove after testing
-      var status = CWrapper.encryptSignAttachment(newPath, path, recipients, sender, 
-                                                  sign, encrypt);
-      
-      if(status == 0){
-        //create file://... URL
-        var nsifile = new FileUtils.File(newPath);
-        var newURL = ioServ.newFileURI(nsifile).asciiSpec;
-        Logger.dbg("newURL: " + newURL); //XXX: remove after testing
-
-        //encryption/signature worked
-        //buffer replacement and apply it LATER since
-        //this should only be done when all encryptions worked
-        updatedAttachments.push({
-          url: newURL,
-          temporary: true, //remove encrypted file after sending
-          name: newPath.substring(newPath.lastIndexOf("/")+1, newPath.length), //cut only filename out of it
-        });
-      }else{
-        //could not encrypt attachment
-        return status;
-      }
+      CWrapper.post("encryptSignAttachment", [newPath, path, recipients, sender, sign, encrypt, password, node.nextSibling == null ],
+        function(status, isLast){
+          if(status == 0 && AttachmentManager._status == 0){
+            //create file://... URL
+            var nsifile = new FileUtils.File(newPath);
+            var newURL = ioServ.newFileURI(nsifile).asciiSpec;
+            Logger.dbg("newURL: " + newURL); //XXX: remove after testing
+            //encryption/signature worked
+            //buffer replacement and apply it LATER since
+            //this should only be done when all encryptions worked
+            updatedAttachments.push({
+              url: newURL,
+              temporary: true, //remove encrypted file after sending
+              name: newPath.substring(newPath.lastIndexOf("/")+1, newPath.length) //cut only filename out of it
+            });
+          }
+          else{
+            AttachmentManager._status = status;
+          }
+          if(isLast){
+            if(AttachmentManager._status == 0){
+              //actually apply replacement of attachments
+              //this needs to be done after all encryptions worked
+              //(to not replace only parts of the attachments!)
+              node = attachBucket.firstChild;
+              var i = 0;
+              while(node){
+                Logger.dbg("replace " + i);
+                //replace attachment
+                node.attachment.url = updatedAttachments[i].url;
+                node.attachment.temporary = updatedAttachments[i].temporary;
+                node.attachment.name = updatedAttachments[i].name;
+                //next
+                i++;
+                node = node.nextSibling;
+              }
+            }
+            callback(AttachmentManager._status);
+          }
+        }
+      );
+//       var status = CWrapper.encryptSignAttachment(newPath, path, recipients, sender,
+//                                                   sign, encrypt);
+// 
+//       if(status == 0){
+//         //create file://... URL
+//         var nsifile = new FileUtils.File(newPath);
+//         var newURL = ioServ.newFileURI(nsifile).asciiSpec;
+//         Logger.dbg("newURL: " + newURL); //XXX: remove after testing
+// 
+//         //encryption/signature worked
+//         //buffer replacement and apply it LATER since
+//         //this should only be done when all encryptions worked
+//         updatedAttachments.push({
+//           url: newURL,
+//           temporary: true, //remove encrypted file after sending
+//           name: newPath.substring(newPath.lastIndexOf("/")+1, newPath.length), //cut only filename out of it
+//         });
+//       }
+//       else{
+//         //could not encrypt attachment
+//         return status;
+//       }
 
       //next attachment
       node = node.nextSibling;
@@ -250,22 +279,22 @@ var AttachmentManager = new function()
     //actually apply replacement of attachments
     //this needs to be done after all encryptions worked
     //(to not replace only parts of the attachments!)
-    node = attachBucket.firstChild;
-    var i = 0;
-    while(node){
-      Logger.dbg("replace " + i);
-      //replace attachment
-      node.attachment.url = updatedAttachments[i].url;
-      node.attachment.temporary = updatedAttachments[i].temporary;
-      node.attachment.name = updatedAttachments[i].name;
-      //next
-      i++;
-      node = node.nextSibling;
-    }
+//     node = attachBucket.firstChild;
+//     var i = 0;
+//     while(node){
+//       Logger.dbg("replace " + i);
+//       //replace attachment
+//       node.attachment.url = updatedAttachments[i].url;
+//       node.attachment.temporary = updatedAttachments[i].temporary;
+//       node.attachment.name = updatedAttachments[i].name;
+//       //next
+//       i++;
+//       node = node.nextSibling;
+//     }
 
-    return 0;
-  }
+//     return 0;
+  };
+
 
 //end of AttachmentManager
 }
-

@@ -139,7 +139,7 @@ class ConfiClient
 
  private:
 
-
+  volatile uint32_t v;
   std::string lHost;
   std::string lcertificateFile; //to check updates
   std::string tempKey;
@@ -163,6 +163,7 @@ class ConfiClient
     lPort=0;
     logger = NULL;
     rsa = NULL;
+    v = 0;
   }
 
 
@@ -187,7 +188,7 @@ class ConfiClient
     return &keyDb;
   }
 
-  bool checkMailAddr(const std::string& id
+  Confi_Status checkMailAddr(const std::string& id
                      ){
     return publicKeyDb.checkMailAddr(id);
   }
@@ -204,9 +205,10 @@ class ConfiClient
 
   inline bool generateRsaKeys(const std::string& userId
                               , const std::string& password
-                              , uint32_t size=4096
+                              , const uint32_t size = 4096
+                              , const time_t validity = 0
                               ){
-    const bool result = keyDb.generateRsaKeys(userId, password,  size);
+    const bool result = keyDb.generateRsaKeys(userId, password,  size, validity);
     log("Generating keys for identity: " + userId + " was "+(result?"successful":"unsuccessful") + ".");
     return result;
   }
@@ -264,6 +266,7 @@ class ConfiClient
     if(lHost == host && lPort == port && lcertificateFile == certificateFile){
       return true;
     }
+/*     std::cout<<"set server: cert path:"<<certificateFile<<std::endl; */
     lHost = host;
     lPort = port;
     root.hash.clear();
@@ -316,7 +319,7 @@ class ConfiClient
     tryango::Response res;
     req.mutable_server_info(); //equivalent to SetInParent for python
     Confi_Status result = sendReceive(res, req);
-    if(result!=ANG_OK) return result;
+    if(result != ANG_OK) return result;
     if (!res.has_server_info()) return ANG_WRONG_RESP;
     dest = res.server_info().hash_algorithm();
     return ANG_OK;
@@ -352,7 +355,7 @@ class ConfiClient
     TreeNode leaf;
     res.get_last().cur_leaf().SerializeToString(&leaf.hash);
     leaf.len  = root.len;
-    if(resTree!=NULL){
+    if(resTree != NULL){
       resTree->hash = leaf.hash;
       resTree->time = res.get_last().cur_leaf().created_time();
     }
@@ -372,7 +375,7 @@ class ConfiClient
     req.mutable_verify()->set_device(device);
     req.mutable_verify()->set_reqid(reqId);
     Confi_Status result = sendReceive(res, req, true);
-    if(result!=ANG_OK) return result;
+    if(result != ANG_OK) return result;
      if (res.verify().identity().compare(identity) == 0){
        return ANG_OK;
      }
@@ -466,10 +469,10 @@ class ConfiClient
     req.mutable_devices()->set_random(random);
     req.mutable_devices()->set_ap(ap);
     Confi_Status result = sendReceive(res, req, false);
-    if(result!=ANG_OK) return result;
+    if(result != ANG_OK) return result;
     ap = updateAp(ap, random);
     *resultSize = res.devices().devices_size();
-    if(res.devices().identity().compare(identity)==0 && *resultSize>0){
+    if(res.devices().identity().compare(identity) == 0 && *resultSize > 0){
       *resDevices = (char**) malloc((*resultSize)*sizeof(char*));
       for (uint32_t i=0;i<(*resultSize); i++){
         uint32_t strLen = res.devices().devices(i).length();
@@ -658,11 +661,13 @@ class ConfiClient
 
 
   void setTempKey(const std::string key){
+    std::cout<<"setting temp key "<<string_to_hex(key)<<std::endl;
     tempKey = key;
   }
 
 
   std::string getTempKey(){
+    std::cout<<"getting temp key "<<string_to_hex(tempKey)<<std::endl;
     return tempKey;
   }
 
@@ -765,8 +770,16 @@ class ConfiClient
     }
     return ANG_OK;
   }
+ public:
+  uint32_t getV(){
+    while(v == 1){
+    }
+    return v;
+  }
 
-
+  void setV(uint32_t vNew){
+    v = vNew;
+  }
 
 
 }

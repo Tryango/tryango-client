@@ -31,7 +31,12 @@ function sendMessage(email, subject, body, window, custom_headers){
   fields.useMultipartAlternative = false;
   fields.forcePlainText = true;
   fields.body = body+"\n"; // does not work without EOL - weird stuff huh?
-  fields.otherRandomHeaders = custom_headers;
+  for (var key in custom_headers) {
+  if (custom_headers.hasOwnProperty(key)) {
+    setCustomHeader(fields, key, custom_headers[key]);
+  }
+}
+//   fields.otherRandomHeaders = custom_headers;
   let params = Cc["@mozilla.org/messengercompose/composeparams;1"]
                   .createInstance(Ci.nsIMsgComposeParams);
   params.composeFields = fields;
@@ -43,17 +48,30 @@ function sendMessage(email, subject, body, window, custom_headers){
 
   if("initialize" in msgCompose){
     msgCompose.initialize(params , window);
-  } else if("Initialize" in msgCompose){
+  }
+  else if("Initialize" in msgCompose){
     msgCompose.Initialize(window, params);
-  } else{
+  }
+  else{
     msgCompose.initCompose(params, window);
   }
   try {
     msgCompose.SendMsg(Ci.nsIMsgCompDeliverMode.Now, identity, "", null, null);
-  } catch (e) {
+  }
+  catch (e) {
     Logger.error(e);
   }
-       
+}
+
+
+function setCustomHeader(fields, hdr, val){
+  if ("otherRandomHeaders" in fields) {
+    // TB <= 36
+    fields.otherRandomHeaders += hdr +": " + val + "\r\n";
+  }
+  else {
+    fields.setHeader(hdr, val);
+  }
 }
 
 
@@ -88,6 +106,7 @@ function getIdentities(aSkipNntpIdentities = true) {
   }
   return identities;
 }
+
 
 /**
  * Searches a given email address in all identities and returns the corresponding identity.

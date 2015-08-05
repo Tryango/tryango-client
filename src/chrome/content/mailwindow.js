@@ -1,6 +1,4 @@
-//TODOTODO: (machineID) make sure machineID is not signing up the same device twice
-//TODO: memory leaks through EventListeners (?) => if so, clean them somewhere
-
+//TODO: (machineID) make sure machineID is not signing up the same device twice
 
 
 /* Basic file for JavaScript code on composing a new e-mail */
@@ -12,6 +10,7 @@ Components.utils.import("resource://tryango_modules/maillistener.jsm");
 Components.utils.import("resource://tryango_modules/prefs.jsm");
 Components.utils.import("resource://tryango_modules/attachmentManager.jsm");
 Components.utils.import("resource://tryango_modules/utils.jsm");
+Components.utils.import("resource://tryango_modules/dialogs.jsm");
 
 //NO exports, do not import this file!
 
@@ -24,10 +23,12 @@ var MailWindow = new function(){
   this.COLOUR_REJECTED = "#FFAAAA";
   this.DEFAULT_COLOUR = "transparent";
   this.RECIPIENTSFIELD_PREFIX = "addressCol2#";
+  this.RECIPIENTSFIELD_TYPE_PREFIX = "addressCol1#";
+
   // generate a unique ID for each window (not automatically done!)
   // use miliseconds of time for it
+  Logger.dbg("Previous id:"+this.id);
   this.id = "id" + Date.now();
-
   // variables
   this.encrypt = null;
   this.sign = null;
@@ -38,7 +39,7 @@ var MailWindow = new function(){
    */
   this.onload = function(event){
     // log
-    Logger.log("mailwindow " + this.id + " onload");
+    Logger.dbg("mailwindow " + this.id + " onload");
 
     // language pack
     this.languagepack = document.getElementById("lang_file");
@@ -50,11 +51,9 @@ var MailWindow = new function(){
       return;
     }
 
-    // hook "recipients" field
-    var addrCol = document.getElementById("addressCol2#1");
+    // hook "recipients" field (first one is enough as further ones will be cloned from this one)
+    var addrCol = document.getElementById(this.RECIPIENTSFIELD_PREFIX + "1");
     if (addrCol) {
-      //var attr = adrCol.getAttribute("oninput");
-      //adrCol.setAttribute("oninput", "MailWindow.recipientsChange();" + attr);
       var attr = addrCol.getAttribute("onchange");
       addrCol.setAttribute("onchange", "MailWindow.recipientsChange(this);" + attr);
       attr = addrCol.getAttribute("onfocus");
@@ -63,10 +62,20 @@ var MailWindow = new function(){
     else{
       Logger.error("Could not hook recepients-field of mailwindow " + this.id);
     }
+
+	//hook "recipients" type field (first one is enough as further ones will be cloned from this one)
+	var addrColType = document.getElementById(this.RECIPIENTSFIELD_TYPE_PREFIX + "1");
+    if (addrColType) {
+      var attr = addrColType.getAttribute("oncommand");
+      addrColType.setAttribute("oncommand", "MailWindow.recipientsTypeChange(this);" + attr);
+    }
+    else{
+      Logger.error("Could not hook recepients-type-field of mailwindow " + this.id);
+    }
   }
 
   this.reload = function(){
-    Logger.log("Reloading prefs of window " + this.id);
+    Logger.dbg("Reloading prefs of window " + this.id);
 
     //reload encrypt from prefs
     this.encrypt = Prefs.getPref("encryptMessages");
@@ -133,7 +142,8 @@ var MailWindow = new function(){
     if(this.encrypt){
       document.getElementById("menu-encrypt").setAttribute("checked", true);
       document.getElementById("button-encrypt").setAttribute("checked", true);
-    }else{
+    }
+    else{
       document.getElementById("menu-encrypt").removeAttribute("checked");
       document.getElementById("button-encrypt").removeAttribute("checked");
     }
@@ -142,7 +152,8 @@ var MailWindow = new function(){
     if(this.sign){
       document.getElementById("menu-sign").setAttribute("checked", true);
       document.getElementById("button-sign").setAttribute("checked", true);
-    }else{
+    }
+    else{
       document.getElementById("menu-sign").removeAttribute("checked");
       document.getElementById("button-sign").removeAttribute("checked");
     }
@@ -181,19 +192,24 @@ var MailWindow = new function(){
   this.recheckRecipientColours = function(){
     var i = 1; //recipientsfield starts with 1!!!
     var addrCol = document.getElementById(MailWindow.RECIPIENTSFIELD_PREFIX + i);
+	var addrColType;
     while(addrCol){
-      // empty fields
-      if(addrCol.value.length == 0){
+      // empty fields or "reply-to"
+	  addrColType = document.getElementById(addrCol.getAttribute("aria-labelledby"));
+      if(addrCol.value.length == 0 || addrColType.value == "addr_reply"){
         addrCol.style.backgroundColor = MailWindow.DEFAULT_COLOUR;
       }
       else{
         // send to c interface for check => set colour
-        if(CWrapper.checkMailAddr(addrCol.value) == 0){
-          addrCol.style.backgroundColor = MailWindow.COLOUR_APPROVED;
-        }
-        else{
-          addrCol.style.backgroundColor = MailWindow.COLOUR_REJECTED;
-        }
+        CWrapper.post("checkMailAddr",[addrCol.value, i], function(status, seq){
+          var addrColLocal = document.getElementById(MailWindow.RECIPIENTSFIELD_PREFIX + seq);
+          if(status == 0){
+            addrColLocal.style.backgroundColor = MailWindow.COLOUR_APPROVED;
+          }
+          else{
+            addrColLocal.style.backgroundColor = MailWindow.COLOUR_REJECTED;
+          }
+        });
       }
 
       //next element
@@ -214,6 +230,26 @@ var MailWindow = new function(){
     }
   }
 
+  //helper function to call recipientsChange from an addrTypeCol
+  this.recipientsTypeChange = function(addrTypeCol){
+	//get index out of addrTypeCol
+	var index = addrTypeCol.id.match(/[^#]*#([0-9]+)/);
+	if(index.length == 2){ //two because full string is also included e.g.: [addressCol1#1, 1]
+	  index = index[1]; //0 = full string; 1 = index
+	}else{
+	  //error => just recheck everything to be sure
+	  Logger.error("recipientsTypeChange could not get index - recheck everything");
+	  this.recheckRecipientColours();
+	  return;
+	}
+
+	//get addrCol with index of addrTypeCol
+	var addrCol = document.getElementById(MailWindow.RECIPIENTSFIELD_PREFIX + index);
+
+	//call onchange method
+	this.recipientsChange(addrCol);
+  }
+
   /*
    * recipientsChange function, called when user alters anything in the recipients field
    *      of the compose-mail-window; passes info to C interface and highlights
@@ -231,23 +267,29 @@ var MailWindow = new function(){
         addrCol.style.backgroundColor = MailWindow.DEFAULT_COLOUR;
         return;
       }
+	  //check if only "reply-to" => no checking needed
+	  var addrColType = document.getElementById(addrCol.getAttribute("aria-labelledby"));
+	  if(addrColType && addrColType.value == "addr_reply"){
+		addrCol.style.backgroundColor = MailWindow.DEFAULT_COLOUR;
+		return;
+	  }
 
       // log
       Logger.dbg("recipientsChange: " + addrCol.value);
 
       // send to c interface for check => set colour
-      var status = CWrapper.checkMailAddr(addrCol.value);
-      if(status == 0){
-        addrCol.style.backgroundColor = MailWindow.COLOUR_APPROVED;
-        Logger.dbg("recipientsChange: approved"+ status);
-      }
-      else{
-        Logger.dbg("recipientsChange: not approved"+ status);
-        addrCol.style.backgroundColor = MailWindow.COLOUR_REJECTED;
-      }
+      CWrapper.post("checkMailAddr",[addrCol.value, 0], function(status, seq){
+        if(status == 0){
+          addrCol.style.backgroundColor = MailWindow.COLOUR_APPROVED;
+          Logger.dbg("recipientsChange: approved"+ status);
+        }
+        else{
+          Logger.dbg("recipientsChange: not approved"+ status);
+          addrCol.style.backgroundColor = MailWindow.COLOUR_REJECTED;
+        }
+      }.bind(this));
     }
   }
-
 
   /*
    * send_handler function, intercepts the send event of Thunderbird and passed
@@ -261,10 +303,9 @@ var MailWindow = new function(){
     if(Prefs.tryangoDisabled){
       return 2;
     }
-
     //vars
     var msgcomposeWindow = document.getElementById("msgcomposeWindow");
-    let msg_type = Number(msgcomposeWindow.getAttribute("msgtype"));
+    var msg_type = Number(msgcomposeWindow.getAttribute("msgtype"));
     var draft = false;
 
     //Events:  Now, Later, Save, SaveAs, SaveAsDraft,
@@ -273,17 +314,10 @@ var MailWindow = new function(){
        msg_type == nsIMsgCompDeliverMode.Later){
       //normal send => continue
     }
-    else if(msg_type == nsIMsgCompDeliverMode.SaveAsDraft ||
-            msg_type == nsIMsgCompDeliverMode.AutoSaveAsDraft ||
-            msg_type == nsIMsgCompDeliverMode.SaveAs ||
-            msg_type == nsIMsgCompDeliverMode.Save
-           ){
-      //TODO: encrypt/decrypt drafts
-      return 0;
-
-      //TODO: original code
+    else if(this.isDraft(msg_type)){
+      //encrypt/decrypt drafts
       //draft => continue
-      //draft = true;
+      draft = true;
     }
     else{
       //other options => stop here
@@ -297,263 +331,441 @@ var MailWindow = new function(){
        document.getElementById("button-sign").hasAttribute("checked") != this.sign){
       return -4;
     }
-
     //only encrypt if checkbox is set...
-    if(this.encrypt || this.sign){
+    if(!this.encrypt && !this.sign){
+      return 0;
+    }
 
-      /****************************
-       * get sending email address
-       */
-      var sender = gCurrentIdentity.email;
-      if(draft){
-        Logger.dbg("Saving draft (" + sender + ")");
+    /****************************
+     * get sending email address
+     */
+    var sender = gCurrentIdentity.email;
+    if(draft){
+      Logger.dbg("Saving draft (" + sender + ")");
+    }
+    else{
+      Logger.dbg("Sending mail from: " + sender);
+    }
+
+    /******************
+     * fill recipients
+     */
+    var recipients = "";
+    if(!draft){
+      var i = 1; //recipientsfield starts with 1!!!
+      //read them from the mailwindow-field(s)
+      var addrCol = document.getElementById(MailWindow.RECIPIENTSFIELD_PREFIX + i);
+      while(addrCol){
+        //check for empty string
+        if(/([^\s])/.test(addrCol.value)){
+		  //check if it is a "reply-to"
+		  addrColType = document.getElementById(addrCol.getAttribute("aria-labelledby"));
+		  if(addrColType.value != "addr_reply"){
+			//store into an array
+			recipients += addrCol.value + ",";
+		  }
+        }
+
+        //next field
+        i++;
+        addrCol = document.getElementById(MailWindow.RECIPIENTSFIELD_PREFIX + i);
+      }
+      if(recipients.length == 0){
+        return -5;
+      }
+      //strip last ","
+      if(recipients.charAt(recipients.length-1) == ","){
+        //ATTENTION: second argument of substring is the LENGTH, not the end!
+        recipients = recipients.substring(0, recipients.length-1);
+      }
+      Logger.dbg("Sending mail to: " + recipients);
+    }
+    else{
+      this.sign = false; //no need to sign drafts - we avoid asking password for encrypted keys
+      Logger.dbg("Not signing as we are saving draft only");
+    }
+
+    /*************************
+     * get body of the email
+     */
+    var mailBody;
+    var editor;
+    try{
+      var sendFlowed = Prefs.getPrefByString("mailnews.send_plaintext_flowed", null);
+      if(sendFlowed == undefined){
+        sendFlowed = true;
+      }
+      //get editor
+      editor = GetCurrentEditor();
+      let dce = Components.interfaces.nsIDocumentEncoder;
+      var flags = dce.OutputFormatted | dce.OutputLFLineBreak | dce.OutputPreformatted; //ATTENTION: OutputPreformatted is needed to avoid the double-empty-lines-bug!!!
+      if(sendFlowed){
+        flags = flags | dce.OutputFormatFlowed;
+      }
+      if(gMsgCompose.composeHTML){
+        //html email
+        mailBody = editor.outputToString("text/html", flags);
+        mailBody = mailBody.replace(/[^\S\r\n]+$/gm, "");
       }
       else{
-        Logger.dbg("Sending mail from: " + sender);
+        //plaintext
+        mailBody = editor.outputToString("text/plain", flags);
       }
+      editor.endTransaction();
+      //         mailBody = Utils.convertFromUnicode(mailBody, "UTF-16");
+    }
+    catch(ex){
+      Logger.error("Could not get message body:\n" + ex);
+      return -1;
+    }
 
-      /******************
-       * fill recipients
-       */
-      var recipients = "";
-      if(!draft){
-        var i = 1; //recipientsfield starts with 1!!!
-        //read them from the mailwindow-field(s)
-        var addrCol = document.getElementById(MailWindow.RECIPIENTSFIELD_PREFIX + i);
-        while(addrCol){
-          //check for empty string
-          if(/([^\s])/.test(addrCol.value)){
-            //store into an array
-            recipients += addrCol.value + ",";
+    Logger.dbg("mailBody:\n" + mailBody);
+    MailWindow._password = "";
+    if(this.sign){
+      Logger.dbg("Getting password as we need to sign email");
+      var ret = CWrapper.synchGetSignPassword(sender);//TODO: change to asynchronous
+      if(ret.status != 0){
+        if(ret.status == 21){//ANG_CANCEL
+          document.getElementById("menu-sign").removeAttribute("checked");
+          document.getElementById("button-sign").removeAttribute("checked");
+          this.sign = false;
+        }
+        else{
+          let message;
+          if(ret.status == 37){ //key has expired
+            message = sender + " - " + CWrapper.languagepack.getString("sec_expired") + ".\n" +
+              CWrapper.languagepack.getString("mail_send_unsigned");
           }
-
-          //next field
-          i++;
-          addrCol = document.getElementById(MailWindow.RECIPIENTSFIELD_PREFIX + i);
+          else{
+            message = CWrapper.languagepack.getString(CWrapper.getErrorStr(ret.status)) + "\n" +
+              CWrapper.languagepack.getString("mail_send_unsigned");
+          }
+          if(this.encrypt){
+            message += " " + CWrapper.languagepack.getString("mail_send_still_encrypted");
+          }
+          if(Logger.promptService.confirm(null, "Tryango", message)){
+            document.getElementById("menu-sign").removeAttribute("checked");
+            document.getElementById("button-sign").removeAttribute("checked");
+            this.sign = false;
+          }
+          else{
+            return 1;//abort
+          }
         }
-        if(recipients.length == 0){
-          return -5;
-        }
-        //strip last ","
-        if(recipients.charAt(recipients.length-1) == ","){
-          //ATTENTION: second argument of substring is the LENGTH, not the end!
-          recipients = recipients.substring(0, recipients.length-1);
-        }
-        Logger.dbg("Sending mail to: " + recipients);
       }
-
-      /************
-       *   KEYS
-       */
-      //if encrypted and not a draft...
-      if(this.encrypt && !draft){
+      else{
+        MailWindow._password = ret.password;
+        Logger.dbg("Set pw:" + MailWindow._password);
+      }
+    }
+    //check encrypt and sign again since it could have changed above!
+    if(!this.encrypt && !this.sign){
+      Logger.dbg("No need to encrypt or sign - returning...");
+      return 0;
+    }
+    /************
+     *   KEYS
+     */
+    //if encrypted and not a draft...
+    if(this.encrypt && !draft){
         //...check if any recipient has no key
-        var r = recipients.split(",");
-        for(var k = 0; k < r.length; k++){
-          Logger.dbg("Chencking mail: " + r[k]);
-
-          status = CWrapper.checkMailAddr(r[k]);
-          Logger.dbg("Chencking mail status: " + status);
+//         var r = recipients.split(",");
+//         for(var k = 0; k < r.length; k++){
+      CWrapper.post("checkRecipients",[recipients],
+        function(status, recipient){
           if(status != 0){
-            //at least one recipient is not signed up with tryango
-            //=> only clear text message is possible
-            //warn user about unencrypted message
-            message = r[k] + " " + this.languagepack.getString("not_with_CM") + "\n" +
-                this.languagepack.getString("mail_send_unencrypted");
+            let message;
             if(status == 31){ //key has expired
-              message = r[k] + " - " + this.languagepack.getString("pub_expired") + ".\n" +
-                this.languagepack.getString("mail_send_unencrypted");
+              message = recipient + " - " + CWrapper.languagepack.getString("pub_expired") + ".\n" +
+                CWrapper.languagepack.getString("mail_send_unencrypted");
+            }
+            else{
+              message = recipient + " " + CWrapper.languagepack.getString("not_with_CM") + "\n" +
+                CWrapper.languagepack.getString("mail_send_unencrypted");
             }
             if(Logger.promptService.confirm(null, "Tryango", message)){
-              Logger.dbg("User requests unencrypted email since " + r[k] + " is not with CM or key has expired");
+              Logger.dbg("User requests unencrypted email since " + recipient + " is not with CM or key has expired");
               this.encrypt = false;
               document.getElementById("menu-encrypt").removeAttribute("checked");
               document.getElementById("button-encrypt").removeAttribute("checked");
-              break;
+              ///send email
+              MailWindow._lateSend(msg_type);
+              Logger.dbg("********erasing password");
+              MailWindow._password = "";
             }
             else{
-              //user abort
-              return 1;
+              //do nothing
             }
-          }
-        }
-      }
-
-      //check encrypt and sign again since it could have changed above!
-      if(!this.encrypt && !this.sign){
-        return 0;
-      }
-      /**************
-       * attachments
-       */
-      var attachBucket = document.getElementById("attachmentBucket");
-      if(attachBucket){
-        if(attachBucket.firstChild == null){
-          //no attachments
-        }
-        else{
-          var status = AttachmentManager.encryptAttachments(attachBucket, recipients, sender, this.sign, this.encrypt);
-          //error => ask user what to do
-          if(status != 0){
-            Logger.error("Error: " + this.languagepack.getString(CWrapper.getErrorStr(status)));
-            //ask user what to do
-            if(Logger.promptService.confirm(null, "Tryango", this.languagepack.getString("attach_fail") + "\n" +
-                              this.languagepack.getString("mail_send_unencrypted"))
-              ){
-              Logger.dbg("User requests to send email/attachments unencrypted");
-              //send unencrypted
-              return 0;
-            }
-            else{
-              //user abort
-              return 1;
-            }
-          }
-        }
-      }
-      else{
-        //bucket not there!? => error
-        Logger.error("Cannot get attachmentBucket");
-        //TODO: what to do? abort sending? (not that we send attachments without encrypting them) => return -1?
-      }
-
-      /*************************
-       * get body of the email
-       */
-      var mailBody;
-      var editor;
-      try{
-        var sendFlowed = Prefs.getPrefByString("mailnews.send_plaintext_flowed", null);
-        if(sendFlowed == undefined){
-          sendFlowed = true;
-        }
-        //get editor
-        editor = GetCurrentEditor();
-        let dce = Components.interfaces.nsIDocumentEncoder;
-        var flags = dce.OutputFormatted | dce.OutputLFLineBreak;
-//         var flags = Components.interfaces.nsIDocumentEncoder.OutputRaw;
-        if(sendFlowed){
-          flags = flags | dce.OutputFormatFlowed;
-        }
-        if(!gMsgCompose.composeHTML){
-          //plaintext
-          mailBody = editor.outputToString("text/plain", flags);
-        }
-        else{
-          //html email
-//           flags = dce.OutputRaw;
-          mailBody = editor.outputToString("text/html", flags);
-          mailBody = mailBody.replace(/[^\S\r\n]+$/gm, "")
-        }
-//         mailBody = Utils.convertFromUnicode(mailBody, "UTF-16");
-      }
-      catch(ex){
-        Logger.error("Could not get message body:\n" + ex);
-        return -1;
-      }
-      Logger.dbg("mailBody:\n" + mailBody);
-
-      
-//       if(sendFlowed && this.sign && !this.encrypt && !gMsgCompose.composeHTML){
-//         RegExp.multiline = true;
-// 
-//         mailBody = mailBody.replace(/^ /g, "~ ");
-//         mailBody = mailBody.replace(/^>/g, "|");
-//         mailBody = mailBody.replace(/^[ \t]+$/g, "");
-//         mailBody = mailBody.replace(/^From /g, "~From ");
-//         RegExp.multiline = false;
-//       }
-      /****************
-       * encrypt/sign  - inserting tags for later processing
-       */
-      if(this.encrypt){ //we proceed in case of encryption
-        Logger.dbg("calling C: encryptSignMail(...)");
-        var enc_signed_mail = {str : ""};
-        var status = CWrapper.encryptSignMail(enc_signed_mail, mailBody, recipients, sender,
-                                              this.sign, this.encrypt);
-//         check errors
-        if(status > 0 && status <= CWrapper.getMaxErrNum()){
-          Logger.error("Encrypt/Sign falied with error: " + CWrapper.getErrorStr(status));
-          //ask user if mail should be sent unencrypted
-          var usermsg = this.languagepack.getString("mail_enc_sign_failed") + "\n" +
-            this.languagepack.getString("mail_send_unencrypted");
-          if(Logger.promptService.confirm(null, "Tryango", usermsg)){
-            //unencrypted mail
-            Logger.dbg("Mail sent unencrypted");
-            return 0;
           }
           else{
-            //user abort
-            return 1;
+            this._encryptAttachments(recipients, sender, this._password, mailBody, msg_type);
           }
-        }
-        else if(enc_signed_mail.str.length > 0){
-          mailBody = enc_signed_mail.str;
-          if (gMsgCompose.composeHTML) {
-            // workaround for Thunderbird bug (TB adds an extra space in front of the text)
-            mailBody = "\n" + mailBody;
-          }
-          else{
-            //Thunderbird kills line-endings, so we need to revert back to "native" line endings
-            //TODO: test on windows && mac
-            mailBody = mailBody.replace(/(\r\n|\r|\n)/g, '\n');
-          }
-        }
-        else{
-          Logger.dbg("got empty message from encrypt");
-        }
-      }
-      else if(this.sign){//prepare for later processing
-        if(mailBody.charAt(0)=="-"){
-          mailBody = "----TRYANGO START----" + "- " + mailBody + "----TRYANGO END----";
-        }
-        else{
-          mailBody = "----TRYANGO START----" + mailBody + "----TRYANGO END----";
-        }
-      }
-//       Logger.dbg("Message after enrcypt;"+ mailBody);
-
-      //change body to enc_signed_mail
-      editor.selectAll();
-      try{
-        var mailEditor = editor.QueryInterface(Components.interfaces.nsIEditorMailSupport);
-        mailEditor.insertTextWithQuotations(mailBody);
-      }
-      catch(ex){
-        editor.insertText(mailBody);
-      }
-
-      return 0;
+        }.bind(this)
+      );
     }
     else{
-      /**********************
-       * unencrypted email
-       */
-      //warn user about unencrypted message
-      if(Logger.promptService.confirm(null, "Tryango", this.languagepack.getString("mail_send_unencrypted"))){
-        Logger.dbg("Mail sent unencrypted");
-        return 0;
-      }
-      else{
-        //user abort
-        return 1;
-      }
+      this._encryptAttachments(recipients, sender, this._password, mailBody, msg_type);
+    }
+    return 3;//postpone sending - it will be done from callbacks
+  }
+
+  this.isDraft = function(msg_type){
+    if (msg_type == nsIMsgCompDeliverMode.Save ||
+        msg_type == nsIMsgCompDeliverMode.SaveAsDraft ||
+        msg_type == nsIMsgCompDeliverMode.AutoSaveAsDraft ||
+        msg_type == nsIMsgCompDeliverMode.SaveAsTemplate){
+      return true;
+    }
+    else{
+      return false;
+    }
+  }
+
+  this._lateSend = function(msg_type){
+    if(this.encrypt || !this.sign){
+      delete gMsgCompose.domWindow.tryEncrypt;
     }
 
-    //general error case: something went wrong
-    return -1;
-  }
-}
+    var mCF = gMsgCompose.compFields;//TODO - check if this works -check if here is enough
+    if(mCF.forcePlainText == false && mCF.useMultipartAlternative == false){
+      mCF.useMultipartAlternative = true;
+    }
+    // code below is taken from Thunderbird source from mail/components/compose/content/MsgComposeCommands.js:2665
+    // we cancelled send event and now after encryption/signing we send it again so the code below is ending
+    // of function GenericSendMessage(msgType) - we resume the part after returning from calling event listener
+    let nsIMsgCompDeliverMode= Components.interfaces.nsIDocumentEncoder;
 
+    var msgWindow = Components.classes["@mozilla.org/messenger/msgwindow;1"]
+                        .createInstance(Components.interfaces.nsIMsgWindow);
+
+    var gAutoSaving = (msg_type == nsIMsgCompDeliverMode.AutoSaveAsDraft);
+    try{
+      if (!gAutoSaving)
+      ToggleWindowLock(true);
+    // If we're auto saving, mark the body as not changed here, and not
+    // when the save is done, because the user might change it between now
+    // and when the save is done.
+    else{
+      SetContentAndBodyAsUnmodified();
+    }
+    var progress = Components.classes["@mozilla.org/messenger/progress;1"]
+                             .createInstance(Components.interfaces.nsIMsgProgress);
+    if (progress){
+      progress.registerListener(progressListener);
+      if (MailWindow.isDraft(msg_type)){
+        gSaveOperationInProgress = true;
+      }
+      else{
+        gSendOperationInProgress = true;
+      }
+    }
+    msgWindow.domWindow = window;
+    msgWindow.rootDocShell.allowAuth = true;
+    Logger.dbg("Late sending message with msg_type: "+  msg_type);
+    gMsgCompose.SendMsg(msg_type, getCurrentIdentity(),
+                        getCurrentAccountKey(), msgWindow, progress);
+
+    }
+    catch (ex) {
+      Logger.error("Late message sending FAILED: " + ex);
+      ToggleWindowLock(false);
+    }
+
+  }
+
+
+  this._encryptAttachments = function(recipients, sender, password, mailBody, msg_type){
+    /**************
+     * attachments
+     */
+    var attachBucket = document.getElementById("attachmentBucket");
+    if(attachBucket){
+      if(attachBucket.firstChild == null){
+        //no attachments
+        this._encryptBody(recipients, sender, password, mailBody, msg_type);
+      }
+      else{
+        AttachmentManager.encryptAttachments(attachBucket
+                                            , recipients
+                                            , sender
+                                            , this.sign
+                                            , this.encrypt
+                                            , password
+                                            ,
+          function(status){
+            if(status != 0){
+              Logger.error("Error: " + this.languagepack.getString(CWrapper.getErrorStr(status)));
+              //ask user what to do
+              if(Logger.promptService.confirm(null, "Tryango", this.languagepack.getString("attach_fail") + "\n" +
+                                              this.languagepack.getString("mail_send_unencrypted"))
+                ){
+                Logger.dbg("User requests to send email/attachments unencrypted");
+                //send unencrypted
+                MailWindow._lateSend(msg_type);
+                Logger.dbg("********erasing password");
+                MailWindow._password = "";
+              }
+              else{
+                //user abort -- do nothing
+              }
+            }
+            this._encryptBody(recipients, sender, password, mailBody, msg_type);
+          }.bind(this)
+        );
+      }
+    }
+    else{
+      //bucket not there!? => error
+      Logger.error("Cannot get attachmentBucket");
+      //avoid sending attachments without encrypting them => do nothing
+    }
+  }
+
+
+  this._encryptBody = function(recipients, sender, password, mailBody,  msg_type){
+    var origMailBody = "";
+    if(MailWindow.isDraft(msg_type)){
+      origMailBody = mailBody;
+    }
+
+    if(this.encrypt){ //we proceed in case of encryption
+      Logger.dbg("calling C: encryptSignMail(...)");
+      CWrapper.post("encryptSignMail", [mailBody, recipients, sender, this.sign, this.encrypt, password],
+       function(status, encrypted){
+         Logger.dbg("Post encryptBodyd");
+         if(status > 0 && status <= CWrapper.getMaxErrNum()){
+           Logger.error("Encrypt/Sign falied with error: " +
+                        MailWindow.languagepack.getString(CWrapper.getErrorStr(status)));
+           //ask user if mail should be sent unencrypted
+           var usermsg = MailWindow.languagepack.getString("mail_enc_sign_failed") + "\n" +
+             MailWindow.languagepack.getString("mail_send_unencrypted");
+           if(Logger.promptService.confirm(null, "Tryango", usermsg)){
+             //unencrypted mail
+             Logger.dbg("Mail sent unencrypted");
+           }
+           else{
+             //user abort -- do nothing
+             return;
+           }
+         }
+         else if(encrypted.length > 0){
+           if (gMsgCompose.composeHTML) {
+             // workaround for Thunderbird bug (TB adds an extra space in front of the text)
+             encrypted = "\n" + encrypted;
+           }
+           else{
+             //Thunderbird kills line-endings, so we need to revert back to "native" line endings
+             //TODO: test on windows && mac
+             encrypted = encrypted.replace(/(\r\n|\r[^\n])/g, '\n');
+           }
+           MailWindow._replaceBody(encrypted, origMailBody);
+         }
+         else{
+           Logger.dbg("got empty message from encrypt");
+           return;
+         }
+         MailWindow._lateSend(msg_type);
+         Logger.dbg("********erasing password");
+         MailWindow._password = "";
+       }
+      );
+    }
+    else if(this.sign){//prepare for later processing
+      if(mailBody.charAt(0)=="-"){
+        mailBody = "----TRYANGO START----" + "- " + mailBody + "----TRYANGO END----";
+      }
+      else{
+        mailBody = "----TRYANGO START----" + mailBody + "----TRYANGO END----";
+      }
+      MailWindow._replaceBody(mailBody, origMailBody);
+      MailWindow._lateSend(msg_type);
+      //we must not erase password yet
+    }
+    //Logger.dbg("Message after enrcypt;"+ mailBody);
+  }
+
+
+  this._replaceBody = function(newBody, origMailBody){
+    //change body to enc_signed_mail
+    this.replaceEmail(newBody, true, true);
+    if(origMailBody && origMailBody.length > 0){
+      //add callback when message is saved as draft
+      MailListener.addDraftCallback(
+        function(){
+          Logger.dbg("in draftCallback");
+          //reset editing window to original message
+          this.replaceEmail(origMailBody);
+          gMsgCompose.domWindow.tryEncrypt = true; //to encrypt again in case draft is saved again
+          this.sign  = document.getElementById("menu-sign").hasAttribute("checked");
+          SetContentAndBodyAsUnmodified();//to prevent asking for saving
+          //done
+          return;
+        }.bind(this)
+      );
+    }
+ }
+
+  // --- Helpers ---
+
+  //tries to write an email back as HTML email; if it fails it writes the email as text
+  this.replaceEmail = function(newBody, replace = true, puretext = false){
+    //init
+    var editor = GetCurrentEditor();
+    if(replace){
+      editor.beginningOfDocument();
+      editor.selectAll();
+    }
+    //replace
+    if(puretext || !gMsgCompose.composeHTML){
+      //pure text or we do NOT composeHTML (= editor is pure-text)
+      editor.insertText(newBody);
+    }else{
+      try{
+        //write as html
+        var htmlEditor = editor.QueryInterface(Components.interfaces.nsIHTMLEditor);
+        htmlEditor.insertHTML(newBody);
+      }
+      catch(ex){
+        //on error, write text
+        editor.insertText(newBody);
+      }
+    }
+  }
+
+  //tries to insert an email as text with quotations; if it fails it writes the email as text
+  this.replaceEmailWithQuotations = function(
+    newBody,
+    html, //boolean indicating if the inserted text is html or text
+    replace = true
+  ){
+    //init
+    var editor = GetCurrentEditor();
+    if(replace){
+      editor.beginningOfDocument();
+      editor.selectAll();
+    }
+    //replace
+    try{
+      //write with quotations
+      var mailEditor = editor.QueryInterface(Components.interfaces.nsIEditorMailSupport);
+      mailEditor.insertAsCitedQuotation(newBody, "", html & gMsgCompose.composeHTML);
+    }
+    catch(ex){
+      //on error, write text
+      editor.insertText(newBody);
+    }
+  }
+
+}
 /*
  * StateListener: this class listens to events on a specific compose-window. This is needed
- *		  for initialisation of EVERY compose-window (not ALL in general) and for
- *		  getting the body of a compose-window BEFORE thunderbird adds it's stuff.
- *		  E.g. we need to decrypt encrypted emails first! ("reply to" an encrypted email)
+ * for initialisation of EVERY compose-window (not ALL in general) and for
+ * getting the body of a compose-window BEFORE thunderbird adds it's stuff.
+ * E.g. we need to decrypt encrypted emails first! ("reply to" an encrypted email)
  *
  * Documentation:
- *	https://developer.mozilla.org/en-US/docs/User:codegroover/Compose_New_Message
- *	https://stackoverflow.com/questions/7414032/thunderbird-extension-load-event-seems-to-occur-only-once
+ *  https://developer.mozilla.org/en-US/docs/User:codegroover/Compose_New_Message
+ *  https://stackoverflow.com/questions/7414032/thunderbird-extension-load-event-seems-to-occur-only-once
  */
 ConfiComposeStateListener = {
 
@@ -565,6 +777,13 @@ ConfiComposeStateListener = {
 
   //after compose window started, before editing
   NotifyComposeFieldsReady: function(){
+//     for(var key in gMsgCompose.domWindow){
+//        Logger.dbg("-----key----"+key);
+//     }
+    gMsgCompose.domWindow.tryEncrypt = true;
+//     MailWindow.unencrypted.add(gMsgCompose.identity);
+//     gMsgCompose.unencrypted = true;
+
     //load preferences again
     MailWindow.reload();
     var angOnSendListener = {
@@ -573,7 +792,7 @@ ConfiComposeStateListener = {
                 // thunderbird sends a notification right before the mail gets assembled
                 // doing stuff in the compose window is tricky as they reuse compose windows
                 // subject is a reference to the compose window
-                subject.gMsgCompose.addMsgSendListener(new AngMsgSendListener());
+              subject.gMsgCompose.addMsgSendListener(new AngMsgSendListener());
             }
     };
     var observerService = Components.classes["@mozilla.org/observer-service;1"]
@@ -583,19 +802,28 @@ ConfiComposeStateListener = {
 
 
   NotifyComposeBodyReady: function(){
+    //recheck colours of recipients
+    MailWindow.recheckRecipientColours();
+
+    //TODO: it would be good to get the xheader "X-Mozilla-Draft-Info: internal/draft;"
+    //check if message is a draft by checking where its ID
+    var draft = (gMsgCompose.compFields.draftId && gMsgCompose.compFields.draftId.length > 0);
+    if(draft){
+      Logger.dbg("draft");
+    }
+
     //called after email body is loaded (with quotations in the beginning!)
     //nsIEditor: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/NsIEditor
     //get message body
     var editor = GetCurrentEditor();
-    var charset = editor.documentCharacterSet;
     editor.beginTransaction();
-//     var flags = Components.interfaces.nsIDocumentEncoder.OutputRaw;
     let dce = Components.interfaces.nsIDocumentEncoder;
-//     var flags = dce.OutputRaw;
-    var flags = dce.OutputFormatted | dce.OutputLFLineBreak;
+    var flags = dce.OutputFormatted | dce.OutputLFLineBreak ;//TODO: not sure if OutputPreformatted is needed here, seems to work without
     var body = editor.outputToString('text/plain', flags);
     editor.endTransaction();
-//     body = Utils.convertFromUnicode(body, charset);
+
+    //    var charset = editor.documentCharacterSet;
+    //    body = Utils.convertFromUnicode(body, charset);
 
     //search for PGP block
     var PGPstart = body.indexOf("-----BEGIN PGP ");
@@ -626,38 +854,40 @@ ConfiComposeStateListener = {
     var beginIndex = beginIndexObj.value;
     var endIndex   = endIndexObj.value;
 
-    var head = body.substr(0, beginIndex);
-    var tail = body.substr(endIndex + 1);
+    var head = body.substr(0, beginIndex); //head might be "email send by ... 2015-01-01 at 19:00"
+    var tail = body.substr(endIndex + 1); //cut tail too if there is one
 
     //get ciphertext from "BEGIN PGP" on
     var ciphertext = body.substr(beginIndex, endIndex - beginIndex + 1);
+
+    //format email a bit...
     var indentRegexp;
     if (indent) {
       // MULTILINE MATCHING ON
       RegExp.multiline = true;
 
+      //remove first level of quotations
       if (indent == "> ") {
         // replace ">> " with "> > " to allow correct quoting
         ciphertext = ciphertext.replace(/^>>/g, "> >");
       }
 
-      // Delete indentation
+      //delete indentation
       indentRegexp = new RegExp("^"+indent, "g");
-
       ciphertext = ciphertext.replace(indentRegexp, "");
       //tail     =     tail.replace(indentRegexp, "");
 
+      //delete spacing at line end
       if (indent.match(/[ \t]*$/)) {
         indent = indent.replace(/[ \t]*$/g, "");
         indentRegexp = new RegExp("^"+indent+"$", "g");
-
         ciphertext = ciphertext.replace(indentRegexp, "");
       }
 
-
       // Handle blank indented lines
       ciphertext = ciphertext.replace(/^[ \t]*>[ \t]*$/g, "");
-      //tail     =     tail.replace(/^[ \t]*>[ \t]*$/g, "");
+      tail = tail.replace(/^[ \t]*>[ \t]*$/g, "");
+      head = head.replace(/^[ \t]*>[ \t]*\n/g, ""); //also delete the \n character
 
       // Trim leading space in tail
       tail = tail.replace(/^\s*\n/, "\n");
@@ -673,120 +903,92 @@ ConfiComposeStateListener = {
 
     //decrypt email
     Logger.dbg("decrypting email...");
-    var plaintext = {str : ""};
-    if(blockType == "MESSAGE"){
 
-      var status = CWrapper.decryptMail(plaintext, ciphertext, "", "");
-      if(status > 0 && status <= CWrapper.getMaxErrNum()){
-        Logger.error("Decrypt failed with error:" + CWrapper.getErrorStr(status)); //TODO: check all getErrorStr for a this.languagepack.getString(...) around it!
-        //tell user
-        Logger.infoPopup(this.languagepack.getString("mail_dec_failed") + " Error:" + CWrapper.getErrorStr(status));
-        return;
+
+    function decryptCallback(status, decrypted){
+      if((status == 0 || CWrapper.getMaxErrNum() <= status) && decrypted.length > 0){
+        Logger.dbg("write decrypted email back:\n" + decrypted);
+
+        //init: check if decrypted email is html
+        var isHtml = decrypted.match(/<html>[\s\S]*<\/html>/i) != null;
+        Logger.dbg("isHtml: "  + isHtml);
+
+        //TODO: we drop the header and the bgcolor in <body ...> here!
+        //strip body out of email
+        var match = decrypted.match(/<body[^>]*>([\s\S]*)<\/body>/i)
+        if(match && match.length == 2){ // 2 cause "match" is an array: ["<body...> email </body>", "email"]
+          decrypted= match[1];
+        }
+
+        if(draft){
+          Logger.dbg("write draft back");
+
+          //draft not quoted
+          MailWindow.replaceEmail(decrypted);
+        }
+        else{
+          Logger.dbg("write (non draft) email back");
+
+          if(head){
+            //insert head ("mail send by ... on 2015-01-01...") without quotations
+            MailWindow.replaceEmail(head, true, true);
+
+            //non-drafts (=replies) should quote the original mail
+            MailWindow.replaceEmailWithQuotations(decrypted, isHtml, false);
+          }
+          else{
+            //non-drafts (=replies) should quote the original mail
+            MailWindow.replaceEmailWithQuotations(decrypted, isHtml, true);
+          }
+
+          if(tail){
+            //insert tail (mostly empty lines?) without quotations similar to head
+            Logger.dbg("tail: " + tail);
+            MailWindow.replaceEmail(tail, false);
+          }
+        }
       }
-      plaintext = plaintext.str;
+      else{
+        Dialogs.error(CWrapper.languagepack.getString("mail_dec_failed") + "\nError: "
+                             + CWrapper.languagepack.getString(CWrapper.getErrorStr(status)));
+        Logger.error("Decrypting failed with status:" + status);
+      }
+    }
+
+    if(blockType == "MESSAGE"){
+      var ret = CWrapper.synchDecryptMail(ciphertext);
+      decryptCallback(ret.status, ret.decrypted);
     }
     else{
       //clear signature only
-
-      //TODO: is this code needed? shall "reply" check the signature again? (it should already have been checked before!)
-      sender = gCurrentIdentity.email;
-      var status = CWrapper.verifySignature(plaintext, ciphertext, sender);
-      if(status > 0 && status <= CWrapper.getMaxErrNum()){
-        Logger.error("Signature failed with error:" + CWrapper.getErrorStr(status));
-        //tell user
-        Logger.infoPopup(this.languagepack.getString("mail_dec_failed") +
-                         " Error:" + this.languagepack.getString(CWrapper.getErrorStr(status)));
-        return;
-      }
-      plaintext = ciphertext;
+      var sender = gCurrentIdentity.email;
+      var status = CWrapper.post("verifySignature", [ciphertext, sender],decryptCallback);
     }
-
-    //write decrypted email back
-    Logger.dbg("write decrypted email back");
-    editor.beginningOfDocument();
-    editor.selectAll(); //replace everything (easier than handling ranges in thunderbird!)
-    var mailEditor;
-    try{
-      mailEditor = editor.QueryInterface(Components.interfaces.nsIEditorMailSupport);
-    }
-    catch(ex){
-      Logger.err("Could not load mailEditor");
-      mailEditor = null; //no insertTextWithQuoatations
-    }
-
-    //insert head
-    if(head){
-      if(mailEditor){
-        mailEditor.insertTextWithQuotations(head);
-      }else{
-        editor.insertText(head);
-      }
-    }
-
-    //TODO: FIXME: we drop the header and the bgcolor in <body ...> here!
-    //strip body out of email
-// 	Logger.dbg("plaintext: " + plaintext);
-    var match = plaintext.match(/<body[^>]*>([\s\S]*)<\/body>/i)
-    if(match && match.length == 2){ // 2 cause "match" is an array: ["<body...> email </body>", "email"]
-      plaintext = match[1];
-    }
-
-    //insert decrypted text as quotation
-    //nsIEditorMailSupport: https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Reference/Interface/nsIEditorMailSupport#insertTextWithQuotations%28%29
-    if(mailEditor){
-      mailEditor.insertAsCitedQuotation(plaintext, "", true);
-    }else{
-      editor.insertText(plainText);
-    }
-
-    //insert tail
-    if(tail){
-      if(mailEditor){
-        mailEditor.insertTextWithQuotations(tail);
-      }else{
-        editor.insertText(tail);
-      }
-    }
-
   },
 
 
   ComposeProcessDone: function(result){
-//     Logger.dbg("Ex body"+gMsgCompose.compFields.body);
+    //Logger.dbg("Ex body"+gMsgCompose.compFields.body);
 
     //called after a mail was sent/saved
-    //not needed
+    //not needed => empty interface
   },
 
   SaveInFolderDone: function(folderURI){
-    //not needed
+    //not needed => empty interface
   }
 }
 
-// function readFile(file){
-//   var data = ""; 
-//   var fstream = Components.classes["@mozilla.org/network/file-input-stream;1"].createInstance(Components.interfaces.nsIFileInputStream); 
-//   var cstream = Components.classes["@mozilla.org/intl/converter-input-stream;1"].createInstance(Components.interfaces.nsIConverterInputStream); 
-//   fstream.init(file, -1, 0, 0); 
-//   cstream.init(fstream, "UTF-8", 0, 0); 
-//   let (str = {}) { 
-//     let read = 0; 
-//     do { 
-//       read = cstream.readString(0xffffffff, str); 
-//       data += str.value; 
-//     } while (read != 0); 
-//   } 
-//   cstream.close();  
-//   return data; 
-// }
 
 function AngMsgSendListener(){
   this.onStartSending =
     function(aMsgID,aMsgSize){
-    if(!MailWindow.sign || MailWindow.encrypt){ //we proceed in case of clear sign only
+    if(!MailWindow.sign || MailWindow.encrypt ){ //we proceed in case of clear sign only
 //       Logger.dbg("not signing "+ MailWindow.sign + MailWindow.encrypt);
       return;
     }
+    delete gMsgCompose.domWindow.tryEncrypt;
+
     // when this event is fired, thunderbird has assembled the
     // mail it is to send in an temporary .eml file in the temp directory
     // first fetch temp directory (has nsIFile interface)
@@ -836,22 +1038,22 @@ function AngMsgSendListener(){
     }
     var head = body.substring(0, msgStart);
 
-    var recipients;
-    let start = head.indexOf("To: ") + 4;
-    if(start == -1) {
-      recipients = "";
-    }
-    else{
-      let end = head.substring(start).indexOf("\n");
-      if(end == -1) end = head.length;
-      else{
-        end = end + start;
-      }
-      recipients = head.substring(start, end);
-    }
+//     var recipients;
+//     let start = head.indexOf("To: ") + 4;
+//     if(start == -1) {
+//       recipients = "";
+//     }
+//     else{
+//       let end = head.substring(start).indexOf("\n");
+//       if(end == -1) end = head.length;
+//       else{
+//         end = end + start;
+//       }
+//       recipients = head.substring(start, end);
+//     }
 
-    var sender;
-    start = head.indexOf("From: ") + 6;
+    let sender;
+    let start = head.indexOf("From: ") + 6;
     if(start == -1) {
       Logger.dbg("Could not find sender");
       return;
@@ -865,19 +1067,21 @@ function AngMsgSendListener(){
       sender = head.substring(start, end);
     }
 
-    var tail = body.substring(msgEnd+19);
+    let tail = body.substring(msgEnd+19);
     Logger.dbg("head:"+head);
-    Logger.dbg("calling C: encryptSignMail(...) to sign only");
-    var enc_signed_mail = {str : ""};
-    
-    var status = CWrapper.encryptSignMail(enc_signed_mail, msgBody, recipients, sender,
-                                            true, false);
+//     Logger.dbg("calling C: clearSignMail(...) to sign only with pw:" + MailWindow._password);
+//     var enc_signed_mail = {str : ""};
+
+    let ret = CWrapper.synchClearSignMail(msgBody, sender, MailWindow._password);
+
+//     MailWindow._password = ""; //function called twice sometimes - cannot remove password
       //check errors
-    if(status > 0 && status <= CWrapper.getMaxErrNum()){
-      Logger.error("Sign falied with error: " + CWrapper.getErrorStr(status));
+    if(ret.status > 0 && ret.status <= CWrapper.getMaxErrNum()){
+      Logger.error("Sign falied with error: " +
+                   MailWindow.languagepack.getString(CWrapper.getErrorStr(ret.status)));
     }
-    else if(enc_signed_mail.str.length > 0){
-      msgBody = enc_signed_mail.str;
+    else if(ret.signed.length > 0){
+      msgBody = ret.signed;
     }
     else{
       Logger.dbg("empty str after calling C: encryptSignMail(...) to sign only");
@@ -910,12 +1114,25 @@ if(typeof window != 'undefined'){ //only set-up if file is NOT imported
     MailWindow.onload(event);
   }, true);
 
+  /*EVENTS to hook:
+   * compose-send-message   A message gets sent
+   * compose-window-close   A compose window gets closed
+   * compose-window-init   A compose window has been opened
+   * https://developer.mozilla.org/en-US/docs/Mozilla/Thunderbird/Events
+   */
+
+
   //init StateListener to hook "reply to" messages
-  window.addEventListener("compose-window-init", ConfiComposeStateListener.init, true);
+  window.addEventListener("compose-window-init", function(event){
+    ConfiComposeStateListener.init(event);
+  }, true);
 
-  // could use document.getElementById("msgcomposeWindow") instead of window
+  // can use document.getElementById("msgcomposeWindow") instead of window
   window.addEventListener("compose-send-message", function(event){
-
+    if(!gMsgCompose.domWindow.tryEncrypt){
+      Logger.dbg("compose-send-message  not trying to encrypt");
+      return;
+    }
     var ret;
     var err = "";
     try{
@@ -923,12 +1140,12 @@ if(typeof window != 'undefined'){ //only set-up if file is NOT imported
       ret = MailWindow.send_handler(event);
       switch(ret){
       case 0:
-        //everything ok
+        //everything ok - doing nothing so sending unencryted
         break;
 
       //------------ WARNINGS --------------
       case 1:
-        //user abort => ok
+        //user abort => ok - not sending
         event.preventDefault();
         event.stopPropagation();
         break;
@@ -936,6 +1153,11 @@ if(typeof window != 'undefined'){ //only set-up if file is NOT imported
       case 2:
         //tryango is disabled => do nothing
         Logger.log("Tryango is disabled, no interaction while sending email...");
+        break;
+      case 3:
+        //we will fire sending when encrytion/sign is done
+        event.preventDefault();
+        event.stopPropagation();
         break;
 
       //------------ ERRORS --------------
@@ -970,7 +1192,7 @@ if(typeof window != 'undefined'){ //only set-up if file is NOT imported
     }
     else{
       //errors => abort sending
-      Logger.infoPopup(MailWindow.languagepack.getString("mail_send_failed"));
+      Dialogs.error(MailWindow.languagepack.getString("mail_send_failed"));
       event.preventDefault();
       event.stopPropagation();
     }

@@ -50,24 +50,19 @@ var Prefs = new function()
       this.setPref("savePW", true);
     }
 
-    if(!CWrapper.setServer(this.getPref("server"), this.getPref("port"))){
-      Logger.error("Could not initialize library");
-    }
-    else{
-      Logger.dbg("Library initialised with server="+this.getPref("server")+" and port"+ this.getPref("port"));
-    }
+    CWrapper.setServer(this.getPref("server"), this.getPref("port"));
   }
 
   this.reset = function(){
-	//get all prefs in the prefBranch
-	var obj = new Object();
-	var array = this.prefBranch.getChildList("", obj)
+	  //get all prefs in the prefBranch
+	  var obj = new Object();
+	  var array = this.prefBranch.getChildList("", obj)
 
-	//iterate over the prefs and clear them (=reset)
-	for(var i = 0; i < obj.value; i++){
-	  Logger.dbg("clearUserPref " + array[i]);
-	  this.prefBranch.clearUserPref(array[i]);
-	}
+	  //iterate over the prefs and clear them (=reset)
+	  for(var i = 0; i < obj.value; i++){
+	    Logger.dbg("clearUserPref " + array[i]);
+	    this.prefBranch.clearUserPref(array[i]);
+	  }
   }
 
   this.getDefaultPref = function(prefName) {
@@ -230,6 +225,7 @@ var Prefs = new function()
         break;
       }
     }
+
     var retVal = false;
 
     // Save the preference only and if only the type is bool, int or string.
@@ -278,7 +274,8 @@ var Prefs = new function()
       if(!result){
         var errorStr = this.languagepack.getString("info_update_server_port");
         Logger.error(errorStr);
-        Logger.infoPopup(errorStr);
+        Dialogs.info(errorStr);
+//         Logger.infoPopup(errorStr);
       }
     }
     //fill else if's as needed
