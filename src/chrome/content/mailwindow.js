@@ -398,7 +398,9 @@ var MailWindow = new function(){
       //get editor
       editor = GetCurrentEditor();
       let dce = Components.interfaces.nsIDocumentEncoder;
-      var flags = dce.OutputFormatted | dce.OutputLFLineBreak | dce.OutputPreformatted; //ATTENTION: OutputPreformatted is needed to avoid the double-empty-lines-bug!!!
+	  //flag definitions:
+	  //  https://mxr.mozilla.org/mozilla/source/content/base/public/nsIDocumentEncoder.idl
+      var flags = dce.OutputFormatted | dce.OutputLFLineBreak;
       if(sendFlowed){
         flags = flags | dce.OutputFormatFlowed;
       }
@@ -408,6 +410,8 @@ var MailWindow = new function(){
         mailBody = mailBody.replace(/[^\S\r\n]+$/gm, "");
       }
       else{
+		//ATTENTION: OutputPreformatted is needed to avoid the double-empty-lines-bug!!!
+		flags = flags | dce.OutputPreformatted;
         //plaintext
         mailBody = editor.outputToString("text/plain", flags);
       }
@@ -625,7 +629,8 @@ var MailWindow = new function(){
 
   this._encryptBody = function(recipients, sender, password, mailBody,  msg_type){
     var origMailBody = "";
-    if(MailWindow.isDraft(msg_type)){
+	var draft = MailWindow.isDraft(msg_type);
+    if(draft){
       origMailBody = mailBody;
     }
 
@@ -659,7 +664,16 @@ var MailWindow = new function(){
              //TODO: test on windows && mac
              encrypted = encrypted.replace(/(\r\n|\r[^\n])/g, '\n');
            }
-           MailWindow._replaceBody(encrypted, origMailBody);
+
+		   //replace email
+		   MailWindow.replaceEmail(encrypted, true, true);
+           MailWindow.addDraftCallback(origMailBody);
+
+		   //erase meta-data (e.g. bgcolor) => it is now stored encrypted
+		   if(!draft){
+			 MailWindow.cleanMetaData();
+			 //TODO: also delete metadata for drafts & restore it again in draftcallback
+		   }
          }
          else{
            Logger.dbg("got empty message from encrypt");
@@ -678,17 +692,17 @@ var MailWindow = new function(){
       else{
         mailBody = "----TRYANGO START----" + mailBody + "----TRYANGO END----";
       }
-      MailWindow._replaceBody(mailBody, origMailBody);
+	  MailWindow.replaceEmail(mailBody, true, true);
+      MailWindow.addDraftCallback(origMailBody);
       MailWindow._lateSend(msg_type);
       //we must not erase password yet
     }
     //Logger.dbg("Message after enrcypt;"+ mailBody);
   }
 
+  // --- Helpers ---
 
-  this._replaceBody = function(newBody, origMailBody){
-    //change body to enc_signed_mail
-    this.replaceEmail(newBody, true, true);
+  this.addDraftCallback = function(origMailBody){
     if(origMailBody && origMailBody.length > 0){
       //add callback when message is saved as draft
       MailListener.addDraftCallback(
@@ -697,16 +711,38 @@ var MailWindow = new function(){
           //reset editing window to original message
           this.replaceEmail(origMailBody);
           gMsgCompose.domWindow.tryEncrypt = true; //to encrypt again in case draft is saved again
-          this.sign  = document.getElementById("menu-sign").hasAttribute("checked");
+          this.sign = document.getElementById("menu-sign").hasAttribute("checked");
           SetContentAndBodyAsUnmodified();//to prevent asking for saving
           //done
           return;
         }.bind(this)
       );
     }
- }
+  }
 
-  // --- Helpers ---
+  //helper to clean meta-data (e.g. bgcolor)
+  this.cleanMetaData = function(){
+	Logger.dbg("cleanMetaData called");
+
+	//remove all body attributes that can be removed
+	var editor = GetCurrentEditor();
+	for each(att in editor.document.body.attributes){
+	  if(att && att.value != undefined){
+		Logger.dbg("removing body-attribute: " + att.name);
+		editor.removeAttribute(editor.document.body, att.name);
+	  }
+	}
+
+	//set fgcolor and bgcolor to default (black font on white background)
+	var htmlEditor = editor.QueryInterface(Components.interfaces.nsIHTMLEditor);
+	if(htmlEditor){
+	  Logger.dbg("removing fore/backgroundcolor");
+	  htmlEditor.setBackgroundColor("#ffffff");
+	  htmlEditor.setBodyAttribute("fgcolor", "#000000");
+	  htmlEditor.setBodyAttribute("text", "#000000");
+	}
+
+  }
 
   //tries to write an email back as HTML email; if it fails it writes the email as text
   this.replaceEmail = function(newBody, replace = true, puretext = false){
