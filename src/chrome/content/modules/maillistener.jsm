@@ -654,7 +654,20 @@ var MailListener = new function() {
 
   //helper function to insert email into documentBody
   this.insertEmail = function(document, email, bool_html){
-    //EXPLANATION:
+
+	Logger.log("original email:\n" + email);
+	//TODO: replace head in send_email; do not cut body here and use rebuildDocumentFromSource()
+	//TODO: idea: replace the entire document.documentElement (watch out with head e.g. css files)
+	var parser = Components.classes["@mozilla.org/xmlextras/domparser;1"]
+	    .createInstance(Components.interfaces.nsIDOMParser);
+	var newDOM = parser.parseFromString(email, "text/html");
+
+	Logger.dbg("XXX:\n" + document.head.outerHTML + "\n---\n" + newDOM.head.outerHTML);
+
+	Logger.dbg("XXX:\n" + document.body.outerHTML + "\n---\n" + newDOM.body.outerHTML);
+
+
+	//EXPLANATION:
     // event.currentTarget.contentDocument.documentElement.innerHTML holds the
     // "original" (encrypted) email document. This document already includes
     // some info (e.g. title = email-subject...).
@@ -664,10 +677,11 @@ var MailListener = new function() {
     // => watch out, the "body" holds info too, so we need to alter the "pre" or "div"
     //    element in that body.
     //    ATTENTION: if attachments are displayed there are multiple DIV elements and PRE holds the attachment, not the email!
+
     if(email.search("<html") != -1){
       //cut body out of email
-//       var re = new RegExp("<body[^>]*>(.*)</body>");
-      let emailBody = email.match(/<body[^>]*>([^<]*(?:(?!<\/?body)<[^<]*)*)<\/body\s*>/i);//TODO: Breakes when body is commented etc
+      let emailBody = email.match(/<body[^>]*>([^<]*(?:(?!<\/?body)<[^<]*)*)<\/body\s*>/i);//might break when body is commented etc
+
       if(emailBody == null || emailBody.length != 2){ // 2 cause decryptedMailPureText is an array: ["<body...> email </body>", "email"]
         Logger.error("Could not find body in email!"+ email+ " emailBody:"+emailBody);
       }
@@ -677,7 +691,7 @@ var MailListener = new function() {
       }
     }
 
-    Logger.dbg("Inserting email:\n" + email); //XXX: remove
+    Logger.dbg("Inserting email:\n" + email);
 
     //get elements
     var pre = document.body.getElementsByTagName("pre");

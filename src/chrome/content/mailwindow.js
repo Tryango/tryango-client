@@ -540,30 +540,31 @@ var MailWindow = new function(){
 
     var gAutoSaving = (msg_type == nsIMsgCompDeliverMode.AutoSaveAsDraft);
     try{
-      if (!gAutoSaving)
-      ToggleWindowLock(true);
-    // If we're auto saving, mark the body as not changed here, and not
-    // when the save is done, because the user might change it between now
-    // and when the save is done.
-    else{
-      SetContentAndBodyAsUnmodified();
-    }
-    var progress = Components.classes["@mozilla.org/messenger/progress;1"]
-                             .createInstance(Components.interfaces.nsIMsgProgress);
-    if (progress){
-      progress.registerListener(progressListener);
-      if (MailWindow.isDraft(msg_type)){
-        gSaveOperationInProgress = true;
-      }
+      if (!gAutoSaving){
+		ToggleWindowLock(true);
+	  }
+      // If we're auto saving, mark the body as not changed here, and not
+      // when the save is done, because the user might change it between now
+      // and when the save is done.
       else{
-        gSendOperationInProgress = true;
+		SetContentAndBodyAsUnmodified();
       }
-    }
-    msgWindow.domWindow = window;
-    msgWindow.rootDocShell.allowAuth = true;
-    Logger.dbg("Late sending message with msg_type: "+  msg_type);
-    gMsgCompose.SendMsg(msg_type, getCurrentIdentity(),
-                        getCurrentAccountKey(), msgWindow, progress);
+      var progress = Components.classes["@mozilla.org/messenger/progress;1"]
+          .createInstance(Components.interfaces.nsIMsgProgress);
+      if (progress){
+		progress.registerListener(progressListener);
+		if (MailWindow.isDraft(msg_type)){
+          gSaveOperationInProgress = true;
+		}
+		else{
+          gSendOperationInProgress = true;
+		}
+      }
+      msgWindow.domWindow = window;
+      msgWindow.rootDocShell.allowAuth = true;
+      Logger.dbg("Late sending message with msg_type: "+  msg_type);
+      gMsgCompose.SendMsg(msg_type, getCurrentIdentity(),
+                          getCurrentAccountKey(), msgWindow, progress);
 
     }
     catch (ex) {
@@ -913,7 +914,8 @@ ConfiComposeStateListener = {
         var isHtml = decrypted.match(/<html>[\s\S]*<\/html>/i) != null;
         Logger.dbg("isHtml: "  + isHtml);
 
-        //TODO: we drop the header and the bgcolor in <body ...> here!
+        //we drop the header and the bgcolor in <body ...> here => colour etc. is not shown
+		//in reply-to e-mails, but that is also not done in non-Tryango e-mails!
         //strip body out of email
         var match = decrypted.match(/<body[^>]*>([\s\S]*)<\/body>/i)
         if(match && match.length == 2){ // 2 cause "match" is an array: ["<body...> email </body>", "email"]
