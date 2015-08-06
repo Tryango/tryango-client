@@ -238,27 +238,28 @@ Tryango.reset = function(removeEverything = false){
   Utils.removeAllDevicesAndRevokeKeys();
 
   //clear XHEADERS
-  MailListener.removeAllTryangoXHEADERS();
+  CWrapper.post("synchStub", [], function(){MailListener.removeAllTryangoXHEADERS();});
 
   //clear passwords
-  Pwmgr.removeAllTryangoPWs();
+  CWrapper.post("synchStub", [], function(){Pwmgr.removeAllTryangoPWs();});
 
   if(removeEverything){
-	//clear preferences
-	Prefs.removeAllTryangoPrefs();
+    //clear preferences
+    CWrapper.post("synchStub", [], function(){Prefs.removeAllTryangoPrefs();
+                                              //log
+                                              Logger.dbg("reset(removeEverything) done");});
 
-	//log
-	Logger.dbg("reset(removeEverything) done");
-  }else{
-	//only reset preferences (rest can stay)
-	Prefs.reset();
-	Prefs.init();
-	Prefs.setPref("firstStartup", false);
-
-	//log
-	Logger.dbg("reset done");
   }
-
+  else{
+    //only reset preferences (rest can stay)
+    CWrapper.post("synchStub", [], function(){
+      Prefs.reset();
+      Prefs.init();
+      Prefs.setPref("firstStartup", false);
+      Logger.dbg("reset done");
+    });
+    //log
+  }
   //ATTENTION: no Tryango.cleanup() here yet! we are still running!
 
   return;

@@ -214,7 +214,7 @@ function setRadioBtn(){
     dropdownmenu.setAttribute("hidden", true);//hide until we get response from CWrapper
 
     var radio = document.getElementById("chooseEmailPage_prev_key");
-    CWrapper.post("hasSecretKey", [dropdownmenu.selectedItem.value], function(success){ //TODO: FIXME: function does not return
+    CWrapper.post("hasSecretKey", [dropdownmenu.selectedItem.value], function(success){
       Logger.dbg("hasSecretKey:" + success + " identity:"+dropdownmenu.selectedItem.value);
       dropdownmenu.removeAttribute("hidden");
       if(success){

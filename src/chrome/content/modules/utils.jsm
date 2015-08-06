@@ -181,7 +181,7 @@ var Utils = new function()
     //function is called when plugin is deinstalled or user presses "reset"
 
     //(local) remove keypurse (if it exists) => backup first
-	var keyPursePath = Prefs.getPref("keyPursePath");
+    var keyPursePath = Prefs.getPref("keyPursePath");
     if(keyPursePath !=  undefined &&
        (new FileUtils.File(keyPursePath)).exists()){
 
@@ -196,27 +196,27 @@ var Utils = new function()
         null, new Object() //no checkbox
       );
 
-	  //0 = YES
-	  if(buttonResult == 0){
+      //0 = YES
+      if(buttonResult == 0){
         Logger.dbg("Backup prompt: YES");
 
         Logger.dbg("Export keypurse");
         if(Utils.exportKeyPurse()){
-		  Logger.dbg("exportKeyPurse done");
+          Logger.dbg("exportKeyPurse done");
         }
         else{
-		  //backup user cancelled
-		  Logger.dbg("User abort exportKeyPurse");
+          //backup user cancelled
+          Logger.dbg("User abort exportKeyPurse");
         }
-	  }
-	  //1 = NO
-	  else if(buttonResult == 1){
+      }
+      //1 = NO
+      else if(buttonResult == 1){
         Logger.dbg("Backup prompt: NO");
-	  }
-	  else{
+      }
+      else{
         //error => treat it as "NO"
         Logger.error("Backup keypurse prompt returned unexpected result: " + buttonResult);
-	  }
+      }
 
       //remove keypurse
       Logger.dbg("removing keypurse...");
@@ -242,13 +242,12 @@ var Utils = new function()
         if(ap != undefined && ap.length > 1){
           //remove identity/machineID if it is signed up
           Logger.dbg("Removing device " + identity + " " + machineID);
-          removeDevices(identity, [machineID],  true); //doNotPrompt = true
+          removeDevices(identity, [machineID], 1, true); //doNotPrompt = true - we set total devices to 1 to ask user to revoke key
         }
       }
-      CWrapper.post("synchStub", [], function(){fillDevices();});
+//       CWrapper.post("synchStub", [], function(){fillDevices();});
     }
-
-	return; //explicit end of method
+    return; //explicit end of method
   }
 
   this.syncKeypurse = function(){
@@ -1050,17 +1049,17 @@ function removeSelectedDevices(){
   }
 
   for(var parent in toRemove){
-    removeDevices(parent, toRemove[parent], false); //doNotPrompt = false => DO prompt
+    removeDevices(parent, toRemove[parent], devicesView.emails[parent], false); //doNotPrompt = false => DO prompt
   }
   CWrapper.post("synchStub", [], function(){fillDevices();});
 }
 
-function removeDevices(identity, devices,  doNotPrompt){
+function removeDevices(identity, devices, totalNumberDevices, doNotPrompt){
   Logger.dbg("removeDevices: " + identity + " " + devices);
 
   //call C to remove devices
-  var status = CWrapper.removeDevices(identity, Prefs.getPref("machineID"), devices,
-                                      devicesView.emails[identity], doNotPrompt,
+  CWrapper.removeDevices(identity, Prefs.getPref("machineID"), devices,
+                                      totalNumberDevices,  doNotPrompt,
     function(status){
       if(status != 0){
         //error

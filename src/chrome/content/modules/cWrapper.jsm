@@ -602,7 +602,7 @@ var CWrapper = {
               Logger.dbg("Key revocation was successful");
             }
             else{
-            Logger.dbg("Could not revoke key - err no:" + status);
+              Logger.dbg("Could not revoke key - err no:" + status);
             }
          });
         }

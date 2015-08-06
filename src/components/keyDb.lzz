@@ -281,18 +281,24 @@ class KeyDb{
 
   Confi_Status getKeysInfo(char*** keysInfo
                            , uint32_t* noKeys
-                           , const std::string id
+                           , const std::string idNoStripped
                            ){
     *noKeys=0;
+    std::string id = PktDo::stripId(idNoStripped);
     if(!hasSecretKey(id)){
+/*       std::cout<<"getKeysInfo:noSecretKey for  id:"<<id<<std::endl; */
       return ANG_NO_ENTRIES;
     }
+/*     else{ */
+/*       std::cout<<"getKeysInfo:SecretKey for  id:"<<id<<std::endl; */
+/*     } */
     KeyList kl = userIdDb[id];
     if(kl.size()<1){
+/*       std::cout<<"getKeysInfo:size <1 userIdDb[id]:"<<id<<std::endl; */
       return ANG_NO_ENTRIES;
     }
     *noKeys = kl.size();
-    std::cout<<"getKeysInfo:list size:"<<kl.size()<<" id:"<<id<<std::endl;
+/*     std::cout<<"getKeysInfo:list size:"<<kl.size()<<" id:"<<id<<std::endl; */
 
     *keysInfo = (char**) malloc((*noKeys) * sizeof(char*));
     for (uint32_t i = 0; i < (*noKeys); i++){
