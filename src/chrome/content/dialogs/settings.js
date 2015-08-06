@@ -115,7 +115,7 @@ function prefOnAccept()
   //check if machineID changed
   if(mID != Prefs.getPref("machineID")){
     Logger.dbg("machineID changed!");
-    //TODO: maybe allow in the future to change machineID
+    //TODO: (machineID) maybe allow in the future to change machineID
   }
   return true;
 }

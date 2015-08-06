@@ -652,7 +652,7 @@ function doSignup(email){
   Prefs.setPref("reqId_" + email, token);
 
   //pass email address to c
-  //TODO: append machineID with random string
+  //TODO: (machineID) append machineID with random string
   CWrapper.post("signup", [token, email, Prefs.getPref("machineID") ],
     function(status){
       if(status != 0){

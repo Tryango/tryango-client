@@ -855,7 +855,7 @@ ConfiComposeStateListener = {
     var editor = GetCurrentEditor();
     editor.beginTransaction();
     let dce = Components.interfaces.nsIDocumentEncoder;
-    var flags = dce.OutputFormatted | dce.OutputLFLineBreak ;//TODO: not sure if OutputPreformatted is needed here, seems to work without
+    var flags = dce.OutputFormatted | dce.OutputLFLineBreak; //OutputPreformatted not needed cause email has no html (it's the ciphertext!)
     var body = editor.outputToString('text/plain', flags);
     editor.endTransaction();
 
@@ -947,28 +947,34 @@ ConfiComposeStateListener = {
         Logger.dbg("write decrypted email back:\n" + decrypted);
 
         //init: check if decrypted email is html
-		//TODO: adjust this like in maillistener.js
         var isHtml = decrypted.match(/<html>[\s\S]*<\/html>/i) != null;
         Logger.dbg("isHtml: "  + isHtml);
 
         //we drop the header and the bgcolor in <body ...> here => colour etc. is not shown
-		//in reply-to e-mails, but that is also not done in non-Tryango e-mails!
-        //strip body out of email
-        var match = decrypted.match(/<body[^>]*>([\s\S]*)<\/body>/i)
-        if(match && match.length == 2){ // 2 cause "match" is an array: ["<body...> email </body>", "email"]
-          decrypted= match[1];
-        }
+		//but in normal html e-mail-replies this is also not shown
+		var newBody = "";
+		//strip body out of email
+		if(isHtml){
+		  //html
+		  var parser = Components.classes["@mozilla.org/xmlextras/domparser;1"]
+			  .createInstance(Components.interfaces.nsIDOMParser);
+		  newBody = parser.parseFromString(decrypted, "text/html").body.innerHTML;
 
-		//if email is html format but the composeWindow is plaintext => stripHTML
-		if(isHtml && !gMsgCompose.composeHTML){
-		  decrypted = Utils.stripHTML(decrypted);
+		  //if email is html format but the composeWindow is plaintext => stripHTML
+		  if(!gMsgCompose.composeHTML){
+			newBody = Utils.stripHTML(newBody);
+		  }
+		}else{
+		  //plaintext
+		  newBody = decrypted;
 		}
 
+		//write newBody back to composeWindow
         if(draft){
           Logger.dbg("write draft back");
 
           //draft not quoted
-          MailWindow.replaceEmail(decrypted);
+          MailWindow.replaceEmail(newBody);
         }
         else{
           Logger.dbg("write (non draft) email back");
@@ -978,11 +984,11 @@ ConfiComposeStateListener = {
             MailWindow.replaceEmail(head, true, true);
 
             //non-drafts (=replies) should quote the original mail
-            MailWindow.replaceEmailWithQuotations(decrypted, isHtml, false);
+            MailWindow.replaceEmailWithQuotations(newBody, isHtml, false);
           }
           else{
             //non-drafts (=replies) should quote the original mail
-            MailWindow.replaceEmailWithQuotations(decrypted, isHtml, true);
+            MailWindow.replaceEmailWithQuotations(newBody, isHtml, true);
           }
 
           if(tail){
@@ -991,6 +997,7 @@ ConfiComposeStateListener = {
             MailWindow.replaceEmail(tail, false);
           }
         }
+
       }
       else{
         Dialogs.error(CWrapper.languagepack.getString("mail_dec_failed") + "\nError: "
@@ -998,6 +1005,7 @@ ConfiComposeStateListener = {
         Logger.error("Decrypting failed with status:" + status);
       }
     }
+	// --- END INLINE FUNCTION ---
 
     if(blockType == "MESSAGE"){
       var ret = CWrapper.synchDecryptMail(ciphertext);
