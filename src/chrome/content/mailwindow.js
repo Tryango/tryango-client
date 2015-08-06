@@ -941,12 +941,13 @@ ConfiComposeStateListener = {
     //decrypt email
     Logger.dbg("decrypting email...");
 
-
+	//INLINE "anonymous" function!
     function decryptCallback(status, decrypted){
       if((status == 0 || CWrapper.getMaxErrNum() <= status) && decrypted.length > 0){
         Logger.dbg("write decrypted email back:\n" + decrypted);
 
         //init: check if decrypted email is html
+		//TODO: adjust this like in maillistener.js
         var isHtml = decrypted.match(/<html>[\s\S]*<\/html>/i) != null;
         Logger.dbg("isHtml: "  + isHtml);
 
@@ -957,6 +958,11 @@ ConfiComposeStateListener = {
         if(match && match.length == 2){ // 2 cause "match" is an array: ["<body...> email </body>", "email"]
           decrypted= match[1];
         }
+
+		//if email is html format but the composeWindow is plaintext => stripHTML
+		if(isHtml && !gMsgCompose.composeHTML){
+		  decrypted = Utils.stripHTML(decrypted);
+		}
 
         if(draft){
           Logger.dbg("write draft back");

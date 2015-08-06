@@ -711,15 +711,8 @@ var MailListener = new function() {
 
 	//if message is html BUT View->Message Body As->Plain Text is text
 	if(bool_html && Prefs.getPrefByString("html_as", "mailnews.display.") == 1){
-	  //this is only a small fix to make things "readable"
-	  //to be entirely correct we would have to write a whole HTML-to-text-parser
-
-	  //strip off tags
-	  newBody = newBody.replace(/<[^>]+>/g, "");
-	  //remove leading whitespace
-	  newBody = newBody.replace(/^[\s]+/g, "");
-	  //replace html space with space
-	  newBody = newBody.replace(/&nbsp;/g, " ");
+	  //strip html a bit
+	  newBody = Utils.stripHTML(newBody);
 	}
 
     Logger.dbg("Inserting email:\n" + newBody);

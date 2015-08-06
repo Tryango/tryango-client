@@ -414,6 +414,24 @@ var Utils = new function()
     tree.appendChild(item);
   }
 
+  this.stripHTML = function(string){
+	//this is only a small fix to make things "readable"
+	//to be entirely correct we would have to write a whole HTML-to-text-parser
+
+	//strip off tags
+	var ret = string.replace(/<[^>]+>/g, "");
+	//remove leading whitespace but no newlines (multiline mode for "^")
+	ret = ret.replace(/^[\t ]+/gm, "");
+	//replace html space with space
+	ret = ret.replace(/&nbsp;/g, " ");
+	//replace &gt; &lt; (quotations!) and &amp;
+	ret = ret.replace(/&gt;/g, ">");
+	ret = ret.replace(/&lt;/g, "<");
+	ret = ret.replace(/&amp;/g, "&");
+
+	return ret;
+  }
+
 }//end of "Utils"
 
 
