@@ -37,8 +37,7 @@ var Prefs = new function()
 
     //initialize machineID to the hostname
     if(!this.isPref("machineID")){
-      hostName=CWrapper.getHostName();
-      this.setPref("machineID", hostName);
+      this.setPref("machineID", CWrapper.getHostName());
     }
     //initialize keyPursePath to the file name of database with keys
     if(!this.isPref("keyPursePath")){

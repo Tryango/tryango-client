@@ -236,10 +236,8 @@ Tryango.reset = function(removeEverything = false){
   //remove devices and keys from server as well as locally
   //this also asks if the user wants to backup the keypurse
   Utils.removeAllDevicesAndRevokeKeys();
-
   //clear XHEADERS
   CWrapper.post("synchStub", [], function(){MailListener.removeAllTryangoXHEADERS();});
-
   //clear passwords
   CWrapper.post("synchStub", [], function(){Pwmgr.removeAllTryangoPWs();});
 

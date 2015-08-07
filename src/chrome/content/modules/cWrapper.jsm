@@ -486,6 +486,7 @@ var CWrapper = {
     var check = {value: pb.getBoolPref("savePW")};
     function signPwCallback(status, keyId, ask, password){
       if(status != 0){
+        Logger.dbg("signPwCallback - status: "+ status + " keyId:"+keyId + " ask:"+ ask+ " password:"+ password);
         if(keyId != ""){
           var passValue = {};
           passValue.value = Pwmgr.getPass(keyId);
@@ -638,10 +639,11 @@ var CWrapper = {
       var pass = {value : ""};
       CWrapper.post("synchronizeSK", [identity], function(status){
         if(status != 0){
+          Logger.dbg("Not revoking key - could not synchronize current key with the server");
           callback(21);
         }
         else{
-          this.getSignPassword(identity, function(success, password){
+          CWrapper.getSignPassword(identity, function(success, password){
             if(success){
               CWrapper.post("revokeKey",[identity, device, password], function(newHexAp, status){
                 if(newHexAp.length >2){
@@ -651,6 +653,7 @@ var CWrapper = {
               });
             }
             else{
+              Logger.dbg("Not revoking key - could not get current secret key password");
               callback(21);//ANG_NO_KEY_PRESENT
             }
           });
@@ -658,6 +661,7 @@ var CWrapper = {
       });
     }
     else{
+      Logger.dbg("Not revoking key - could not get AP");
       callback(23); //ANG_NO_AP
     }
   },

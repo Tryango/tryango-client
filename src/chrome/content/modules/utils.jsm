@@ -180,6 +180,23 @@ var Utils = new function()
   this.removeAllDevicesAndRevokeKeys = function(){
     //function is called when plugin is deinstalled or user presses "reset"
 
+    //clear data on tryango server
+    //(server) remove devices (will revoke keys if no device is signed up for it any more)
+    var addresses = this.getEmailAddresses();
+    var machineID = Prefs.getPref("machineID");
+    if(machineID){
+      for each(let identity in addresses){
+        //check if identity/machineID is signed up
+        var ap = Pwmgr.getAp(identity);
+        if(ap != undefined && ap.length > 1){
+          //remove identity/machineID if it is signed up
+          Logger.dbg("Removing device " + identity + " " + machineID);
+          removeDevices(identity, [machineID], 1, true); //doNotPrompt = true - we set total devices to 1 to ask user to revoke key
+        }
+      }
+//       CWrapper.post("synchStub", [], function(){fillDevices();});
+    }
+
     //(local) remove keypurse (if it exists) => backup first
     var keyPursePath = Prefs.getPref("keyPursePath");
     if(keyPursePath !=  undefined &&
@@ -231,22 +248,6 @@ var Utils = new function()
       //no keypurse => everything good
     }
 
-    //clear data on tryango server
-    //(server) remove devices (will revoke keys if no device is signed up for it any more)
-    var addresses = this.getEmailAddresses();
-    var machineID = Prefs.getPref("machineID");
-    if(machineID){
-      for each(let identity in addresses){
-        //check if identity/machineID is signed up
-        var ap = Pwmgr.getAp(identity);
-        if(ap != undefined && ap.length > 1){
-          //remove identity/machineID if it is signed up
-          Logger.dbg("Removing device " + identity + " " + machineID);
-          removeDevices(identity, [machineID], 1, true); //doNotPrompt = true - we set total devices to 1 to ask user to revoke key
-        }
-      }
-//       CWrapper.post("synchStub", [], function(){fillDevices();});
-    }
     return; //explicit end of method
   }
 

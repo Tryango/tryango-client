@@ -941,7 +941,7 @@ ConfiComposeStateListener = {
     //decrypt email
     Logger.dbg("decrypting email...");
 
-	//INLINE "anonymous" function!
+    //INLINE "anonymous" function!
     function decryptCallback(status, decrypted){
       if((status == 0 || CWrapper.getMaxErrNum() <= status) && decrypted.length > 0){
         Logger.dbg("write decrypted email back:\n" + decrypted);
@@ -951,25 +951,26 @@ ConfiComposeStateListener = {
         Logger.dbg("isHtml: "  + isHtml);
 
         //we drop the header and the bgcolor in <body ...> here => colour etc. is not shown
-		//but in normal html e-mail-replies this is also not shown
-		var newBody = "";
-		//strip body out of email
-		if(isHtml){
-		  //html
-		  var parser = Components.classes["@mozilla.org/xmlextras/domparser;1"]
-			  .createInstance(Components.interfaces.nsIDOMParser);
-		  newBody = parser.parseFromString(decrypted, "text/html").body.innerHTML;
+        //but in normal html e-mail-replies this is also not shown
+        var newBody = "";
+        //strip body out of email
+        if(isHtml){
+          //html
+          var parser = Components.classes["@mozilla.org/xmlextras/domparser;1"]
+                                                                         .createInstance(Components.interfaces.nsIDOMParser);
+          newBody = parser.parseFromString(decrypted, "text/html").body.innerHTML;
 
-		  //if email is html format but the composeWindow is plaintext => stripHTML
-		  if(!gMsgCompose.composeHTML){
-			newBody = Utils.stripHTML(newBody);
-		  }
-		}else{
-		  //plaintext
-		  newBody = decrypted;
-		}
+          //if email is html format but the composeWindow is plaintext => stripHTML
+          if(!gMsgCompose.composeHTML){
+            newBody = Utils.stripHTML(newBody);
+          }
+        }
+        else{
+          //plaintext
+          newBody = decrypted;
+        }
 
-		//write newBody back to composeWindow
+        //write newBody back to composeWindow
         if(draft){
           Logger.dbg("write draft back");
 

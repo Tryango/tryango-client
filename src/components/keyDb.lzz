@@ -92,22 +92,18 @@ class KeyDb{
 //helper function
   void removeId(SecretKeyPair* pPair, std::string id)
   {
-    std::cout<<"removeKey: removing id:"<<id<<std::endl;
     DbType::iterator it;
     it = userIdDb.find(PktDo::stripId(id));
     if(it != userIdDb.end()){
       KeyList list = it->second;
       KeyList::iterator entry = std::find(list.begin(), list.end(), pPair);
-      std::cout<<"removeKey: removing id:"<<id<<std::endl;
       if(entry != list.end() && (*entry) != NULL){
-        std::cout<<"removeKey from list: "<<*entry<<"list.end()"<<*list.end()<<" list size:"<<list.size()<<std::endl;
+/*         std::cout<<"removeKey from list: "<<*entry<<"list.end()"<<*list.end()<<" list size:"<<list.size()<<std::endl; */
         list.erase(entry);
         userIdDb[PktDo::stripId(id)] = list;
-        std::cout<<"removeKey: list size after removing:"<<list.size()<<std::endl;
       }
       if(list.size()<1){
         userIdDb.erase(PktDo::stripId(id));
-        std::cout<<"removeKey erase"<<std::endl;
       }
     }
   }
@@ -189,7 +185,6 @@ class KeyDb{
           break;
 
         case SGN_CERT_POS: // 0x13
-          std::cout<<"Adding signature"<<std::endl;
           pkey = &(lastPair->getSSKey()->pkey);
           if(pkey->user_ids.size() < 0){
             return ANG_PARSE_ERROR;
@@ -202,7 +197,6 @@ class KeyDb{
 /*             free(pkey->user_ids.back()->signature); */
           }
           pkey->user_ids.back()->signature = pkt.pkt.signature;
-          std::cout<<"Key expire period:"<< pkt.pkt.signature->key_expirePeriod<<std::endl;
           if(pkt.pkt.signature->key_expirePeriod != 0){
             pkey->expirePeriod = pkt.pkt.signature->key_expirePeriod;
           }
@@ -427,7 +421,7 @@ class KeyDb{
     std::ofstream myfile;
     myfile.open(fileName);
     if(!myfile.is_open()){
-      std::cout<<"Not exporting - failed to open file"<<std::endl;
+/*       std::cout<<"Not exporting - failed to open file"<<std::endl; */
       return false;
     }
 
@@ -449,7 +443,7 @@ class KeyDb{
           }
           else{
             myfile.close();
-            std::cout<<"Not exporting - failed to export key"<<std::endl;
+/*             std::cout<<"Not exporting - failed to export key"<<std::endl; */
             return false;
           }
         }
@@ -480,7 +474,7 @@ class KeyDb{
 
   Confi_Status readFromFile(const std::string& fileName, bool clearOld, const std::string& filterId)
   {
-    std::cout<<"Reading keypurse from file:"<<fileName<<std::endl;
+/*     std::cout<<"Reading keypurse from file:"<<fileName<<std::endl; */
     std::ifstream file (fileName, std::ios::in|std::ios::binary|std::ios::ate);
     if (file.is_open()){
       std::streampos size;

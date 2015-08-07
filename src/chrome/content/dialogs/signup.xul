@@ -21,10 +21,6 @@
         height="500"
         >
 
-  <stringbundleset od="stringbundleset">
-  <stringbundle id="strings" src="chrome://tryango/locale/lang.properties"/>
-  </stringbundleset>
-
   <!-- Reference to JavaScript file -->
   <script type="application/x-javascript" src="chrome://tryango/content/dialogs/signup.js"/>
   <script type="application/x-javascript" src="chrome://tryango/content/dialogs/settings.js"/>

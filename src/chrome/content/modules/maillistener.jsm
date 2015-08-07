@@ -597,6 +597,7 @@ var MailListener = new function() {
               }
             }
             else{//library not loaded yet - we cannot do sych calls
+//               Logger.log("Library not loaded yet - we cannot do sych calls");
               CWrapper.decryptMail(msgObj.ciphertext, sender, "",
                 function(status, decrypted){
                   if(status > 0 && status <= CWrapper.getMaxErrNum()){

@@ -75,14 +75,14 @@ class SSLInputStream: public google::protobuf::io::ZeroCopyInputStream {
     *size = read_buffer.size();
     state = NEXT;
     byte_count += *size;
-    std::cout<<"Next Read"<<*size<<" bytes"<<std::endl;
+/*     std::cout<<"Next Read"<<*size<<" bytes"<<std::endl; */
     return true;
   }
 
 
   void BackUp(int count
               ){
-    std::cout<<"BacuUp count:"<<count<<std::endl;
+/*     std::cout<<"BacuUp count:"<<count<<std::endl; */
     if (state != NEXT){
       state = SSLERROR;
       std::cout<<"BacuUp Error: not NEXT:"<<std::endl;
@@ -98,7 +98,7 @@ class SSLInputStream: public google::protobuf::io::ZeroCopyInputStream {
 
   bool Skip(int count
             ){
-    std::cout<<"Skip: count:"<<count<<std::endl;
+/*     std::cout<<"Skip: count:"<<count<<std::endl; */
     if (state == SSLERROR){
       std::cout<<"Skip sslError"<<std::endl;
       return false;
@@ -598,42 +598,33 @@ class ConfiClient
     tryango::Response res;
     if(id == "") return ANG_NO_ENTRIES;
     char h_id[HASH_SIZE];
-    std::cout<<"before hash"<<std::endl;
     ConfiVerifier::hash(id, h_id);
-    std::cout<<"after hash"<<string_to_hex(std::string(h_id,HASH_SIZE))<<std::endl;
     req.mutable_find_last()->set_h_identity(std::string(h_id, HASH_SIZE));
     if(origin_wanted){
       req.mutable_find_last()->set_origin_wanted(origin_wanted);
     }
     selectRoot();
-    std::cout<<"after selectroot"<<std::endl;
-
     Confi_Status result = sendReceive(res, req, true);
 
     if(result != ANG_OK){
       return result;
     }
     if(res.find_last().has_entries()){
-      std::cout<<"after has entrie"<<std::endl;
 
       const tryango::Entry_Set entry = res.find_last().entries();
-      std::cout<<"after has entry"<<std::endl;
       if(entry.h_identity().compare(std::string(h_id, HASH_SIZE)) != 0){
         log("BAD h_id"+ string_to_hex(std::string(h_id)) + " got:"+string_to_hex(entry.h_identity()));
         return ANG_BAD_H_ID;
       }
-      std::cout<<"before has att"<<std::endl;
       if(res.find_last().has_attachment()){
         last = res.find_last().attachment();
       }
       else{
         return ANG_NO_ENTRIES;
       }
-      std::cout<<"before type"<<std::endl;
       if(entry.entries(entry.entries_size()-1).has_type()){
         type = entry.entries(entry.entries_size()-1).type();
       }
-      std::cout<<"after type"<<std::endl;
     }
     return ANG_OK;
   }
@@ -661,13 +652,11 @@ class ConfiClient
 
 
   void setTempKey(const std::string key){
-    std::cout<<"setting temp key "<<string_to_hex(key)<<std::endl;
     tempKey = key;
   }
 
 
   std::string getTempKey(){
-    std::cout<<"getting temp key "<<string_to_hex(tempKey)<<std::endl;
     return tempKey;
   }
 

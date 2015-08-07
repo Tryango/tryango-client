@@ -232,7 +232,6 @@ extern "C"{
     if(status == 0){
       memcpy(hexAp, string_to_hex(ap).c_str(), 2 * HASH_SIZE);
     }
-    std::cout<<"End of getDevices status"<<status<<" resultSize:"<<*resultSize<<std::endl;
     return status;
   }
 
@@ -386,7 +385,6 @@ extern "C"{
   bool exportKeyPurse(const char* path
                       , const char* password
                       ){
-    std::cout<<"Exporting to file"<<std::string(path)<<std::endl;
     return client.getKeyDb()->writeToFile(std::string(path));
   }
 
@@ -696,7 +694,6 @@ extern "C"{
     if(string != NULL){
       free(string);
     }
-    std::cout<<"End of freeString"<<std::endl;
   }
 
 
