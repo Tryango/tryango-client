@@ -197,6 +197,7 @@ var AttachmentManager = new function()
        *	NOTE: if node = attachmentBucket.firstChild and node = node.nextSibling
        *		=> node.attachment == att
        */
+	  var FILE_ENDING = ".pgp";
 
       //get path to attachment
       var attFile = ioServ.newURI(node.attachment.url, null, null);
@@ -204,8 +205,11 @@ var AttachmentManager = new function()
       Logger.dbg("Attachment-path: " + path); //XXX: remove after testing
 
       //encrypt and sign
-      var newPath = path + ".pgp";
+	  //use path of old file, new filename, and new file-ending to create new path
+      var newPath = path.substring(0, path.lastIndexOf("/")+1)
+		  + node.attachment.name + FILE_ENDING;
       Logger.dbg("newPath: " + newPath); //XXX: remove after testing
+
       CWrapper.post("encryptSignAttachment", [newPath, path, recipients, sender, sign, encrypt, password, node.nextSibling == null ],
         function(status, isLast){
           if(status == 0 && AttachmentManager._status == 0){

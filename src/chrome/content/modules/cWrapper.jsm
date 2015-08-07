@@ -887,7 +887,9 @@ var CWrapper = {
 //     Logger.dbg(this.promptPassword(sender, ""));
 
 //     var c_data = ctypes.char.array()(data.split(''));
-    Logger.dbg("decrypt attachment data:" + data );
+    Logger.dbg("decrypt attachment data:" + data);
+
+
     var c_filepath = ctypes.char.array()(filepath);
     var c_sender = ctypes.char.array()(sender);
     Logger.dbg("decrypting attachment with size of data:" + data.length);

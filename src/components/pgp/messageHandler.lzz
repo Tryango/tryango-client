@@ -1042,7 +1042,7 @@ class MessageHandler{
                                   ){
     Confi_Status status;
     //read source into RAM (TODO: probably improve...?)
-    std::ifstream src(inputFile, std::ifstream::in);
+    std::ifstream src(inputFile, std::ifstream::in | std::ifstream::binary);
     if(src.fail()){ //attention! badbit is not set when file does not exist => check FAILBIT here!
 	  return ANG_PARSE_ERROR;
     }
