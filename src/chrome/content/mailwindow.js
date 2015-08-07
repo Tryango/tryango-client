@@ -611,10 +611,13 @@ var MailWindow = new function(){
                 MailWindow._password = "";
               }
               else{
-                //user abort -- do nothing
+                //user abort -- do nothing (=abort sending)
+				return;
               }
-            }
-            this._encryptBody(recipients, sender, password, mailBody, msg_type);
+            }else{
+			  //everything ok => continue encrypting
+              this._encryptBody(recipients, sender, password, mailBody, msg_type);
+			}
           }.bind(this)
         );
       }

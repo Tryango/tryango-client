@@ -183,6 +183,7 @@ ENDIF()
 
 SET(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
+#TODO: get rid of lzz to make the plugin more portable
 FIND_PROGRAM(LZZ_COMMAND lzz)
 IF(NOT LZZ_COMMAND)
   MESSAGE(FATAL_ERROR "Could not find \"lzz\" program! Download from http://www.lazycplusplus.com/download.html")
