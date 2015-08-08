@@ -597,7 +597,7 @@ var MailListener = new function() {
               }
             }
             else{//library not loaded yet - we cannot do sych calls
-//               Logger.log("Library not loaded yet - we cannot do sych calls");
+              Logger.log("Library not loaded yet - we cannot do sych calls");
               CWrapper.decryptMail(msgObj.ciphertext, sender, "",
                 function(status, decrypted){
                   if(status > 0 && status <= CWrapper.getMaxErrNum()){
@@ -705,7 +705,8 @@ var MailListener = new function() {
 
       //set body
       newBody = newDOM.body.innerHTML;
-    }else{
+    }
+    else{
       //plaintext email
       newBody = email;
     }
@@ -725,7 +726,7 @@ var MailListener = new function() {
     //search for "-----BEGIN PGP MESSAGE-----" and replace it
     //search PRE tags
     for(var p in pre){
-      if(p.search("-----BEGIN PGP") != -1){
+      if(p.search("-----BEGIN PGP") != -1 || p.search("----TRYANGO START----") != -1){
         Logger.dbg("Found correct <PRE>");
         p.innerHTML = newBody;
         return;
@@ -741,7 +742,7 @@ var MailListener = new function() {
     }
 
     //try to create DIV if no DIV/PRE exists
-    if(document.body.textContent.search("-----BEGIN PGP") != -1){
+    if(document.body.textContent.search("-----BEGIN PGP") != -1 || document.body.textContent.search("----TRYANGO START----") != -1){
       //log
       Logger.dbg("Recreating <DIV>");
       //clear
