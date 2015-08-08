@@ -821,6 +821,12 @@ var MailListener = new function() {
         "value", this.languagepack.getString("verifytoolbar") + ": " + this.languagepack.getString("nopubkey_sig"));
       this.cmToolbar.children[0].setAttribute("style", "color: black;");
     }
+    else if(CWrapper.getErrorStr(status) == "no_key_present"){
+      //no sig => grey
+      this.cmToolbar.setAttribute("style", "background-color: orange;");
+      this.cmToolbar.children[0].setAttribute("value", this.languagepack.getString("verifytoolbar")+ ": " + this.languagepack.getString("no_key_present"));
+      this.cmToolbar.children[0].setAttribute("style", "color: black;");
+    }
     else if(CWrapper.getErrorStr(status) == "sig_expired"){
       //no sig => grey
       this.cmToolbar.setAttribute("style", "background-color: orange;");
