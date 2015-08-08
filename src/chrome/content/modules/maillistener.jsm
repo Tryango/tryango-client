@@ -94,15 +94,15 @@ var MailListener = new function() {
 
   /**
    * function to add a callback in case we are saving a draft
-   *  @param	the function callback to call (if we find a draft)
+   *  @param    the function callback to call (if we find a draft)
    *
    *  see also: maillistener.jsm::msgAdded and mailwindow.js::send_handler
-   *			both marked with "DRAFTCALLBACK:"
+   *            both marked with "DRAFTCALLBACK:"
    */
   this.addDraftCallback = function(func){
-	Logger.dbg("adding draftCallback");
-	//just store the callback for now
-	this.draftCallback = func;
+    Logger.dbg("adding draftCallback");
+    //just store the callback for now
+    this.draftCallback = func;
   };
 
   /**
@@ -655,66 +655,66 @@ var MailListener = new function() {
 
   //helper function to insert email into documentBody
   this.insertEmail = function(document, email, bool_html){
-	//EXPLANATION:
+    //EXPLANATION:
     // event.currentTarget.contentDocument.documentElement.innerHTML holds the
     // "original" (encrypted) email document. This document already includes
     // some info (e.g. title = email-subject...).
     // That means replacing the Thunderbird email-document with the decrypted
     // email content document would kill these infos.
     // => solution: we only replace the "body" of the document (i.e. the encrypted text)
-	//    and merge the rest
+    //    and merge the rest
     // => watch out, the "body" holds info too, so we need to alter the "pre" or "div"
     //    element in that body.
     //    ATTENTION: if attachments are displayed there are multiple DIV elements and PRE
-	//               holds the attachment, not the email!
+    //               holds the attachment, not the email!
 
-	//assert
-	if(!document.body){
-	  Logger.error("Document body does not exist! (this should be provided by Thunderbird)");
-	  return;
-	}
+    //assert
+    if(!document.body){
+      Logger.error("Document body does not exist! (this should be provided by Thunderbird)");
+      return;
+    }
 
-	//get email <body> element
-	var newBody = "";
+    //get email <body> element
+    var newBody = "";
     if(bool_html){
-	  //html email
-	  Logger.dbg("html email arrived, merging with document");
+      //html email
+      Logger.dbg("html email arrived, merging with document");
 
       //cut body out of email
-	  var parser = Components.classes["@mozilla.org/xmlextras/domparser;1"]
-	      .createInstance(Components.interfaces.nsIDOMParser);
-	  var newDOM = parser.parseFromString(email, "text/html");
+      var parser = Components.classes["@mozilla.org/xmlextras/domparser;1"]
+          .createInstance(Components.interfaces.nsIDOMParser);
+      var newDOM = parser.parseFromString(email, "text/html");
 
-	  //recreate meta-data if View->Message Body As->Plain Text is NOT text
-	  if(Prefs.getPrefByString("html_as", "mailnews.display.") != 1){
-		//merge document.head and newDOM.head
-		document.head.innerHTML += newDOM.head.innerHTML;
-		Logger.dbg("merged head:\n" + document.head.outerHTML);
+      //recreate meta-data if View->Message Body As->Plain Text is NOT text
+      if(Prefs.getPrefByString("html_as", "mailnews.display.") != 1){
+        //merge document.head and newDOM.head
+        document.head.innerHTML += newDOM.head.innerHTML;
+        Logger.dbg("merged head:\n" + document.head.outerHTML);
 
-		//overwrite attributes of document.body with the ones of newDOM.body
-		for each(var att in newDOM.body.attributes){
-		  //is att defined?
-		  if(att && att.value != undefined){
-			//replace document.body.<att> with newDOM.body.<att>
-			Logger.log("replacing: " + att.name + " " + att.value);
-			document.body.setAttribute(att.name, att.value);
-		  }
-		}
-		Logger.dbg("merged body attributes:\n" + document.body.outerHTML);
-	  }
+        //overwrite attributes of document.body with the ones of newDOM.body
+        for each(var att in newDOM.body.attributes){
+          //is att defined?
+          if(att && att.value != undefined){
+            //replace document.body.<att> with newDOM.body.<att>
+            Logger.log("replacing: " + att.name + " " + att.value);
+            document.body.setAttribute(att.name, att.value);
+          }
+        }
+        Logger.dbg("merged body attributes:\n" + document.body.outerHTML);
+      }
 
-	  //set body
-	  newBody = newDOM.body.innerHTML;
+      //set body
+      newBody = newDOM.body.innerHTML;
     }else{
-	  //plaintext email
-	  newBody = email;
-	}
+      //plaintext email
+      newBody = email;
+    }
 
-	//if message is html BUT View->Message Body As->Plain Text is text
-	if(bool_html && Prefs.getPrefByString("html_as", "mailnews.display.") == 1){
-	  //strip html a bit
-	  newBody = Utils.stripHTML(newBody);
-	}
+    //if message is html BUT View->Message Body As->Plain Text is text
+    if(bool_html && Prefs.getPrefByString("html_as", "mailnews.display.") == 1){
+      //strip html a bit
+      newBody = Utils.stripHTML(newBody);
+    }
 
     Logger.dbg("Inserting email:\n" + newBody);
 
@@ -928,7 +928,7 @@ var MailListener = new function() {
       var rootFolder = account.incomingServer.rootFolder;
       //search subfolders
       if(rootFolder == searchFolder.rootFolder){
-	      return account.QueryInterface(Components.interfaces.nsIMsgAccount);
+          return account.QueryInterface(Components.interfaces.nsIMsgAccount);
       }
     }
     //didn't find anything

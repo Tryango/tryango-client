@@ -221,6 +221,21 @@ var CWrapper = {
           , ctypes.uint32_t    //param 2
           );
 
+   this.c_revokeKey = this.client.declare("revokeKey"// method name
+          , ctypes.default_abi //binary interface type
+          , ctypes.uint32_t    //return type
+          , ctypes.char.ptr    //param 1 hexAp
+          , ctypes.char.ptr    //param 2 identity
+          , ctypes.char.ptr    //param 3 device
+          , ctypes.char.ptr    //param 4 password
+          );
+
+   this.c_synchronizeSK = this.client.declare("synchronizeSK"
+          , ctypes.default_abi  //binary interface type
+          , ctypes.uint32_t     //return type
+          , ctypes.char.ptr     //param 1 - user id
+          );
+
     Logger.dbg("Initialized Synch library");
 
 //     this.getV = this.client.declare("getV"// method name
@@ -279,7 +294,7 @@ var CWrapper = {
 
       try{
         this.angWorker = new ChromeWorker('resource://tryango/wrapperWorker.js');
-	      this.angWorker.addEventListener('message', this.handleMsg);
+          this.angWorker.addEventListener('message', this.handleMsg);
         Logger.dbg("Logfile path: " + file.path);
         Logger.dbg("Trying to load Library: " + uri.file.path);
         this.post("openLibrary", [uri.file.path, file.path, certificateFile.path], null);
@@ -637,28 +652,32 @@ var CWrapper = {
     var hexAp = ctypes.char.array()(Pwmgr.getAp(identity)); //TODO: check Pwmgr return first
     if(hexAp != undefined && hexAp.length > 1){
       var pass = {value : ""};
-      CWrapper.post("synchronizeSK", [identity], function(status){
-        if(status != 0){
-          Logger.dbg("Not revoking key - could not synchronize current key with the server");
-          callback(21);
+      var status =  CWrapper.c_synchronizeSK(identity);
+
+      if(status != 0){
+        Logger.dbg("Not revoking key - could not synchronize current key with the server");
+        callback(21);
+      }
+      else{
+        var ret = CWrapper.synchGetSignPassword(identity);
+        if(ret.status == 0){
+          status = CWrapper.c_revokeKey(hexAp, identity, device, ret.password);
+          var newHexAp = "";
+          if(status == 0){
+            newHexAp = hexAp.readString();
+            if(newHexAp.length > 2){
+              Pwmgr.setAp(identity, newHexAp);
+            }
+          }
+          else{
+            callback(status);
+          }
         }
         else{
-          CWrapper.getSignPassword(identity, function(success, password){
-            if(success){
-              CWrapper.post("revokeKey",[identity, device, password], function(newHexAp, status){
-                if(newHexAp.length >2){
-                  Pwmgr.setAp(identity, newHexAp);
-                }
-                callback(status);
-              });
-            }
-            else{
-              Logger.dbg("Not revoking key - could not get current secret key password");
-              callback(21);//ANG_NO_KEY_PRESENT
-            }
-          });
+          Logger.dbg("Not revoking key - could not get current secret key password");
+          callback(ret.status);
         }
-      });
+      }
     }
     else{
       Logger.dbg("Not revoking key - could not get AP");
@@ -929,7 +948,7 @@ var CWrapper = {
 
   closeLibrary : function(){
     this.client.close(); //TODO: FIXME: this does not work sometimes
-	//TODO: FIXME: isn't here a call to wrapperWorker.closeLibrary() missing?
+    //TODO: FIXME: isn't here a call to wrapperWorker.closeLibrary() missing?
   }
 }
 

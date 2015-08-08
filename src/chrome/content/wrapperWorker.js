@@ -64,14 +64,14 @@ var Client = {
           , ctypes.char.ptr    //param 3 device
           );
 
-   this.c_revokeKey = this.client.declare("revokeKey"// method name
-          , ctypes.default_abi //binary interface type
-          , ctypes.uint32_t    //return type
-          , ctypes.char.ptr    //param 1 hexAp
-          , ctypes.char.ptr    //param 2 identity
-          , ctypes.char.ptr    //param 3 device
-          , ctypes.char.ptr    //param 4 password
-          );
+//    this.c_revokeKey = this.client.declare("revokeKey"// method name
+//           , ctypes.default_abi //binary interface type
+//           , ctypes.uint32_t    //return type
+//           , ctypes.char.ptr    //param 1 hexAp
+//           , ctypes.char.ptr    //param 2 identity
+//           , ctypes.char.ptr    //param 3 device
+//           , ctypes.char.ptr    //param 4 password
+//           );
 
    this.c_verifySignature = this.client.declare("verifySignature"
           , ctypes.default_abi  //binary interface type
@@ -684,14 +684,14 @@ var Client = {
     }
   },
 
-  revokeKey: function(hexAp, identity, device, password){
-    var status =  this.c_revokeKey(hexAp, identity, device, password);
-    var newHexAp = "";
-    if(status == 0){
-      newHexAp = hexAp.readString();
-    }
-    return {method: "revokeKey", args: [newHexAp, status]};
-  },
+//   revokeKey: function(hexAp, identity, device, password){
+//     var status =  this.c_revokeKey(hexAp, identity, device, password);
+//     var newHexAp = "";
+//     if(status == 0){
+//       newHexAp = hexAp.readString();
+//     }
+//     return {method: "revokeKey", args: [newHexAp, status]};
+//   },
 
   getInfoKeys: function(identity, fromKeypurse){
     var output = [];

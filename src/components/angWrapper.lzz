@@ -628,11 +628,11 @@ extern "C"{
     Confi_Status status = ANG_UNKNOWN_ERROR;
 
     if(sign||encrypt){
-			//get key
-			SecretKeyPair* sk = client.getKeyDb()->getCurrentKey(PktDo::stripId(sender));
-			if( sk == NULL){
-				return ANG_NO_KEY_PRESENT;
-			}
+      //get key
+      SecretKeyPair* sk = client.getKeyDb()->getCurrentKey(PktDo::stripId(sender));
+      if( sk == NULL){
+        return ANG_NO_KEY_PRESENT;
+      }
 
       PKT_CipherAlgo alg = CIPHER_ALGO_AES256; //initialize so compiler does not complain
       //assuming we have public keys for all receipietns
@@ -654,9 +654,9 @@ extern "C"{
                                              , sign, false); //no armor
       }
       else if(sign){
-			  //TODO: status =  MessageHandler::clearSign(newFilePath, filePath, client.getKeyDb(), PktDo::stripId(sender));
-				return ANG_UNKNOWN_ERROR;
-			}
+        //TODO: status =  MessageHandler::clearSign(newFilePath, filePath, client.getKeyDb(), PktDo::stripId(sender));
+        return ANG_UNKNOWN_ERROR;
+      }
     }
 
     return status;

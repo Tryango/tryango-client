@@ -68,7 +68,7 @@ var Utils = new function()
     fstream.init(file, -1, 0, 0);
     cstream.init(fstream, "UTF-8", 0, 0);
     {
-	  let str = {};
+      let str = {};
       let read = 0;
       do {
         read = cstream.readString(0xffffffff, str);
@@ -139,9 +139,9 @@ var Utils = new function()
 
   this.exportKeyPurse = function(){
     if(!this.window || !(new FileUtils.File(Prefs.getPref("keyPursePath"))).exists()){
-	  //no window => no export
+      //no window => no export
       //no keypurse => no export (this should never happen and be avoided by the
-	  //function calling exportKeyPurse)
+      //function calling exportKeyPurse)
       Dialogs.error(CWrapper.languagepack.getString("exp_keypurse_fail"));
 //       Logger.infoPopup(CWrapper.languagepack.getString("exp_keypurse_fail"));
     }
@@ -290,7 +290,7 @@ var Utils = new function()
     //iterate over accounts
     for each (let account in fixIterator(accounts,
                                          Components.interfaces.nsIMsgAccount)) {
-	  //TODO: at the moment we just allow default identities to sign up with tryango
+      //TODO: at the moment we just allow default identities to sign up with tryango
       //filter for real email addresses (not Local Folders etc.)
       if(account.defaultIdentity){
         //save address
@@ -416,21 +416,21 @@ var Utils = new function()
   }
 
   this.stripHTML = function(string){
-	//this is only a small fix to make things "readable"
-	//to be entirely correct we would have to write a whole HTML-to-text-parser
+    //this is only a small fix to make things "readable"
+    //to be entirely correct we would have to write a whole HTML-to-text-parser
 
-	//strip off tags
-	var ret = string.replace(/<[^>]+>/g, "");
-	//remove leading whitespace but no newlines (multiline mode for "^")
-	ret = ret.replace(/^[\t ]+/gm, "");
-	//replace html space with space
-	ret = ret.replace(/&nbsp;/g, " ");
-	//replace &gt; &lt; (quotations!) and &amp;
-	ret = ret.replace(/&gt;/g, ">");
-	ret = ret.replace(/&lt;/g, "<");
-	ret = ret.replace(/&amp;/g, "&");
+    //strip off tags
+    var ret = string.replace(/<[^>]+>/g, "");
+    //remove leading whitespace but no newlines (multiline mode for "^")
+    ret = ret.replace(/^[\t ]+/gm, "");
+    //replace html space with space
+    ret = ret.replace(/&nbsp;/g, " ");
+    //replace &gt; &lt; (quotations!) and &amp;
+    ret = ret.replace(/&gt;/g, ">");
+    ret = ret.replace(/&lt;/g, "<");
+    ret = ret.replace(/&amp;/g, "&");
 
-	return ret;
+    return ret;
   }
 
 }//end of "Utils"
@@ -883,7 +883,7 @@ function fillDevices(languagepack){
 
     for each(identity in addresses){
       var ap = Pwmgr.getAp(identity);
-	  Logger.dbg(ap);
+      Logger.dbg(ap);
       if(ap != undefined && ap.length > 1){
         try{
           Logger.dbg("Getting devices for identity:" + identity);
@@ -907,9 +907,10 @@ function fillDevices(languagepack){
                        err + "\n\n" );
           devicesView.changeIdentityText(identity, CWrapper.languagepack.getString("info_error") + " " + err);
         }
-      }else{
-		Logger.dbg("Account " + identity + " no ap");
-	  }
+      }
+      else{
+        Logger.dbg("Account " + identity + " no ap");
+      }
     }
   }
   else{
