@@ -597,6 +597,7 @@ var MailListener = new function() {
               }
             }
             else{//library not loaded yet - we cannot do sych calls
+//               Logger.log("Library not loaded yet - we cannot do sych calls");
               CWrapper.decryptMail(msgObj.ciphertext, sender, "",
                 function(status, decrypted){
                   if(status > 0 && status <= CWrapper.getMaxErrNum()){
@@ -654,30 +655,68 @@ var MailListener = new function() {
 
   //helper function to insert email into documentBody
   this.insertEmail = function(document, email, bool_html){
-    //EXPLANATION:
+	//EXPLANATION:
     // event.currentTarget.contentDocument.documentElement.innerHTML holds the
     // "original" (encrypted) email document. This document already includes
     // some info (e.g. title = email-subject...).
     // That means replacing the Thunderbird email-document with the decrypted
     // email content document would kill these infos.
-    // => solution: we only replace the "body" of the document (i.e. the encrypted text).
+    // => solution: we only replace the "body" of the document (i.e. the encrypted text)
+	//    and merge the rest
     // => watch out, the "body" holds info too, so we need to alter the "pre" or "div"
     //    element in that body.
-    //    ATTENTION: if attachments are displayed there are multiple DIV elements and PRE holds the attachment, not the email!
-    if(email.search("<html") != -1){
-      //cut body out of email
-//       var re = new RegExp("<body[^>]*>(.*)</body>");
-      let emailBody = email.match(/<body[^>]*>([^<]*(?:(?!<\/?body)<[^<]*)*)<\/body\s*>/i);//TODO: Breakes when body is commented etc
-      if(emailBody == null || emailBody.length != 2){ // 2 cause decryptedMailPureText is an array: ["<body...> email </body>", "email"]
-        Logger.error("Could not find body in email!"+ email+ " emailBody:"+emailBody);
-      }
-      else{
-        Logger.dbg("Found body in email!");
-        email = emailBody[1]; //get only the email = regex part "(.*)"
-      }
-    }
+    //    ATTENTION: if attachments are displayed there are multiple DIV elements and PRE
+	//               holds the attachment, not the email!
 
-    Logger.dbg("Inserting email:\n" + email); //XXX: remove
+	//assert
+	if(!document.body){
+	  Logger.error("Document body does not exist! (this should be provided by Thunderbird)");
+	  return;
+	}
+
+	//get email <body> element
+	var newBody = "";
+    if(bool_html){
+	  //html email
+	  Logger.dbg("html email arrived, merging with document");
+
+      //cut body out of email
+	  var parser = Components.classes["@mozilla.org/xmlextras/domparser;1"]
+	      .createInstance(Components.interfaces.nsIDOMParser);
+	  var newDOM = parser.parseFromString(email, "text/html");
+
+	  //recreate meta-data if View->Message Body As->Plain Text is NOT text
+	  if(Prefs.getPrefByString("html_as", "mailnews.display.") != 1){
+		//merge document.head and newDOM.head
+		document.head.innerHTML += newDOM.head.innerHTML;
+		Logger.dbg("merged head:\n" + document.head.outerHTML);
+
+		//overwrite attributes of document.body with the ones of newDOM.body
+		for each(var att in newDOM.body.attributes){
+		  //is att defined?
+		  if(att && att.value != undefined){
+			//replace document.body.<att> with newDOM.body.<att>
+			Logger.log("replacing: " + att.name + " " + att.value);
+			document.body.setAttribute(att.name, att.value);
+		  }
+		}
+		Logger.dbg("merged body attributes:\n" + document.body.outerHTML);
+	  }
+
+	  //set body
+	  newBody = newDOM.body.innerHTML;
+    }else{
+	  //plaintext email
+	  newBody = email;
+	}
+
+	//if message is html BUT View->Message Body As->Plain Text is text
+	if(bool_html && Prefs.getPrefByString("html_as", "mailnews.display.") == 1){
+	  //strip html a bit
+	  newBody = Utils.stripHTML(newBody);
+	}
+
+    Logger.dbg("Inserting email:\n" + newBody);
 
     //get elements
     var pre = document.body.getElementsByTagName("pre");
@@ -688,7 +727,7 @@ var MailListener = new function() {
     for(var p in pre){
       if(p.search("-----BEGIN PGP") != -1){
         Logger.dbg("Found correct <PRE>");
-        p.innerHTML = email;
+        p.innerHTML = newBody;
         return;
       }
     }
@@ -696,7 +735,7 @@ var MailListener = new function() {
     for(var d in div){
       if(d.search("-----BEGIN PGP") != -1){
         Logger.dbg("Found correct <DIV>");
-        d.innerHTML = email;
+        d.innerHTML = newBody;
         return;
       }
     }
@@ -710,20 +749,20 @@ var MailListener = new function() {
       //create new
       div = document.createElement("div");
       //check html vs text
-      //if message not html or View->Message Body As->Plain Text => text
+      //if message NOT html or View->Message Body As->Plain Text => text
       if(!bool_html || Prefs.getPrefByString("html_as", "mailnews.display.") == 1){
         Logger.dbg("Recreating <PRE>");
         //display email as text
         //add pre tag to achieve pure text...
         div.textContent = "";
         pre = document.createElement("pre");
-        pre.textContent = email;
+        pre.textContent = newBody;
         div.appendChild(pre);
       }
       else{
         Logger.dbg("display email as html");
         //display email as HTML
-        div.innerHTML = email;
+        div.innerHTML = newBody;
       }
       document.body.appendChild(div);
       return;
@@ -731,7 +770,7 @@ var MailListener = new function() {
 
     //could not find PGP message
     //write decrypted content as pure-text... (at least)
-    document.body.textContent = email;
+    document.body.textContent = newBody;
   };
 
   //helper function to colorize verification toolbar

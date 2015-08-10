@@ -335,7 +335,7 @@ var Client = {
 //     return {method: "ggetV", args: [v]};
 //   },
 //   ssetV: function (v){
-//     this.setV(v); 
+//     this.setV(v);
 //     return {method: "ssetV", args: []};
 //   },
 
@@ -418,7 +418,8 @@ var Client = {
   },
 
   removeKeyPurse: function(keyPursePath){
-    var success = this.c_importKeyPurse(keyPursePath);
+    var c_keyPursePath= ctypes.char.array()(keyPursePath);
+    var success = this.c_removeKeyPurse(c_keyPursePath);
     return {method: "removeKeyPurse", args: [success]};
   },
 

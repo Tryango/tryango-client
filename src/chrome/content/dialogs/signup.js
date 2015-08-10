@@ -652,14 +652,13 @@ function doSignup(email){
   Prefs.setPref("reqId_" + email, token);
 
   //pass email address to c
-  //TODO: append machineID with random string
+  //TODO: (machineID) append machineID with random string
   CWrapper.post("signup", [token, email, Prefs.getPref("machineID") ],
     function(status){
       if(status != 0){
-        var strbundle = document.getElementById("strings");
         var errorStr = CWrapper.getErrorStr(status);
-        Logger.error("Error signing up: " + strbundle.getString(errorStr));
-        Dialogs.error(strbundle.getString("signup_error") + " " + strbundle.getString(errorStr) + " (" + status + ")");
+        Logger.error("Error signing up: " + CWrapper.languagepack.getString(errorStr));
+        Dialogs.error(strbundle.getString("signup_error") + " " + CWrapper.languagepack.getString(errorStr) + " (" + status + ")");
       }
 //       else{
 //         Pwmgr.setAp(email, "");//we cannot delete AP as we may have already received email from server with the new AP
@@ -712,7 +711,7 @@ function importKey(email){
   var col = tree.columns.key_id;
 //   }
 //   else{
-//     var col = document.getElementById("key_treecols"); 
+//     var col = document.getElementById("key_treecols");
 //   }
   var index = tree.view.getParentIndex(tree.currentIndex);
   Logger.dbg("Transfering of RSA keys");

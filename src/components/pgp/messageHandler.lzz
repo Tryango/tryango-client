@@ -973,6 +973,12 @@ class MessageHandler{
                                   , bool sign = true
                                   , bool armor = true
                                   ){
+	//assert
+	if(input.length() <= 0){
+	  return ANG_PARSE_ERROR;
+	}
+
+	//functionality
     Confi_Status status;
     std::string body;
     std::string sessionKey = getRandomString(PktDo::keySize(alg));
@@ -1036,11 +1042,11 @@ class MessageHandler{
                                   ){
     Confi_Status status;
     //read source into RAM (TODO: probably improve...?)
-    std::stringstream strBody;
-    std::ifstream src(inputFile);
-    if(src.bad()){
-      return ANG_UNKNOWN_ERROR; //TODO: which error message to use?
+    std::ifstream src(inputFile, std::ifstream::in | std::ifstream::binary);
+    if(src.fail()){ //attention! badbit is not set when file does not exist => check FAILBIT here!
+	  return ANG_PARSE_ERROR;
     }
+	std::stringstream strBody;
     strBody << src.rdbuf();
     src.close();
 

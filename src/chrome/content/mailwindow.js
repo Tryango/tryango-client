@@ -398,7 +398,9 @@ var MailWindow = new function(){
       //get editor
       editor = GetCurrentEditor();
       let dce = Components.interfaces.nsIDocumentEncoder;
-      var flags = dce.OutputFormatted | dce.OutputLFLineBreak | dce.OutputPreformatted; //ATTENTION: OutputPreformatted is needed to avoid the double-empty-lines-bug!!!
+	  //flag definitions:
+	  //  https://mxr.mozilla.org/mozilla/source/content/base/public/nsIDocumentEncoder.idl
+      var flags = dce.OutputFormatted | dce.OutputLFLineBreak;
       if(sendFlowed){
         flags = flags | dce.OutputFormatFlowed;
       }
@@ -408,6 +410,8 @@ var MailWindow = new function(){
         mailBody = mailBody.replace(/[^\S\r\n]+$/gm, "");
       }
       else{
+		//ATTENTION: OutputPreformatted is needed to avoid the double-empty-lines-bug!!!
+		flags = flags | dce.OutputPreformatted;
         //plaintext
         mailBody = editor.outputToString("text/plain", flags);
       }
@@ -540,30 +544,31 @@ var MailWindow = new function(){
 
     var gAutoSaving = (msg_type == nsIMsgCompDeliverMode.AutoSaveAsDraft);
     try{
-      if (!gAutoSaving)
-      ToggleWindowLock(true);
-    // If we're auto saving, mark the body as not changed here, and not
-    // when the save is done, because the user might change it between now
-    // and when the save is done.
-    else{
-      SetContentAndBodyAsUnmodified();
-    }
-    var progress = Components.classes["@mozilla.org/messenger/progress;1"]
-                             .createInstance(Components.interfaces.nsIMsgProgress);
-    if (progress){
-      progress.registerListener(progressListener);
-      if (MailWindow.isDraft(msg_type)){
-        gSaveOperationInProgress = true;
-      }
+      if (!gAutoSaving){
+		ToggleWindowLock(true);
+	  }
+      // If we're auto saving, mark the body as not changed here, and not
+      // when the save is done, because the user might change it between now
+      // and when the save is done.
       else{
-        gSendOperationInProgress = true;
+		SetContentAndBodyAsUnmodified();
       }
-    }
-    msgWindow.domWindow = window;
-    msgWindow.rootDocShell.allowAuth = true;
-    Logger.dbg("Late sending message with msg_type: "+  msg_type);
-    gMsgCompose.SendMsg(msg_type, getCurrentIdentity(),
-                        getCurrentAccountKey(), msgWindow, progress);
+      var progress = Components.classes["@mozilla.org/messenger/progress;1"]
+          .createInstance(Components.interfaces.nsIMsgProgress);
+      if (progress){
+		progress.registerListener(progressListener);
+		if (MailWindow.isDraft(msg_type)){
+          gSaveOperationInProgress = true;
+		}
+		else{
+          gSendOperationInProgress = true;
+		}
+      }
+      msgWindow.domWindow = window;
+      msgWindow.rootDocShell.allowAuth = true;
+      Logger.dbg("Late sending message with msg_type: "+  msg_type);
+      gMsgCompose.SendMsg(msg_type, getCurrentIdentity(),
+                          getCurrentAccountKey(), msgWindow, progress);
 
     }
     catch (ex) {
@@ -606,10 +611,13 @@ var MailWindow = new function(){
                 MailWindow._password = "";
               }
               else{
-                //user abort -- do nothing
+                //user abort -- do nothing (=abort sending)
+				return;
               }
-            }
-            this._encryptBody(recipients, sender, password, mailBody, msg_type);
+            }else{
+			  //everything ok => continue encrypting
+              this._encryptBody(recipients, sender, password, mailBody, msg_type);
+			}
           }.bind(this)
         );
       }
@@ -624,7 +632,8 @@ var MailWindow = new function(){
 
   this._encryptBody = function(recipients, sender, password, mailBody,  msg_type){
     var origMailBody = "";
-    if(MailWindow.isDraft(msg_type)){
+	var draft = MailWindow.isDraft(msg_type);
+    if(draft){
       origMailBody = mailBody;
     }
 
@@ -658,7 +667,16 @@ var MailWindow = new function(){
              //TODO: test on windows && mac
              encrypted = encrypted.replace(/(\r\n|\r[^\n])/g, '\n');
            }
-           MailWindow._replaceBody(encrypted, origMailBody);
+
+		   //replace email
+		   MailWindow.replaceEmail(encrypted, true, true);
+           MailWindow.addDraftCallback(origMailBody);
+
+		   //erase meta-data (e.g. bgcolor) => it is now stored encrypted
+		   if(!draft){
+			 MailWindow.cleanMetaData();
+			 //TODO: also delete metadata for drafts & restore it again in draftcallback
+		   }
          }
          else{
            Logger.dbg("got empty message from encrypt");
@@ -677,17 +695,17 @@ var MailWindow = new function(){
       else{
         mailBody = "----TRYANGO START----" + mailBody + "----TRYANGO END----";
       }
-      MailWindow._replaceBody(mailBody, origMailBody);
+	  MailWindow.replaceEmail(mailBody, true, true);
+      MailWindow.addDraftCallback(origMailBody);
       MailWindow._lateSend(msg_type);
       //we must not erase password yet
     }
     //Logger.dbg("Message after enrcypt;"+ mailBody);
   }
 
+  // --- Helpers ---
 
-  this._replaceBody = function(newBody, origMailBody){
-    //change body to enc_signed_mail
-    this.replaceEmail(newBody, true, true);
+  this.addDraftCallback = function(origMailBody){
     if(origMailBody && origMailBody.length > 0){
       //add callback when message is saved as draft
       MailListener.addDraftCallback(
@@ -696,16 +714,38 @@ var MailWindow = new function(){
           //reset editing window to original message
           this.replaceEmail(origMailBody);
           gMsgCompose.domWindow.tryEncrypt = true; //to encrypt again in case draft is saved again
-          this.sign  = document.getElementById("menu-sign").hasAttribute("checked");
+          this.sign = document.getElementById("menu-sign").hasAttribute("checked");
           SetContentAndBodyAsUnmodified();//to prevent asking for saving
           //done
           return;
         }.bind(this)
       );
     }
- }
+  }
 
-  // --- Helpers ---
+  //helper to clean meta-data (e.g. bgcolor)
+  this.cleanMetaData = function(){
+	Logger.dbg("cleanMetaData called");
+
+	//remove all body attributes that can be removed
+	var editor = GetCurrentEditor();
+	for each(att in editor.document.body.attributes){
+	  if(att && att.value != undefined){
+		Logger.dbg("removing body-attribute: " + att.name);
+		editor.removeAttribute(editor.document.body, att.name);
+	  }
+	}
+
+	//set fgcolor and bgcolor to default (black font on white background)
+	var htmlEditor = editor.QueryInterface(Components.interfaces.nsIHTMLEditor);
+	if(htmlEditor){
+	  Logger.dbg("removing fore/backgroundcolor");
+	  htmlEditor.setBackgroundColor("#ffffff");
+	  htmlEditor.setBodyAttribute("fgcolor", "#000000");
+	  htmlEditor.setBodyAttribute("text", "#000000");
+	}
+
+  }
 
   //tries to write an email back as HTML email; if it fails it writes the email as text
   this.replaceEmail = function(newBody, replace = true, puretext = false){
@@ -818,7 +858,7 @@ ConfiComposeStateListener = {
     var editor = GetCurrentEditor();
     editor.beginTransaction();
     let dce = Components.interfaces.nsIDocumentEncoder;
-    var flags = dce.OutputFormatted | dce.OutputLFLineBreak ;//TODO: not sure if OutputPreformatted is needed here, seems to work without
+    var flags = dce.OutputFormatted | dce.OutputLFLineBreak; //OutputPreformatted not needed cause email has no html (it's the ciphertext!)
     var body = editor.outputToString('text/plain', flags);
     editor.endTransaction();
 
@@ -904,7 +944,7 @@ ConfiComposeStateListener = {
     //decrypt email
     Logger.dbg("decrypting email...");
 
-
+    //INLINE "anonymous" function!
     function decryptCallback(status, decrypted){
       if((status == 0 || CWrapper.getMaxErrNum() <= status) && decrypted.length > 0){
         Logger.dbg("write decrypted email back:\n" + decrypted);
@@ -913,18 +953,32 @@ ConfiComposeStateListener = {
         var isHtml = decrypted.match(/<html>[\s\S]*<\/html>/i) != null;
         Logger.dbg("isHtml: "  + isHtml);
 
-        //TODO: we drop the header and the bgcolor in <body ...> here!
+        //we drop the header and the bgcolor in <body ...> here => colour etc. is not shown
+        //but in normal html e-mail-replies this is also not shown
+        var newBody = "";
         //strip body out of email
-        var match = decrypted.match(/<body[^>]*>([\s\S]*)<\/body>/i)
-        if(match && match.length == 2){ // 2 cause "match" is an array: ["<body...> email </body>", "email"]
-          decrypted= match[1];
+        if(isHtml){
+          //html
+          var parser = Components.classes["@mozilla.org/xmlextras/domparser;1"]
+                                                                         .createInstance(Components.interfaces.nsIDOMParser);
+          newBody = parser.parseFromString(decrypted, "text/html").body.innerHTML;
+
+          //if email is html format but the composeWindow is plaintext => stripHTML
+          if(!gMsgCompose.composeHTML){
+            newBody = Utils.stripHTML(newBody);
+          }
+        }
+        else{
+          //plaintext
+          newBody = decrypted;
         }
 
+        //write newBody back to composeWindow
         if(draft){
           Logger.dbg("write draft back");
 
           //draft not quoted
-          MailWindow.replaceEmail(decrypted);
+          MailWindow.replaceEmail(newBody);
         }
         else{
           Logger.dbg("write (non draft) email back");
@@ -934,11 +988,11 @@ ConfiComposeStateListener = {
             MailWindow.replaceEmail(head, true, true);
 
             //non-drafts (=replies) should quote the original mail
-            MailWindow.replaceEmailWithQuotations(decrypted, isHtml, false);
+            MailWindow.replaceEmailWithQuotations(newBody, isHtml, false);
           }
           else{
             //non-drafts (=replies) should quote the original mail
-            MailWindow.replaceEmailWithQuotations(decrypted, isHtml, true);
+            MailWindow.replaceEmailWithQuotations(newBody, isHtml, true);
           }
 
           if(tail){
@@ -947,6 +1001,7 @@ ConfiComposeStateListener = {
             MailWindow.replaceEmail(tail, false);
           }
         }
+
       }
       else{
         Dialogs.error(CWrapper.languagepack.getString("mail_dec_failed") + "\nError: "
@@ -954,6 +1009,7 @@ ConfiComposeStateListener = {
         Logger.error("Decrypting failed with status:" + status);
       }
     }
+	// --- END INLINE FUNCTION ---
 
     if(blockType == "MESSAGE"){
       var ret = CWrapper.synchDecryptMail(ciphertext);

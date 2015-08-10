@@ -179,85 +179,6 @@ var Utils = new function()
 
   this.removeAllDevicesAndRevokeKeys = function(){
     //function is called when plugin is deinstalled or user presses "reset"
-    //a lot of pop-ups are ok, we have to make sure the user is aware what he/she
-    //is doing
-    var ret;
-
-    //(local) remove keypurse (if it exists) => backup first
-    if(Prefs.getPref("keyPursePath") !=  undefined &&
-       (new FileUtils.File(Prefs.getPref("keyPursePath"))).exists()){
-
-      //log
-      Logger.dbg("keypurse exists => remove it");
-
-      //BACKUP: export keypurse if user wants to
-  //all three buttons: yes/cancel/no buttons
-  //ATTENTION: cancel button has to be "button 1" since closing the window with
-  //           the close button in the titlebar always returns 1
-  var buttonFlags = (Components.interfaces.nsIPromptService.BUTTON_POS_0) *
-        (Components.interfaces.nsIPromptService.BUTTON_TITLE_YES) +
-        (Components.interfaces.nsIPromptService.BUTTON_POS_1) *
-        (Components.interfaces.nsIPromptService.BUTTON_TITLE_CANCEL) + //cancel needs to be 1!!!
-        (Components.interfaces.nsIPromptService.BUTTON_POS_2) *
-        (Components.interfaces.nsIPromptService.BUTTON_TITLE_NO);
-      var buttonResult = Logger.promptService.confirmEx(
-        null, "Tryango", CWrapper.languagepack.getString("exp_keypurse"),
-        buttonFlags,
-        null, null, null, //button labels set above already
-        null, new Object() //no checkbox
-      );
-      //0 = YES
-      if(buttonResult == 0){
-        Logger.dbg("Backup prompt: YES");
-
-        Logger.dbg("Export keypurse");
-        if(Utils.exportKeyPurse()){
-          Logger.dbg("exportKeyPurse done");
-          //backup ok
-          ret = true;
-        }
-        else{
-          Logger.dbg("User abort exportKeyPurse");
-
-          //backup user cancelled or error
-          return false;
-        }
-      }
-      //1 = CANCEL
-      else if(buttonResult == 1){
-        Logger.dbg("Backup prompt: CANCEL");
-
-        //continue = false
-        return false;
-      }
-      //2 = NO
-      else if(buttonResult == 2){
-        Logger.dbg("Backup prompt: NO");
-
-        //continue = true
-        ret = true;
-      }
-      else{
-        //error => just warn and abort
-        Logger.error("Backup keypurse prompt returned unexpected result: " + buttonResult);
-        //continue = false
-        return false;
-      }
-
-      //remove keypurse
-      Logger.dbg("removing keypurse...");
-      CWrapper.post("removeKeyPurse", [Prefs.getPref("keyPursePath")], function(success){
-        if(!success){
-          Logger.error("Could not remove keypurse: " +
-                       Prefs.getPref("keyPursePath"));
-          Dialogs.error(CWrapper.languagepack.getString("rm_keypurse_fail"));
-        }
-      });
-    }
-    else{
-      //no keypurse => everything good
-      ret = true;
-    }
 
     //clear data on tryango server
     //(server) remove devices (will revoke keys if no device is signed up for it any more)
@@ -270,13 +191,64 @@ var Utils = new function()
         if(ap != undefined && ap.length > 1){
           //remove identity/machineID if it is signed up
           Logger.dbg("Removing device " + identity + " " + machineID);
-          removeDevices(identity, [machineID],  true); //doNotPrompt = true
+          removeDevices(identity, [machineID], 1, true); //doNotPrompt = true - we set total devices to 1 to ask user to revoke key
         }
       }
-      CWrapper.post("synchStub", [], function(){fillDevices();});
+//       CWrapper.post("synchStub", [], function(){fillDevices();});
     }
 
-    return ret;
+    //(local) remove keypurse (if it exists) => backup first
+    var keyPursePath = Prefs.getPref("keyPursePath");
+    if(keyPursePath !=  undefined &&
+       (new FileUtils.File(keyPursePath)).exists()){
+
+      //log
+      Logger.dbg("keypurse exists => remove it");
+
+      //BACKUP: export keypurse if user wants to
+      var buttonResult = Logger.promptService.confirmEx(
+        null, "Tryango", CWrapper.languagepack.getString("exp_keypurse"),
+        Components.interfaces.nsIPromptService.STD_YES_NO_BUTTONS,
+        null, null, null, //button labels set above already
+        null, new Object() //no checkbox
+      );
+
+      //0 = YES
+      if(buttonResult == 0){
+        Logger.dbg("Backup prompt: YES");
+
+        Logger.dbg("Export keypurse");
+        if(Utils.exportKeyPurse()){
+          Logger.dbg("exportKeyPurse done");
+        }
+        else{
+          //backup user cancelled
+          Logger.dbg("User abort exportKeyPurse");
+        }
+      }
+      //1 = NO
+      else if(buttonResult == 1){
+        Logger.dbg("Backup prompt: NO");
+      }
+      else{
+        //error => treat it as "NO"
+        Logger.error("Backup keypurse prompt returned unexpected result: " + buttonResult);
+      }
+
+      //remove keypurse
+      Logger.dbg("removing keypurse...");
+      CWrapper.post("removeKeyPurse", [keyPursePath], function(success){
+        if(!success){
+          Logger.error("Could not remove keypurse: " + keyPursePath);
+          Dialogs.error(CWrapper.languagepack.getString("rm_keypurse_fail"));
+        }
+      });
+    }
+    else{
+      //no keypurse => everything good
+    }
+
+    return; //explicit end of method
   }
 
   this.syncKeypurse = function(){
@@ -441,6 +413,24 @@ var Utils = new function()
     subtree.appendChild(subitem);
     item.appendChild(subtree);
     tree.appendChild(item);
+  }
+
+  this.stripHTML = function(string){
+	//this is only a small fix to make things "readable"
+	//to be entirely correct we would have to write a whole HTML-to-text-parser
+
+	//strip off tags
+	var ret = string.replace(/<[^>]+>/g, "");
+	//remove leading whitespace but no newlines (multiline mode for "^")
+	ret = ret.replace(/^[\t ]+/gm, "");
+	//replace html space with space
+	ret = ret.replace(/&nbsp;/g, " ");
+	//replace &gt; &lt; (quotations!) and &amp;
+	ret = ret.replace(/&gt;/g, ">");
+	ret = ret.replace(/&lt;/g, "<");
+	ret = ret.replace(/&amp;/g, "&");
+
+	return ret;
   }
 
 }//end of "Utils"
@@ -1078,17 +1068,17 @@ function removeSelectedDevices(){
   }
 
   for(var parent in toRemove){
-    removeDevices(parent, toRemove[parent], false); //doNotPrompt = false => DO prompt
+    removeDevices(parent, toRemove[parent], devicesView.emails[parent], false); //doNotPrompt = false => DO prompt
   }
   CWrapper.post("synchStub", [], function(){fillDevices();});
 }
 
-function removeDevices(identity, devices,  doNotPrompt){
+function removeDevices(identity, devices, totalNumberDevices, doNotPrompt){
   Logger.dbg("removeDevices: " + identity + " " + devices);
 
   //call C to remove devices
-  var status = CWrapper.removeDevices(identity, Prefs.getPref("machineID"), devices,
-                                      devicesView.emails[identity], doNotPrompt,
+  CWrapper.removeDevices(identity, Prefs.getPref("machineID"), devices,
+                                      totalNumberDevices,  doNotPrompt,
     function(status){
       if(status != 0){
         //error
