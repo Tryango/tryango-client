@@ -29,19 +29,6 @@ function displayPrefs(showDefault, showPrefs, setPrefs) {
         prefValue = Prefs.getPref(prefName);
       }
 
-      //if advancedOptions is true => set readonly fields to writable
-//       if(Prefs.getPref("advancedOptions")){
-//     //check own attribute "advOption"
-//         if(prefElement.getAttribute("advOption")){
-//           prefElement.removeAttribute("readonly");
-//         }
-//       }
-//       else{
-//         if(prefElement.getAttribute("advOption")){
-//           prefElement.setAttribute("readonly", "true");
-//         }
-//       }
-
       switch (prefType) {
       case Prefs.prefBranch.PREF_BOOL:
         if (showPrefs) {
@@ -101,27 +88,73 @@ function prefOnLoad()
     return;
   }
 
+  //cut token out of machineID before displaying machineID
+  var origMachineID = Prefs.getPref("machineID");
+  if(origMachineID.match(/^\S+_[0-9a-f]{32}$/) != null){
+	Prefs.setPref("machineID", origMachineID.substring(0, origMachineID.length-33));
+  }
+
+  //display
   Logger.dbg("settings.js: prefOnLoad: loading preferences");
   displayPrefs(false, true, false);
   advancedClicked(document.getElementById("ang_advancedOptions"));
+
+  //reset machineID
+  Prefs.setPref("machineID", origMachineID);
 }
 
 function prefOnAccept()
 {
-  //handle updates of machineID, those have to be sent to server
-  //get "old" machineID
-  var mID = Prefs.getPref("machineID")
-  displayPrefs(false, false, true);
-  //check if machineID changed
-  if(mID != Prefs.getPref("machineID")){
-    Logger.dbg("machineID changed!");
-    //TODO: (machineID) maybe allow in the future to change machineID
+  //handle updates of machineID
+  //get original machineID
+  var origMachineID = Prefs.getPref("machineID");
+  //extract ID/token of orig machineID
+  var ID = "";
+  var token = "";
+  //machineID has the format "<ID>_<token>"
+  if(origMachineID.match(/^\S+_[0-9a-f]{32}$/) != null){
+	ID = origMachineID.substring(0, origMachineID.length-33);
+	token = origMachineID.substring(origMachineID.length-33, origMachineID.length);
+
+	//only display ID until the end of this method
+	Prefs.setPref("machineID", ID);
+  }else{
+	Logger.error("machineID destroyed");
+	//TODO: what to do here? => for now ignore error (if server reset of machineID is implemented below, we could reset the machineID here to getHostName(); setPref; token = generateToken)
+	ID = origMachineID;
+	token = "";
   }
+
+  //accept Prefs
+  displayPrefs(false, false, true);
+
+  //check if machineID changed
+  var new_ID = Prefs.getPref("machineID");
+  new_ID = new_ID.replace(/\s/g, ""); //remove whitespace from machineID
+  if(ID != new_ID){
+    Logger.dbg("machineID changed!");
+
+	//make sure it is not empty
+	if(new_ID.length == 0){
+	  new_ID = CWrapper.getHostName();
+	}
+
+	//update machineID (with token!)
+	Prefs.setPref("machineID", new_ID + token);
+
+	//TODO: should we send machineID to the server? the old machineID has to be revoked too then! (best would be if the server removes machineID when getDevices is called except for the requesting device, then an attacker cannot forge the token. but then we have to allow removing devices without having this token => server should for removeDevice only check the first part before the "_<token>")
+	//for now warn user
+	Dialogs.info(document.getElementById("lang_file").getString("warn_change_machineID"));
+  }else{
+	//reset machineID
+	Prefs.setPref("machineID", origMachineID);
+  }
+
   return true;
 }
 
 function advancedClicked(obj){
-  activateDependent(obj, 'ang_port ang_server');
+  activateDependent(obj, 'ang_port ang_server ang_machineID');
 }
 
 function activateDependent (obj, dependentIds) {

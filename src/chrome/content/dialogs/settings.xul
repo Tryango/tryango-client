@@ -60,30 +60,30 @@
 	<label value="&settings.labelserversettings;" class="header"/>
 	<vbox align="left">
 	  <label value="&settings.labelserver;"/>
-	  <textbox id="ang_server"/>
+	  <textbox id="ang_server" width="500"/>
 
 	  <label value="&settings.labelport;"/>
 	  <textbox id="ang_port"
                    type="number"
-                   min="0" max="65536" />
+                   min="0" max="65536" width="500"/>
 	</vbox>
 	<vbox align="left">
 	  <label value="&settings.labelmachineid;"/>
-	  <textbox id="ang_machineID" disabled="true"/>
+	  <textbox id="ang_machineID" width="500"/>
 	</vbox>
-        <spacer type="block" height="20"/>
+    <spacer type="block" height="20"/>
 
-        <!-- Server Status -->
-        <label class="header" value="&settings.desc_status;"/>
-        <textbox id="tex_status" multiline="true" rows="8" cols="20"/>
-        <!-- refresh button -->
-        <vbox align="left">
-          <button id="fillStatusBtn" label="&settings.buttonrefresh;"
-                  width="100"
-                  oncommand="fillStatus();">
-          </button>
-        </vbox>
-        <spacer type="block" height="20"/>
+    <!-- Server Status -->
+    <label class="header" value="&settings.desc_status;"/>
+    <textbox id="tex_status" multiline="true" rows="8" cols="20"/>
+    <!-- refresh button -->
+    <vbox align="left">
+      <button id="fillStatusBtn" label="&settings.buttonrefresh;"
+              width="100"
+              oncommand="fillStatus();">
+      </button>
+    </vbox>
+    <spacer type="block" height="20"/>
 
 	<!-- push rest to bottom -->
 	<spacer flex="1"/>

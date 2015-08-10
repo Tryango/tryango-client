@@ -1,6 +1,3 @@
-//TODO: (machineID) make sure machineID is not signing up the same device twice
-
-
 /* Basic file for JavaScript code on composing a new e-mail */
 
 // own modules

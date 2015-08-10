@@ -37,7 +37,7 @@ var Prefs = new function()
 
     //initialize machineID to the hostname
     if(!this.isPref("machineID")){
-      this.setPref("machineID", CWrapper.getHostName());
+      this.setPref("machineID", CWrapper.getHostName() + "_" + this.generateToken());
     }
     //initialize keyPursePath to the file name of database with keys
     if(!this.isPref("keyPursePath")){
@@ -372,4 +372,16 @@ var Prefs = new function()
 
     return blockType;
   }
+
+
+  // helper function to generate random int string (128 bit = 32 characters)
+  //ATTENTION: if format of token or length of it is changed, regex in settings.js has to be adjusted!!!
+  this.generateToken = function(){
+	var t = "";
+	for(var i = 0; i < 4; i++){
+      t += Math.random().toString(16).substr(2, 8); //removing "0." in beginning
+	}
+	return t;
+  }
+
 }
