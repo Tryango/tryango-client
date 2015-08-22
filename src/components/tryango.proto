@@ -49,6 +49,7 @@ message Request {
     optional Req_ListDevices    devices      = 19;
     optional Req_RemoveDevices  remdevices   = 20;
     optional Req_Find_Last      find_last    = 21;
+    optional Req_ChangeDevice   changedevice = 22;
 }
 
 message Response {
@@ -64,6 +65,7 @@ message Response {
     optional Rsp_ListDevices    devices      = 19;
     optional Rsp_RemoveDevices  remdevices   = 20;
     optional Rsp_Find_Last      find_last    = 21;
+    optional Rsp_ChangeDevice   changedevice = 22;
 }
 
 message Request_Response {
@@ -169,7 +171,7 @@ message Req_Submit {
     required bytes random       = 6;
 }
 
-    
+
 message Rsp_Submit {
 }
 
@@ -179,7 +181,7 @@ message Req_Verify {
     required string reqid       = 3;
 }
 
-    
+
 message Rsp_Verify {
     optional string identity    = 1;
     optional string device      = 2;
@@ -195,6 +197,17 @@ message Req_ListDevices {
 message Rsp_ListDevices {
     required string identity    = 1;
     repeated string devices     = 2;
+}
+
+message Req_ChangeDevice {
+    required string identity    = 1;
+    required string device      = 2;
+    required bytes ap           = 3;
+    required bytes random       = 4;
+    required string new_device  = 5;
+}
+
+message Rsp_ChangeDevice{
 }
 
 message Req_RemoveDevices {

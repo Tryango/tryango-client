@@ -88,19 +88,19 @@ function prefOnLoad()
     return;
   }
 
-  //cut token out of machineID before displaying machineID
-  var origMachineID = Prefs.getPref("machineID");
-  if(origMachineID.match(/^\S+_[0-9a-f]{32}$/) != null){
-	Prefs.setPref("machineID", origMachineID.substring(0, origMachineID.length-33));
-  }
+//   //cut token out of machineID before displaying machineID
+//   var origMachineID = Prefs.getPref("machineID");
+//   if(origMachineID.match(/^\S+_[0-9a-f]{32}$/) != null){
+//     Prefs.setPref("machineID", origMachineID.substring(0, origMachineID.length-33));
+//   }
 
   //display
   Logger.dbg("settings.js: prefOnLoad: loading preferences");
   displayPrefs(false, true, false);
   advancedClicked(document.getElementById("ang_advancedOptions"));
 
-  //reset machineID
-  Prefs.setPref("machineID", origMachineID);
+//   //restore machineID
+//   Prefs.setPref("machineID", origMachineID);
 }
 
 function prefOnAccept()
@@ -108,47 +108,72 @@ function prefOnAccept()
   //handle updates of machineID
   //get original machineID
   var origMachineID = Prefs.getPref("machineID");
-  //extract ID/token of orig machineID
-  var ID = "";
-  var token = "";
-  //machineID has the format "<ID>_<token>"
-  if(origMachineID.match(/^\S+_[0-9a-f]{32}$/) != null){
-	ID = origMachineID.substring(0, origMachineID.length-33);
-	token = origMachineID.substring(origMachineID.length-33, origMachineID.length);
-
-	//only display ID until the end of this method
-	Prefs.setPref("machineID", ID);
-  }else{
-	Logger.error("machineID destroyed");
-	//TODO: what to do here? => for now ignore error (if server reset of machineID is implemented below, we could reset the machineID here to getHostName(); setPref; token = generateToken)
-	ID = origMachineID;
-	token = "";
-  }
+//   //extract ID/token of orig machineID
+//   var ID = "";
+//   var token = "";
+//   //machineID has the format "<ID>_<token>"
+//   if(origMachineID.match(/^\S+_[0-9a-f]{32}$/) != null){
+//     ID = origMachineID.substring(0, origMachineID.length-33);
+//     token = origMachineID.substring(origMachineID.length-33, origMachineID.length);
+//
+//     //only display ID until the end of this method
+//     Prefs.setPref("machineID", ID);
+//   }
+//   else{
+//     Logger.error("machineID destroyed");
+//     //TODO: what to do here? => for now ignore error (if server reset of machineID is implemented below, we could reset the machineID here to getHostName(); setPref; token = generateToken)
+//     ID = origMachineID;
+//     token = "";
+//   }
 
   //accept Prefs
   displayPrefs(false, false, true);
 
   //check if machineID changed
   var new_ID = Prefs.getPref("machineID");
-  new_ID = new_ID.replace(/\s/g, ""); //remove whitespace from machineID
-  if(ID != new_ID){
-    Logger.dbg("machineID changed!");
-
-	//make sure it is not empty
-	if(new_ID.length == 0){
-	  new_ID = CWrapper.getHostName();
-	}
-
-	//update machineID (with token!)
-	Prefs.setPref("machineID", new_ID + token);
-
-	//TODO: should we send machineID to the server? the old machineID has to be revoked too then! (best would be if the server removes machineID when getDevices is called except for the requesting device, then an attacker cannot forge the token. but then we have to allow removing devices without having this token => server should for removeDevice only check the first part before the "_<token>")
-	//for now warn user
-	Dialogs.info(document.getElementById("lang_file").getString("warn_change_machineID"));
-  }else{
-	//reset machineID
-	Prefs.setPref("machineID", origMachineID);
+  Logger.dbg("machineID :"+ new_ID);
+  //make sure it is not empty
+  if(!new_ID || new_ID.length == 0){
+    Logger.dbg("machineID empty!");
+    if(origMachineID.length != 0){
+      new_ID = origMachineID;
+      Logger.dbg("old machineID not empty!" + new_ID);
+    }
+    else{
+      new_ID = Prefs.generateMachineID()
+      Logger.dbg("machineID generated!" + new_ID);
+    }
   }
+  new_ID = new_ID.replace(/\s/g, ""); //remove whitespace from machineID
+  Prefs.setPref("machineID", new_ID);
+  document.getElementById("ang_machineID").value = new_ID;
+  if(origMachineID != new_ID){
+    Logger.dbg("machineID changed!");
+    //TODO - implement id change on the server
+    var addresses = Utils.getEmailAddresses();
+    for each(var email in addresses){
+      var ap = Pwmgr.getAp(email);
+      if(ap != undefined && ap.length > 1){
+        CWrapper.post("changeDevice", [email, origMachineID, new_ID], function(newHexAp2, status, identity, newDevice){
+          if(status == 0 && newHexAp2 && newHexAp2.length > 2){
+            Pwmgr.setAp(identity, newHexAp2);
+          }
+          else{
+          }
+          if(status != 0){//TODO - make better message
+            Dialogs.error(document.getElementById("lang_file").getString("change_device_failed")+ " - " + email);
+          }
+        });
+      }
+    }
+
+    //for now warn user
+//     Dialogs.info(document.getElementById("lang_file").getString("warn_change_machineID"));
+  }
+//   else{
+//     //reset machineID
+//     Prefs.setPref("machineID", origMachineID);
+//   }
 
   return true;
 }

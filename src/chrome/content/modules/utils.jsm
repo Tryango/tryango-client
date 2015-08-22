@@ -584,36 +584,37 @@ var devicesView = {
   },
 
   getCellText : function(row, column){
-    row = this.rowTranslate(row);
-    if(row >= this.rowRealCount){
-      return "";
-    }
-    else
-    {
-	  //get row
-	  var origDevice = this.rows[row];
-
-	  //filter devices (machineID's) and remove "_<token>"
-	  var device = origDevice;
-	  if(origDevice.match(/^\S+_[0-9a-f]{32}$/) != null){
-		device = origDevice.substring(0, origDevice.length-33);
-	  }
-
-	  //get number of duplicates before device
-	  var num = 0;
-	  for(var i = 0; i < row; i++){
-		if(this.rows[i] == device){
-		  num++;
-		}
-	  }
-
-	  //return with number of device if needed
-	  if(num == 0){
-		return device;
-	  }else{
-		return device + " (" + (num+1) + ")";
-	  }
-    }
+    return this.getCellTextWithoutFiltering(row, column);
+//     row = this.rowTranslate(row);
+//     if(row >= this.rowRealCount){
+//       return "";
+//     }
+//     else
+//     {
+//       //get row
+//       var origDevice = this.rows[row];
+//
+//       //filter devices (machineID's) and remove "_<token>"
+//       var device = origDevice;
+//       if(origDevice.match(/^\S+_[0-9a-f]{32}$/) != null){
+//         device = origDevice.substring(0, origDevice.length-33);
+//       }
+//
+//       //get number of duplicates before device
+//       var num = 0;
+//       for(var i = 0; i < row; i++){
+//         if(this.rows[i] == device){
+//           num++;
+//         }
+//       }
+//
+//       //return with number of device if needed
+//       if(num == 0){
+//         return device;
+//       }else{
+//         return device + " (" + (num+1) + ")";
+//       }
+//     }
   },
 
   getLevel: function(row){

@@ -385,6 +385,26 @@ class ConfiClient
   }
 
 
+  Confi_Status changeDevice(std::string& ap
+                            , const std::string& identity
+                            , const std::string& device
+                            , const std::string& newDevice
+                            ){
+    tryango::Request req;
+    tryango::Response res;
+    req.mutable_changedevice()->set_identity(identity); //equivalent to SetInParent for python
+    req.mutable_changedevice()->set_device(device);
+    std::string random = MessageHandler::getRandomString(32);
+    req.mutable_changedevice()->set_random(random);
+    req.mutable_changedevice()->set_ap(ap);
+    req.mutable_changedevice()->set_new_device(newDevice);
+    Confi_Status result = sendReceive(res, req, false);
+    if(result != ANG_OK) return result;
+    ap = updateAp(ap, random);
+    return result;
+  }
+
+
   Confi_Status submit(std::string& ap
                       , const std::string& identity
                       , const std::string& device

@@ -216,6 +216,25 @@ extern "C"{
   }
 
 
+  uint32_t changeDevice(char* hexAp
+                      , const char* id
+                      , const char* device
+                      , const char* newDevice
+                      ){
+    std::string identity = PktDo::stripId(std::string(id));
+    std::string ap = hex_to_string(std::string(hexAp));
+    if(ap.length() != HASH_SIZE){
+/*       std::cout<<"wrong ap;"<<hexAp<<"  ap len:"<<ap.length()<<std::endl; */
+      return ANG_NO_AP;
+    }
+    uint32_t status = client.changeDevice(ap, identity, std::string(device), std::string(newDevice));
+    if(status == 0){
+      memcpy(hexAp, string_to_hex(ap).c_str(), 2 * HASH_SIZE);
+    }
+    return status;
+  }
+
+
   uint32_t getDevices(char*** result
                       , uint32_t* resultSize
                       , char* hexAp

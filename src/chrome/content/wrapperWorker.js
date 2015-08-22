@@ -131,6 +131,15 @@ var Client = {
           , ctypes.uint32_t     // param 5 \ devices size
           );
 
+   this.c_changeDevice = this.client.declare("changeDevice"// method name
+          , ctypes.default_abi  //binary interface type
+          , ctypes.uint32_t     //return type
+          , ctypes.char.ptr     //param 1 - hexAp to be updated
+          , ctypes.char.ptr     //param 2 - identity
+          , ctypes.char.ptr     // param 3 -device
+          , ctypes.char.ptr     // param 4 -new device
+          );
+
    this.c_loadInfoKeysFromFile = this.client.declare("loadInfoKeysFromFile"// method name
           , ctypes.default_abi  //binary interface type
           , ctypes.uint32_t     //return type
@@ -642,6 +651,17 @@ var Client = {
       this.freeString(ctypes.cast(result, ctypes.char.ptr));
     }
     return {method: "getDevices", args:[newHexAp, status, devices, identity]};
+  },
+
+  changeDevice: function(hexAp, identity, device, newDevice){
+    var c_hexAp = ctypes.char.array()(hexAp);
+
+    var status = this.c_changeDevice(c_hexAp, identity, device, newDevice);
+    var newHexAp = "";
+    if(status == 0){
+      newHexAp = c_hexAp.readString();
+    }
+    return {method: "changeDevice", args:[newHexAp, status,  identity, newDevice]};
   },
 
   removeDevices: function(hexAp, identity, device, devices){

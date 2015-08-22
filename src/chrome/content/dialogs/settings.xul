@@ -12,20 +12,20 @@
 ]>
 
 <dialog id="tryango_settings" title="&settings.title;"
-	xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
-	width="900px" height="800px"
-	onload="prefOnLoad(); infoOnLoad();"
-	onunload="Dialogs.settingsEnd();"
-	minheight="300"
-	buttons="help,extra1,accept,cancel"
-	defaultButton="accept"
-	buttonlabelhelp="&settings.buttonhelp;"
-	buttonlabelextra1="&settings.buttonaccept;"
-	buttonlabelaccept="&settings.buttonok;"
-	buttonlabelcancel="&settings.buttoncancel;"
-	ondialogaccept="return prefOnAccept();"
-	ondialogextra1="ret = prefOnAccept(); window.location.reload(true); return ret;"
-	ondialoghelp="Dialogs.help(window);">
+    xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+    width="900px" height="800px"
+    onload="prefOnLoad(); infoOnLoad();"
+    onunload="Dialogs.settingsEnd();"
+    minheight="300"
+    buttons="help,extra1,accept,cancel"
+    defaultButton="accept"
+    buttonlabelhelp="&settings.buttonhelp;"
+    buttonlabelextra1="&settings.buttonaccept;"
+    buttonlabelaccept="&settings.buttonok;"
+    buttonlabelcancel="&settings.buttoncancel;"
+    ondialogaccept="return prefOnAccept();"
+    ondialogextra1="ret = prefOnAccept(); window.location.reload(true); return ret;"
+    ondialoghelp="Dialogs.help(window);">
 
   <!-- Reference to JavaScript file -->
   <script type="application/javascript" src="chrome://tryango/content/dialogs/settings.js"/>
@@ -46,55 +46,55 @@
       <!-- tab 1: general settings -->
       <groupbox flex="0" style="overflow: auto;">
 
-	<!-- Encryption -->
-	<label value="&settings.labeldefault;" class="header"/>
-	<vbox align="left">
-	  <checkbox id="ang_encryptMessages"
-		    label="&settings.enc_default;" />
-	  <checkbox id="ang_signMessages"
-		    label="&settings.sign_default;" />
-	</vbox>
+        <!-- Encryption -->
+        <label value="&settings.labeldefault;" class="header"/>
+        <vbox align="left">
+          <checkbox id="ang_encryptMessages"
+                    label="&settings.enc_default;" />
+          <checkbox id="ang_signMessages"
+                    label="&settings.sign_default;" />
+        </vbox>
         <spacer type="block" height="20"/>
 
-	<!-- Server -->
-	<label value="&settings.labelserversettings;" class="header"/>
-	<vbox align="left">
-	  <label value="&settings.labelserver;"/>
-	  <textbox id="ang_server" width="500"/>
+        <!-- Server -->
+        <label value="&settings.labelserversettings;" class="header"/>
+        <vbox align="left">
+          <label value="&settings.labelserver;"/>
+          <textbox id="ang_server" width="500"/>
 
-	  <label value="&settings.labelport;"/>
-	  <textbox id="ang_port"
+          <label value="&settings.labelport;"/>
+          <textbox id="ang_port"
                    type="number"
                    min="0" max="65536" width="500"/>
-	</vbox>
-	<vbox align="left">
-	  <label value="&settings.labelmachineid;"/>
-	  <textbox id="ang_machineID" width="500"/>
-	</vbox>
-    <spacer type="block" height="20"/>
+        </vbox>
+        <vbox align="left">
+          <label value="&settings.labelmachineid;"/>
+          <textbox id="ang_machineID" width="500"/>
+        </vbox>
+        <spacer type="block" height="20"/>
 
-    <!-- Server Status -->
-    <label class="header" value="&settings.desc_status;"/>
-    <textbox id="tex_status" multiline="true" rows="8" cols="20"/>
-    <!-- refresh button -->
-    <vbox align="left">
-      <button id="fillStatusBtn" label="&settings.buttonrefresh;"
-              width="100"
+        <!-- Server Status -->
+        <label class="header" value="&settings.desc_status;"/>
+        <textbox id="tex_status" multiline="true" rows="8" cols="20"/>
+        <!-- refresh button -->
+        <vbox align="left">
+          <button id="fillStatusBtn" label="&settings.buttonrefresh;"
+                  width="100"
               oncommand="fillStatus();">
-      </button>
-    </vbox>
-    <spacer type="block" height="20"/>
+          </button>
+        </vbox>
+        <spacer type="block" height="20"/>
 
-	<!-- push rest to bottom -->
-	<spacer flex="1"/>
+        <!-- push rest to bottom -->
+        <spacer flex="1"/>
 
-	<!-- Advanced options (experts) -->
-	<vbox align="left">
-	  <checkbox id="ang_advancedOptions"
-              oncommand="advancedClicked(this);"
+        <!-- Advanced options (experts) -->
+        <vbox align="left">
+          <checkbox id="ang_advancedOptions"
+                    oncommand="advancedClicked(this);"
               label="&settings.advoptions;"/>
-	</vbox>
-      </groupbox>
+        </vbox>
+        </groupbox>
 
     <!-- tab 2: manage devices -->
     <groupbox flex="2">

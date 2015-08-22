@@ -37,7 +37,7 @@ var Prefs = new function()
 
     //initialize machineID to the hostname
     if(!this.isPref("machineID")){
-      this.setPref("machineID", CWrapper.getHostName() + "_" + this.generateToken());
+      this.setPref("machineID", this.generateMachineID());
     }
     //initialize keyPursePath to the file name of database with keys
     if(!this.isPref("keyPursePath")){
@@ -53,15 +53,15 @@ var Prefs = new function()
   }
 
   this.reset = function(){
-	  //get all prefs in the prefBranch
-	  var obj = new Object();
-	  var array = this.prefBranch.getChildList("", obj)
+    //get all prefs in the prefBranch
+    var obj = new Object();
+    var array = this.prefBranch.getChildList("", obj)
 
-	  //iterate over the prefs and clear them (=reset)
-	  for(var i = 0; i < obj.value; i++){
-	    Logger.dbg("clearUserPref " + array[i]);
-	    this.prefBranch.clearUserPref(array[i]);
-	  }
+    //iterate over the prefs and clear them (=reset)
+    for(var i = 0; i < obj.value; i++){
+      Logger.dbg("clearUserPref " + array[i]);
+      this.prefBranch.clearUserPref(array[i]);
+    }
   }
 
   this.getDefaultPref = function(prefName) {
@@ -374,14 +374,23 @@ var Prefs = new function()
   }
 
 
-  // helper function to generate random int string (128 bit = 32 characters)
-  //ATTENTION: if format of token or length of it is changed, regex in settings.js has to be adjusted!!!
-  this.generateToken = function(){
-	var t = "";
-	for(var i = 0; i < 4; i++){
-      t += Math.random().toString(16).substr(2, 8); //removing "0." in beginning
-	}
-	return t;
+  // helper function to generate new machineId -> machine name + 5 random characters/digits
+  this.generateMachineID = function(){
+    var machineID = CWrapper.getHostName() + "_";
+    var possible = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    for( var i=0; i < 5; i++ ){
+        machineID  += possible.charAt(Math.floor(Math.random() * possible.length));
+    }
+    machineID = machineID.replace(/\s/g, ""); //remove whitespace from machineID
+    return machineID;
   }
 
+
+  this.generateToken = function(){
+    var t = "";
+    for(var i = 0; i < 4; i++){
+      t += Math.random().toString(16).substr(2, 8); //removing "0." in beginning
+    }
+    return t;
+  }
 }

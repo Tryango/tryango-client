@@ -139,6 +139,7 @@ var CWrapper = {
       case "revokeKey":
       case "getDevices":
       case "removeDevices":
+      case "changeDevice":
         return true;
       default:
         return false;
