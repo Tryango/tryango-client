@@ -64,14 +64,14 @@ var Client = {
           , ctypes.char.ptr    //param 3 device
           );
 
-   this.c_revokeKey = this.client.declare("revokeKey"// method name
-          , ctypes.default_abi //binary interface type
-          , ctypes.uint32_t    //return type
-          , ctypes.char.ptr    //param 1 hexAp
-          , ctypes.char.ptr    //param 2 identity
-          , ctypes.char.ptr    //param 3 device
-          , ctypes.char.ptr    //param 4 password
-          );
+//    this.c_revokeKey = this.client.declare("revokeKey"// method name
+//           , ctypes.default_abi //binary interface type
+//           , ctypes.uint32_t    //return type
+//           , ctypes.char.ptr    //param 1 hexAp
+//           , ctypes.char.ptr    //param 2 identity
+//           , ctypes.char.ptr    //param 3 device
+//           , ctypes.char.ptr    //param 4 password
+//           );
 
    this.c_verifySignature = this.client.declare("verifySignature"
           , ctypes.default_abi  //binary interface type
@@ -129,6 +129,15 @@ var Client = {
           , ctypes.char.ptr     // param 3 -device
           , ctypes.char.ptr.ptr // param 4 -devices to be removed-  pointer to array of strings
           , ctypes.uint32_t     // param 5 \ devices size
+          );
+
+   this.c_changeDevice = this.client.declare("changeDevice"// method name
+          , ctypes.default_abi  //binary interface type
+          , ctypes.uint32_t     //return type
+          , ctypes.char.ptr     //param 1 - hexAp to be updated
+          , ctypes.char.ptr     //param 2 - identity
+          , ctypes.char.ptr     // param 3 -device
+          , ctypes.char.ptr     // param 4 -new device
           );
 
    this.c_loadInfoKeysFromFile = this.client.declare("loadInfoKeysFromFile"// method name
@@ -644,6 +653,17 @@ var Client = {
     return {method: "getDevices", args:[newHexAp, status, devices, identity]};
   },
 
+  changeDevice: function(hexAp, identity, device, newDevice){
+    var c_hexAp = ctypes.char.array()(hexAp);
+
+    var status = this.c_changeDevice(c_hexAp, identity, device, newDevice);
+    var newHexAp = "";
+    if(status == 0){
+      newHexAp = c_hexAp.readString();
+    }
+    return {method: "changeDevice", args:[newHexAp, status,  identity, newDevice]};
+  },
+
   removeDevices: function(hexAp, identity, device, devices){
     var arr_t = ctypes.ArrayType(ctypes.char.ptr);
     var c_devices = new arr_t(devices.length);
@@ -684,14 +704,14 @@ var Client = {
     }
   },
 
-  revokeKey: function(hexAp, identity, device, password){
-    var status =  this.c_revokeKey(hexAp, identity, device, password);
-    var newHexAp = "";
-    if(status == 0){
-      newHexAp = hexAp.readString();
-    }
-    return {method: "revokeKey", args: [newHexAp, status]};
-  },
+//   revokeKey: function(hexAp, identity, device, password){
+//     var status =  this.c_revokeKey(hexAp, identity, device, password);
+//     var newHexAp = "";
+//     if(status == 0){
+//       newHexAp = hexAp.readString();
+//     }
+//     return {method: "revokeKey", args: [newHexAp, status]};
+//   },
 
   getInfoKeys: function(identity, fromKeypurse){
     var output = [];

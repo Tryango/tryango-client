@@ -647,12 +647,11 @@ function signup(){
 
 function doSignup(email){
   //generate random requestID to identify answers from server
-  var token = generateToken();
+  var token = Prefs.generateToken();
   Logger.dbg("reqId token: " + token);
   Prefs.setPref("reqId_" + email, token);
 
   //pass email address to c
-  //TODO: (machineID) append machineID with random string
   CWrapper.post("signup", [token, email, Prefs.getPref("machineID") ],
     function(status){
       if(status != 0){
@@ -754,22 +753,3 @@ function importKey(email){
       }
     });
 }
-
-
-// ----- HELPER FUNCTIONS -----
-
-// helper function to generate random int string (128 bit = 32 characters)
-function generateToken(){
-  var t = "";
-  for(var i = 0; i < 4; i++){
-    t += Math.random().toString(16).substr(2, 8); //removing "0." in beginning
-  }
-  return t;
-}
-
-
-// function getTimestamp(){
-//   var dp = document.getElementById("ang_datepicker");
-//   return Date.UTC(dp.year, dp.motnth, dp.date);
-//
-// }

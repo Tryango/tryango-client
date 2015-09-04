@@ -68,7 +68,7 @@ var Utils = new function()
     fstream.init(file, -1, 0, 0);
     cstream.init(fstream, "UTF-8", 0, 0);
     {
-	  let str = {};
+      let str = {};
       let read = 0;
       do {
         read = cstream.readString(0xffffffff, str);
@@ -139,9 +139,9 @@ var Utils = new function()
 
   this.exportKeyPurse = function(){
     if(!this.window || !(new FileUtils.File(Prefs.getPref("keyPursePath"))).exists()){
-	  //no window => no export
+      //no window => no export
       //no keypurse => no export (this should never happen and be avoided by the
-	  //function calling exportKeyPurse)
+      //function calling exportKeyPurse)
       Dialogs.error(CWrapper.languagepack.getString("exp_keypurse_fail"));
 //       Logger.infoPopup(CWrapper.languagepack.getString("exp_keypurse_fail"));
     }
@@ -290,7 +290,7 @@ var Utils = new function()
     //iterate over accounts
     for each (let account in fixIterator(accounts,
                                          Components.interfaces.nsIMsgAccount)) {
-	  //TODO: at the moment we just allow default identities to sign up with tryango
+      //TODO: at the moment we just allow default identities to sign up with tryango
       //filter for real email addresses (not Local Folders etc.)
       if(account.defaultIdentity){
         //save address
@@ -416,21 +416,21 @@ var Utils = new function()
   }
 
   this.stripHTML = function(string){
-	//this is only a small fix to make things "readable"
-	//to be entirely correct we would have to write a whole HTML-to-text-parser
+    //this is only a small fix to make things "readable"
+    //to be entirely correct we would have to write a whole HTML-to-text-parser
 
-	//strip off tags
-	var ret = string.replace(/<[^>]+>/g, "");
-	//remove leading whitespace but no newlines (multiline mode for "^")
-	ret = ret.replace(/^[\t ]+/gm, "");
-	//replace html space with space
-	ret = ret.replace(/&nbsp;/g, " ");
-	//replace &gt; &lt; (quotations!) and &amp;
-	ret = ret.replace(/&gt;/g, ">");
-	ret = ret.replace(/&lt;/g, "<");
-	ret = ret.replace(/&amp;/g, "&");
+    //strip off tags
+    var ret = string.replace(/<[^>]+>/g, "");
+    //remove leading whitespace but no newlines (multiline mode for "^")
+    ret = ret.replace(/^[\t ]+/gm, "");
+    //replace html space with space
+    ret = ret.replace(/&nbsp;/g, " ");
+    //replace &gt; &lt; (quotations!) and &amp;
+    ret = ret.replace(/&gt;/g, ">");
+    ret = ret.replace(/&lt;/g, "<");
+    ret = ret.replace(/&amp;/g, "&");
 
-	return ret;
+    return ret;
   }
 
 }//end of "Utils"
@@ -572,15 +572,49 @@ var devicesView = {
     return row - this.closedNo[row];
   },
 
-  getCellText : function(row, column){
+  getCellTextWithoutFiltering : function(row, column){
     row = this.rowTranslate(row);
     if(row >= this.rowRealCount){
       return "";
     }
     else
     {
-      return this.rows[row];
+	  return this.rows[row];
     }
+  },
+
+  getCellText : function(row, column){
+    return this.getCellTextWithoutFiltering(row, column);
+//     row = this.rowTranslate(row);
+//     if(row >= this.rowRealCount){
+//       return "";
+//     }
+//     else
+//     {
+//       //get row
+//       var origDevice = this.rows[row];
+//
+//       //filter devices (machineID's) and remove "_<token>"
+//       var device = origDevice;
+//       if(origDevice.match(/^\S+_[0-9a-f]{32}$/) != null){
+//         device = origDevice.substring(0, origDevice.length-33);
+//       }
+//
+//       //get number of duplicates before device
+//       var num = 0;
+//       for(var i = 0; i < row; i++){
+//         if(this.rows[i] == device){
+//           num++;
+//         }
+//       }
+//
+//       //return with number of device if needed
+//       if(num == 0){
+//         return device;
+//       }else{
+//         return device + " (" + (num+1) + ")";
+//       }
+//     }
   },
 
   getLevel: function(row){
@@ -883,7 +917,7 @@ function fillDevices(languagepack){
 
     for each(identity in addresses){
       var ap = Pwmgr.getAp(identity);
-	  Logger.dbg(ap);
+      Logger.dbg(ap);
       if(ap != undefined && ap.length > 1){
         try{
           Logger.dbg("Getting devices for identity:" + identity);
@@ -907,9 +941,10 @@ function fillDevices(languagepack){
                        err + "\n\n" );
           devicesView.changeIdentityText(identity, CWrapper.languagepack.getString("info_error") + " " + err);
         }
-      }else{
-		Logger.dbg("Account " + identity + " no ap");
-	  }
+      }
+      else{
+        Logger.dbg("Account " + identity + " no ap");
+      }
     }
   }
   else{
@@ -1034,15 +1069,15 @@ function _getDevicesToRemove(){
       if(parentindex == -1){
         //a parent element was selected!
         //=> store selection as parent and get all children
-        parent = devicesView.getCellText(j, col);
+        parent = devicesView.getCellTextWithoutFiltering(j, col);
         for (var k=0; k<devicesView.emails[parent]; k++){
           elements[k]=devicesView.rows[devicesView.rowTranslate(j) + 1 + k];
         }
       }
       else{
         //get parent
-        parent = devicesView.getCellText(parentindex, col);
-        elements[0] = devicesView.getCellText(j, col);
+        parent = devicesView.getCellTextWithoutFiltering(parentindex, col);
+        elements[0] = devicesView.getCellTextWithoutFiltering(j, col);
       }
       //remove the devices
       if(devicesView.emails[parent] > 0){
@@ -1136,7 +1171,7 @@ function removeSelectedKeys(){
         if(pIndex != -1){
           index = view.getParentIndex(j);
         }
-        var keyId = view.getCellText(index, col);
+        var keyId = view.getCellTextWithoutFiltering(index, col);
         if(elements.length == 0 || (elements[elements.length - 1]!=keyId)){
           elements.push(keyId);
           Logger.dbg("to Remove keyId " + keyId);

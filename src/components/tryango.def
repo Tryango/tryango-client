@@ -42,3 +42,4 @@ EXPORTS
 	allocateAndCopy 
 	hasGpg
 	synchronizeSK
+	changeDevice

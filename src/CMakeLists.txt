@@ -31,7 +31,10 @@ CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/chrome/locale/de/about.html.in" "${C
 CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/chrome/locale/de/help.html.in" "${CMAKE_CURRENT_BINARY_DIR}/chrome/locale/de/help.html")
 
 GetOSArchitecture("ANG")
-SET(XPI_OUT "${PROJECT_NAME}-${VERSION}-${ANG_OS}-${ANG_ARCHITECTURE}")
+EXECUTE_PROCESS(
+  COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/cmake/linux_name.py #will return empty string for non-linux
+  OUTPUT_VARIABLE ANG_LINUX_NAME)
+SET(XPI_OUT "${PROJECT_NAME}-${VERSION}-${ANG_OS}-${ANG_LINUX_NAME}-${ANG_ARCHITECTURE}")
 
 if(WIN32)
   SET(ABI "WINNT_x86-msvc")
@@ -119,3 +122,11 @@ ADD_CUSTOM_TARGET(xpi ALL
     "${CMAKE_BINARY_DIR}/${XPI_OUT}.xpi"
     ${XPI_SOURCES} "-C" "${CMAKE_CURRENT_BINARY_DIR}" "components/$<TARGET_FILE_NAME:tryango-client>"
     DEPENDS ${XPI_DEPS} tryango-client copy certificate)
+
+#also copy to releases location
+IF (CMAKE_BUILD_TYPE STREQUAL "RELEASE")
+  ADD_CUSTOM_COMMAND(
+	TARGET xpi POST_BUILD
+	COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_BINARY_DIR}/${XPI_OUT}.xpi" "${PROJECT_SOURCE_DIR}/releases/${XPI_OUT}.xpi"
+	)
+ENDIF (CMAKE_BUILD_TYPE STREQUAL "RELEASE")

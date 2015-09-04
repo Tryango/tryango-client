@@ -1,6 +1,3 @@
-//TODO: (machineID) make sure machineID is not signing up the same device twice
-
-
 /* Basic file for JavaScript code on composing a new e-mail */
 
 // own modules
@@ -27,7 +24,7 @@ var MailWindow = new function(){
 
   // generate a unique ID for each window (not automatically done!)
   // use miliseconds of time for it
-  Logger.dbg("Previous id:"+this.id);
+//   Logger.dbg("Previous id:"+this.id);
   this.id = "id" + Date.now();
   // variables
   this.encrypt = null;
@@ -63,8 +60,8 @@ var MailWindow = new function(){
       Logger.error("Could not hook recepients-field of mailwindow " + this.id);
     }
 
-	//hook "recipients" type field (first one is enough as further ones will be cloned from this one)
-	var addrColType = document.getElementById(this.RECIPIENTSFIELD_TYPE_PREFIX + "1");
+    //hook "recipients" type field (first one is enough as further ones will be cloned from this one)
+    var addrColType = document.getElementById(this.RECIPIENTSFIELD_TYPE_PREFIX + "1");
     if (addrColType) {
       var attr = addrColType.getAttribute("oncommand");
       addrColType.setAttribute("oncommand", "MailWindow.recipientsTypeChange(this);" + attr);
@@ -192,10 +189,10 @@ var MailWindow = new function(){
   this.recheckRecipientColours = function(){
     var i = 1; //recipientsfield starts with 1!!!
     var addrCol = document.getElementById(MailWindow.RECIPIENTSFIELD_PREFIX + i);
-	var addrColType;
+    var addrColType;
     while(addrCol){
       // empty fields or "reply-to"
-	  addrColType = document.getElementById(addrCol.getAttribute("aria-labelledby"));
+      addrColType = document.getElementById(addrCol.getAttribute("aria-labelledby"));
       if(addrCol.value.length == 0 || addrColType.value == "addr_reply"){
         addrCol.style.backgroundColor = MailWindow.DEFAULT_COLOUR;
       }
@@ -232,22 +229,23 @@ var MailWindow = new function(){
 
   //helper function to call recipientsChange from an addrTypeCol
   this.recipientsTypeChange = function(addrTypeCol){
-	//get index out of addrTypeCol
-	var index = addrTypeCol.id.match(/[^#]*#([0-9]+)/);
-	if(index.length == 2){ //two because full string is also included e.g.: [addressCol1#1, 1]
-	  index = index[1]; //0 = full string; 1 = index
-	}else{
-	  //error => just recheck everything to be sure
-	  Logger.error("recipientsTypeChange could not get index - recheck everything");
-	  this.recheckRecipientColours();
-	  return;
-	}
+    //get index out of addrTypeCol
+    var index = addrTypeCol.id.match(/[^#]*#([0-9]+)/);
+    if(index.length == 2){ //two because full string is also included e.g.: [addressCol1#1, 1]
+      index = index[1]; //0 = full string; 1 = index
+    }
+    else{
+      //error => just recheck everything to be sure
+      Logger.error("recipientsTypeChange could not get index - recheck everything");
+      this.recheckRecipientColours();
+      return;
+    }
 
-	//get addrCol with index of addrTypeCol
-	var addrCol = document.getElementById(MailWindow.RECIPIENTSFIELD_PREFIX + index);
+    //get addrCol with index of addrTypeCol
+    var addrCol = document.getElementById(MailWindow.RECIPIENTSFIELD_PREFIX + index);
 
-	//call onchange method
-	this.recipientsChange(addrCol);
+    //call onchange method
+    this.recipientsChange(addrCol);
   }
 
   /*
@@ -267,12 +265,12 @@ var MailWindow = new function(){
         addrCol.style.backgroundColor = MailWindow.DEFAULT_COLOUR;
         return;
       }
-	  //check if only "reply-to" => no checking needed
-	  var addrColType = document.getElementById(addrCol.getAttribute("aria-labelledby"));
-	  if(addrColType && addrColType.value == "addr_reply"){
-		addrCol.style.backgroundColor = MailWindow.DEFAULT_COLOUR;
-		return;
-	  }
+      //check if only "reply-to" => no checking needed
+      var addrColType = document.getElementById(addrCol.getAttribute("aria-labelledby"));
+      if(addrColType && addrColType.value == "addr_reply"){
+        addrCol.style.backgroundColor = MailWindow.DEFAULT_COLOUR;
+        return;
+      }
 
       // log
       Logger.dbg("recipientsChange: " + addrCol.value);
@@ -295,8 +293,8 @@ var MailWindow = new function(){
    * send_handler function, intercepts the send event of Thunderbird and passed
    *            info to C interface
    *  @param  event     the sending event
-   *  @return		positive numbers indicate warnings, negative errors (stop sending!),
-   *			0 is ok
+   *  @return        positive numbers indicate warnings, negative errors (stop sending!),
+   *            0 is ok
    */
   this.send_handler = function(event){
     //check if tryango is disabled, if so, error
@@ -358,12 +356,12 @@ var MailWindow = new function(){
       while(addrCol){
         //check for empty string
         if(/([^\s])/.test(addrCol.value)){
-		  //check if it is a "reply-to"
-		  addrColType = document.getElementById(addrCol.getAttribute("aria-labelledby"));
-		  if(addrColType.value != "addr_reply"){
-			//store into an array
-			recipients += addrCol.value + ",";
-		  }
+          //check if it is a "reply-to"
+          var addrColType = document.getElementById(addrCol.getAttribute("aria-labelledby"));
+          if(addrColType.value != "addr_reply"){
+            //store into an array
+            recipients += addrCol.value + ",";
+          }
         }
 
         //next field
@@ -398,8 +396,8 @@ var MailWindow = new function(){
       //get editor
       editor = GetCurrentEditor();
       let dce = Components.interfaces.nsIDocumentEncoder;
-	  //flag definitions:
-	  //  https://mxr.mozilla.org/mozilla/source/content/base/public/nsIDocumentEncoder.idl
+      //flag definitions:
+      //  https://mxr.mozilla.org/mozilla/source/content/base/public/nsIDocumentEncoder.idl
       var flags = dce.OutputFormatted | dce.OutputLFLineBreak;
       if(sendFlowed){
         flags = flags | dce.OutputFormatFlowed;
@@ -410,8 +408,8 @@ var MailWindow = new function(){
         mailBody = mailBody.replace(/[^\S\r\n]+$/gm, "");
       }
       else{
-		//ATTENTION: OutputPreformatted is needed to avoid the double-empty-lines-bug!!!
-		flags = flags | dce.OutputPreformatted;
+        //ATTENTION: OutputPreformatted is needed to avoid the double-empty-lines-bug!!!
+        flags = flags | dce.OutputPreformatted;
         //plaintext
         mailBody = editor.outputToString("text/plain", flags);
       }
@@ -545,24 +543,24 @@ var MailWindow = new function(){
     var gAutoSaving = (msg_type == nsIMsgCompDeliverMode.AutoSaveAsDraft);
     try{
       if (!gAutoSaving){
-		ToggleWindowLock(true);
-	  }
+        ToggleWindowLock(true);
+      }
       // If we're auto saving, mark the body as not changed here, and not
       // when the save is done, because the user might change it between now
       // and when the save is done.
       else{
-		SetContentAndBodyAsUnmodified();
+        SetContentAndBodyAsUnmodified();
       }
       var progress = Components.classes["@mozilla.org/messenger/progress;1"]
           .createInstance(Components.interfaces.nsIMsgProgress);
       if (progress){
-		progress.registerListener(progressListener);
-		if (MailWindow.isDraft(msg_type)){
+        progress.registerListener(progressListener);
+        if (MailWindow.isDraft(msg_type)){
           gSaveOperationInProgress = true;
-		}
-		else{
+        }
+        else{
           gSendOperationInProgress = true;
-		}
+        }
       }
       msgWindow.domWindow = window;
       msgWindow.rootDocShell.allowAuth = true;
@@ -612,12 +610,12 @@ var MailWindow = new function(){
               }
               else{
                 //user abort -- do nothing (=abort sending)
-				return;
+                return;
               }
             }else{
-			  //everything ok => continue encrypting
+              //everything ok => continue encrypting
               this._encryptBody(recipients, sender, password, mailBody, msg_type);
-			}
+            }
           }.bind(this)
         );
       }
@@ -632,7 +630,7 @@ var MailWindow = new function(){
 
   this._encryptBody = function(recipients, sender, password, mailBody,  msg_type){
     var origMailBody = "";
-	var draft = MailWindow.isDraft(msg_type);
+    var draft = MailWindow.isDraft(msg_type);
     if(draft){
       origMailBody = mailBody;
     }
@@ -668,15 +666,15 @@ var MailWindow = new function(){
              encrypted = encrypted.replace(/(\r\n|\r[^\n])/g, '\n');
            }
 
-		   //replace email
-		   MailWindow.replaceEmail(encrypted, true, true);
+           //replace email
+           MailWindow.replaceEmail(encrypted, true, true);
            MailWindow.addDraftCallback(origMailBody);
 
-		   //erase meta-data (e.g. bgcolor) => it is now stored encrypted
-		   if(!draft){
-			 MailWindow.cleanMetaData();
-			 //TODO: also delete metadata for drafts & restore it again in draftcallback
-		   }
+           //erase meta-data (e.g. bgcolor) => it is now stored encrypted
+           if(!draft){
+             MailWindow.cleanMetaData();
+             //TODO: also delete metadata for drafts & restore it again in draftcallback
+           }
          }
          else{
            Logger.dbg("got empty message from encrypt");
@@ -695,7 +693,7 @@ var MailWindow = new function(){
       else{
         mailBody = "----TRYANGO START----" + mailBody + "----TRYANGO END----";
       }
-	  MailWindow.replaceEmail(mailBody, true, true);
+      MailWindow.replaceEmail(mailBody, true, true);
       MailWindow.addDraftCallback(origMailBody);
       MailWindow._lateSend(msg_type);
       //we must not erase password yet
@@ -725,25 +723,25 @@ var MailWindow = new function(){
 
   //helper to clean meta-data (e.g. bgcolor)
   this.cleanMetaData = function(){
-	Logger.dbg("cleanMetaData called");
+    Logger.dbg("cleanMetaData called");
 
-	//remove all body attributes that can be removed
-	var editor = GetCurrentEditor();
-	for each(att in editor.document.body.attributes){
-	  if(att && att.value != undefined){
-		Logger.dbg("removing body-attribute: " + att.name);
-		editor.removeAttribute(editor.document.body, att.name);
-	  }
-	}
+    //remove all body attributes that can be removed
+    var editor = GetCurrentEditor();
+    for each(var att in editor.document.body.attributes){
+      if(att && att.value != undefined){
+        Logger.dbg("removing body-attribute: " + att.name);
+        editor.removeAttribute(editor.document.body, att.name);
+      }
+    }
 
-	//set fgcolor and bgcolor to default (black font on white background)
-	var htmlEditor = editor.QueryInterface(Components.interfaces.nsIHTMLEditor);
-	if(htmlEditor){
-	  Logger.dbg("removing fore/backgroundcolor");
-	  htmlEditor.setBackgroundColor("#ffffff");
-	  htmlEditor.setBodyAttribute("fgcolor", "#000000");
-	  htmlEditor.setBodyAttribute("text", "#000000");
-	}
+    //set fgcolor and bgcolor to default (black font on white background)
+    var htmlEditor = editor.QueryInterface(Components.interfaces.nsIHTMLEditor);
+    if(htmlEditor){
+      Logger.dbg("removing fore/backgroundcolor");
+      htmlEditor.setBackgroundColor("#ffffff");
+      htmlEditor.setBodyAttribute("fgcolor", "#000000");
+      htmlEditor.setBodyAttribute("text", "#000000");
+    }
 
   }
 
@@ -1009,7 +1007,7 @@ ConfiComposeStateListener = {
         Logger.error("Decrypting failed with status:" + status);
       }
     }
-	// --- END INLINE FUNCTION ---
+    // --- END INLINE FUNCTION ---
 
     if(blockType == "MESSAGE"){
       var ret = CWrapper.synchDecryptMail(ciphertext);
@@ -1161,7 +1159,7 @@ function AngMsgSendListener(){
 if(typeof window != 'undefined'){ //only set-up if file is NOT imported
   window.addEventListener("load", function(event){
     // ATTENTION: load is only called ONCE to initialise ALL compose-windows!
-    //		  if other initialisation is needed => "StateListener"
+    //          if other initialisation is needed => "StateListener"
     // see also tryango.js for explanation of this "function(event)" structure
     // => switching context for this from "window" to MailWindow
 
