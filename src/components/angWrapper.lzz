@@ -355,11 +355,11 @@ extern "C"{
     Confi_Status status = ANG_OK;
     bool transfered = false;
     for(unsigned int i = 0; i < kl.size() && status == ANG_OK && !transfered; i++){
-      if((kl.at(i)->getFingerprint() == fingerprint) || (kl.at(i)->getSubFingerprint() == fingerprint)){
-        kl.at(i)->exportPair(pair, true);
-        status = client.getKeyDb()->readFromStr(pair, false, "");
-        transfered = true;
-      }
+	if((kl.at(i)->getFingerprint() == fingerprint) || (kl.at(i)->getSubFingerprint() == fingerprint)){
+            kl.at(i)->exportPair(pair, true);
+            status = client.getKeyDb()->readFromStr(pair, false, "");
+            transfered = true;
+        }
     }
     if (status == ANG_OK && !transfered){
       status = ANG_NO_ENTRIES;

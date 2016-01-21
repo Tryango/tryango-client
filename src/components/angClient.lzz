@@ -232,12 +232,19 @@ class ConfiClient
   }
 
 
-  bool verifySignature(const tryango::Signed_Response& res
+  bool verifySignature(const tryango::Request req
+                         , const tryango::Signed_Response& res
                        ){
     if(rsa==NULL) return false;
     char hashStr[HASH_SIZE];
     std::string dest;
-    res.response().SerializeToString(&dest);
+    //create request_response
+    tryango::Request_Response req_rsp;
+    req_rsp.mutable_request()->CopyFrom(req);
+    req_rsp.mutable_response()->CopyFrom(res.response());
+    req_rsp.set_time(res.time());
+    //check signature
+    req_rsp.SerializeToString(&dest);
     ConfiVerifier::hash(dest, hashStr);
     std::string sig = res.signature();
     if(sig.size() != 256) return false;
@@ -769,7 +776,7 @@ class ConfiClient
     result = receiveFromServer(res);
     if(result != ANG_OK) return result;
 
-    result = verifySignature(res)?ANG_OK:ANG_WRONG_SIG;
+    result = verifySignature(req, res)?ANG_OK:ANG_WRONG_SIG;
     if(result != ANG_OK) return result;
 
     response=res.response();

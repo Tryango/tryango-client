@@ -137,5 +137,3 @@ Logger& operator<<(Logger& l, std::ostream& (*pf)(std::ostream& x)){
   (*(l.lout)) << pf;
   return l;
 }
-
-

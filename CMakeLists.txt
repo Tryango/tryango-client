@@ -10,12 +10,12 @@ SET( PROJECT_NAME tryango )
 PROJECT( ${PROJECT_NAME} CXX C)
 SET( ANG_PACKAGE_VERSION_MAJOR "0")
 SET( ANG_PACKAGE_VERSION_MINOR "9")
-SET( ANG_PACKAGE_VERSION_PATCH "6")
+SET( ANG_PACKAGE_VERSION_PATCH "7")
 SET( VERSION "${ANG_PACKAGE_VERSION_MAJOR}.${ANG_PACKAGE_VERSION_MINOR}.${ANG_PACKAGE_VERSION_PATCH}" )
 
 include(FindThreads) #set up e.g. CMAKE_THREAD_LIBS_INIT
 include(CheckTypeSize)
-include(CheckIncludeFile)
+include(CheckIncludeFiles)
 include(CheckCXXCompilerFlag)
 include(ExternalProject)
 

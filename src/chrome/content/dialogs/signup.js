@@ -657,7 +657,7 @@ function doSignup(email){
       if(status != 0){
         var errorStr = CWrapper.getErrorStr(status);
         Logger.error("Error signing up: " + CWrapper.languagepack.getString(errorStr));
-        Dialogs.error(strbundle.getString("signup_error") + " " + CWrapper.languagepack.getString(errorStr) + " (" + status + ")");
+        Dialogs.error(CWrapper.languagepack.getString("signup_error") + " " + CWrapper.languagepack.getString(errorStr) + " (" + status + ")");
       }
 //       else{
 //         Pwmgr.setAp(email, "");//we cannot delete AP as we may have already received email from server with the new AP
